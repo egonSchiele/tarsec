@@ -1,13 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { char, str } from "./parsers";
-
-function success({ match, rest }: { match: string; rest: string }) {
-  return { success: true, match, rest };
-}
-
-function failure({ rest, message }: { rest: string; message: string }) {
-  return { success: false, rest, message };
-}
+import { success, failure } from "../vitest.setup.js";
 
 describe("char parser", () => {
   it("should parse correct character", () => {

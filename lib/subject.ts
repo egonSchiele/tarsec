@@ -1,4 +1,4 @@
-import { Parser, ParserResult } from "./types";
+import { Parser, ParserOptions, ParserResult } from "./types";
 
 export class Subject {
   input: string;
@@ -7,21 +7,35 @@ export class Subject {
     this.input = input;
   }
 
-  parse(parsers: Parser[]): ParserResult {
-    const matches: string[] = [];
-    for (let parser of parsers) {
+  parse(parsers: (Parser | [Parser, ParserOptions])[]): ParserResult {
+    const match: string[] = [];
+    const matches: Record<string, string> = {};
+    for (let item of parsers) {
+      let parser: Parser;
+      let options: ParserOptions | null = null;
+      if (Array.isArray(item)) {
+        [parser, options] = item;
+      } else {
+        parser = item;
+      }
       let result = parser(this.input);
       if (result.success) {
-        matches.push(result.match);
+        match.push(result.match);
         this.input = result.rest;
+        if (options) {
+          if ("matchTo" in options) {
+            matches[options.matchTo] = result.match;
+          }
+        }
       } else {
         return result;
       }
     }
     return {
       success: true,
-      match: matches.join(""),
+      match: match.join(""),
       rest: this.input,
+      matches,
     };
   }
 }
