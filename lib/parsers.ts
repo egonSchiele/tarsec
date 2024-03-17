@@ -137,53 +137,57 @@ export function not(parser: Parser<any>): Parser<null> {
   };
 }
 
-export function between<T>(
-  open: Parser,
-  close: Parser,
-  parser: Parser
-): Parser<T> {
+export function between<O, C, P>(
+  open: Parser<O>,
+  close: Parser<C>,
+  parser: Parser<P>
+): Parser<P> {
   return (input: string) => {
-    let result = open(input);
-    if (!result.success) {
-      return result;
+    const result1 = open(input);
+    if (!result1.success) {
+      return result1;
     }
-    const parserResult = parser(result.rest);
+    const parserResult = parser(result1.rest);
     if (!parserResult.success) {
       return parserResult;
     }
-    result = close(parserResult.rest);
-    if (!result.success) {
-      return result;
+    const result2 = close(parserResult.rest);
+    if (!result2.success) {
+      return result2;
     }
-    return { success: true, match: parserResult.match, rest: result.rest };
+    return { success: true, match: parserResult.match, rest: result2.rest };
   };
 }
 
-export function sepBy<T>(separator: Parser, parser: Parser): Parser<T[]> {
+export function sepBy<S, P>(
+  separator: Parser<S>,
+  parser: Parser<P>
+): Parser<P[]> {
   return (input: string) => {
-    let match: T[] = [];
+    let match: P[] = [];
     let rest = input;
     while (true) {
-      let result = parser(rest);
+      const result = parser(rest);
       if (!result.success) {
         return { success: true, match, rest };
       }
       match.push(result.match);
       rest = result.rest;
-      result = separator(rest);
-      if (!result.success) {
+
+      const sepResult = separator(rest);
+      if (!sepResult.success) {
         return { success: true, match, rest };
       }
-      rest = result.rest;
+      rest = sepResult.rest;
     }
   };
 }
 
-export function seq<T, U extends string>(
-  ...parsers: Parser[]
-): Parser<T[], Record<U, any>> {
+export function seq<M, C extends string>(
+  ...parsers: Parser<M, C>[]
+): Parser<M[], C> {
   return (input: string) => {
-    let match: T[] = [];
+    let match: M[] = [];
     let rest = input;
     // @ts-ignore
     let namedMatches: Record<U, any> = {};
@@ -192,43 +196,68 @@ export function seq<T, U extends string>(
       if (!result.success) {
         return result;
       }
-      console.log(result.match);
       match.push(result.match);
       rest = result.rest;
-      if (result.namedMatches) {
-        namedMatches = { ...namedMatches, ...result.namedMatches };
+      if (result.captures) {
+        namedMatches = { ...namedMatches, ...result.captures };
       }
     }
-    return { success: true, match, rest, namedMatches };
+    return { success: true, match, rest, captures: namedMatches };
   };
 }
 
-export function capture<U>(
-  parser: Parser,
+export function capture<M, C extends string>(
+  parser: Parser<M>,
   name: string,
-  transform: (x: any) => any = (x) => x
-): Parser<any, Record<string, U>> {
+  transform: (x: M) => M = (x) => x
+): Parser<M, C> {
   return (input: string) => {
     let result = parser(input);
     if (result.success) {
+      const captures: Record<string, any> = {
+        [name]: transform(result.match) as any,
+      };
       return {
         ...result,
-        namedMatches: { [name]: transform(result.match) },
+        captures,
       };
     }
     return result;
   };
 }
 
-export const space: Parser = oneOf(" \t\n\r");
-export const spaces: Parser = many1(space);
-export const digit: Parser = oneOf("0123456789");
-export const letter: Parser = oneOf("abcdefghijklmnopqrstuvwxyz");
-export const alphanum: Parser = oneOf("abcdefghijklmnopqrstuvwxyz0123456789");
-export const word: Parser = many1(letter);
-export const num: Parser = many1(digit);
-export const quote: Parser = oneOf(`'"`);
-export const anyChar: Parser = (input: string) => {
+export function transform<T, X>(
+  parser: Parser<T>,
+  transformerFunc: (x: T) => X
+): Parser<X> {
+  return (input: string) => {
+    let result = parser(input);
+    if (result.success) {
+      return {
+        ...result,
+        match: transformerFunc(result.match),
+      };
+    }
+    return result;
+  };
+}
+
+export function many1WithJoin(parser: Parser<string>): Parser<string> {
+  return transform<string[], string>(many1(parser), (x) => x.join(""));
+}
+export const space: Parser<string> = oneOf(" \t\n\r");
+export const spaces: Parser<string> = many1WithJoin(space);
+export const digit: Parser<string> = oneOf("0123456789");
+export const letter: Parser<string> = oneOf("abcdefghijklmnopqrstuvwxyz");
+export const alphanum: Parser<string> = oneOf(
+  "abcdefghijklmnopqrstuvwxyz0123456789"
+);
+export const word: Parser<string> = many1WithJoin(letter);
+export const num: Parser<string> = many1WithJoin(digit);
+export const quote: Parser<string> = oneOf(`'"`);
+export const tab: Parser<string> = char("\t");
+export const newline: Parser<string> = char("\n");
+export const anyChar: Parser<string> = (input: string) => {
   if (input.length === 0) {
     return {
       success: false,

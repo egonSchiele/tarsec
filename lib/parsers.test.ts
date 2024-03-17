@@ -7,6 +7,7 @@ import {
   letter,
   many,
   many1,
+  many1WithJoin,
   noneOf,
   not,
   num,
@@ -178,7 +179,7 @@ describe("Parser Tests", () => {
     });
 
     it("should not consume any input if it fails", () => {
-      const parser2 = optional(seq(many1(letter), char("!")));
+      const parser2 = optional(seq(many1WithJoin(letter), char("!")));
       const result1 = parser2("hello!");
       expect(result1).toEqual(
         success({ rest: "", match: "hello!", matches: {} })
