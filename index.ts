@@ -5,6 +5,7 @@ import {
   many,
   optional,
   or,
+  manyWithJoin,
 } from "./lib/combinators.js";
 import { noneOf, space, str, char, quote, word } from "./lib/parsers.js";
 /* 
@@ -50,14 +51,20 @@ const line = seq<any, string>(
 let block: any = char("{");
 block = seq<any, string>(
   [
-    many(space),
-    or([str("terraform"), str("required_providers"), str("aws")], "block-name"),
+    manyWithJoin(space),
+    capture(
+      or(
+        [str("terraform"), str("required_providers"), str("aws")],
+        "block-name"
+      ),
+      "block-name"
+    ),
     space,
     optional(str("= ")),
     char("{"),
-    many(space),
-    or([line, block], "line or block"),
-    many(space),
+    manyWithJoin(space),
+    or([line, (x) => block(x)], "line or block"),
+    manyWithJoin(space),
     char("}"),
   ],
   "block"
@@ -65,3 +72,7 @@ block = seq<any, string>(
 
 const result2 = block(input);
 console.log(result2);
+/* if (result2.success) {
+  console.log(JSON.stringify(result2.match, null, 2));
+}
+ */

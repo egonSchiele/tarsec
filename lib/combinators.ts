@@ -1,6 +1,6 @@
 import { trace } from "./trace";
-import { Parser } from "./types";
-import { escape } from "./utils";
+import { Parser, ParserSuccess } from "./types";
+import { escape, merge } from "./utils";
 
 export function many<T>(parser: Parser<T>): Parser<T[]> {
   return trace("many", (input: string) => {
@@ -30,6 +30,10 @@ export function many1<T>(parser: Parser<T>): Parser<T[]> {
       message: "expected at least one match",
     };
   });
+}
+
+export function manyWithJoin(parser: Parser<string>): Parser<string> {
+  return transform<string[], string>(many(parser), (x) => x.join(""));
 }
 
 export function many1WithJoin(parser: Parser<string>): Parser<string> {
@@ -130,7 +134,7 @@ export function seq<M, C extends string>(
     let match: M[] = [];
     let rest = input;
     // @ts-ignore
-    let namedMatches: Record<U, any> = {};
+    let captures: Record<U, any> = {};
     for (let parser of parsers) {
       let result = parser(rest);
       if (!result.success) {
@@ -139,23 +143,29 @@ export function seq<M, C extends string>(
       match.push(result.match);
       rest = result.rest;
       if (result.captures) {
-        namedMatches = { ...namedMatches, ...result.captures };
+        const resultCaptures: Record<string, any> = result.captures;
+        Object.keys(resultCaptures).forEach((key) => {
+          if (captures[key]) {
+            captures[key] = merge(captures[key], resultCaptures[key]);
+          } else {
+            captures[key] = resultCaptures[key];
+          }
+        });
       }
     }
-    return { success: true, match, rest, captures: namedMatches };
+    return { success: true, match, rest, captures };
   });
 }
 
 export function capture<M, C extends string>(
   parser: Parser<M>,
-  name: string,
-  transform: (x: M) => M = (x) => x
+  name: string
 ): Parser<M, C> {
   return trace(`captures(${escape(name)})`, (input: string) => {
     let result = parser(input);
     if (result.success) {
       const captures: Record<string, any> = {
-        [name]: transform(result.match) as any,
+        [name]: result.match,
       };
       return {
         ...result,
