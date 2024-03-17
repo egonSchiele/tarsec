@@ -2,11 +2,13 @@
   "name": "tarsec",
   "version": "0.0.1",
   "description": "A parser combinator library for TypeScript, inspired by Parsec.",
+  "homepage": "https://github.com/egonSchiele/tarsec",
   "scripts": {
     "test": "vitest",
     "build": "tsc",
     "start": "cd dist && node index.js"
   },
+  "files": ["./dist"],
   "keywords": [],
   "author": "",
   "license": "ISC",
