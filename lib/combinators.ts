@@ -1,6 +1,6 @@
 import { trace } from "./trace";
 import { Parser, ParserSuccess } from "./types";
-import { escape, merge } from "./utils";
+import { escape, merge, mergeCaptures } from "./utils";
 
 export function many<T>(parser: Parser<T>): Parser<T[]> {
   return trace("many", (input: string) => {
@@ -143,14 +143,7 @@ export function seq<M, C extends string>(
       match.push(result.match);
       rest = result.rest;
       if (result.captures) {
-        const resultCaptures: Record<string, any> = result.captures;
-        Object.keys(resultCaptures).forEach((key) => {
-          if (captures[key]) {
-            captures[key] = merge(captures[key], resultCaptures[key]);
-          } else {
-            captures[key] = resultCaptures[key];
-          }
-        });
+        captures = mergeCaptures(captures, result.captures);
       }
     }
     return { success: true, match, rest, captures };
@@ -169,7 +162,7 @@ export function capture<M, C extends string>(
       };
       return {
         ...result,
-        captures,
+        captures: mergeCaptures(result.captures || {}, captures),
       };
     }
     return result;

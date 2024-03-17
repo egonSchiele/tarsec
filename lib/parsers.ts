@@ -1,4 +1,4 @@
-import { many1, many1WithJoin, transform } from "./combinators";
+import { many1, many1WithJoin, seq, transform } from "./combinators";
 import { trace } from "./trace";
 import { Parser, ParserResult } from "./types";
 import { escape } from "./utils";
@@ -101,3 +101,8 @@ export const num: Parser<string> = many1WithJoin(digit);
 export const quote: Parser<string> = oneOf(`'"`);
 export const tab: Parser<string> = char("\t");
 export const newline: Parser<string> = char("\n");
+
+export const quotedString = transform(
+  seq<any, string>([quote, word, quote], "quotedString"),
+  (x) => x.join("")
+);

@@ -6,8 +6,18 @@ import {
   optional,
   or,
   manyWithJoin,
+  transform,
+  many1,
 } from "./lib/combinators.js";
-import { noneOf, space, str, char, quote, word } from "./lib/parsers.js";
+import {
+  noneOf,
+  space,
+  str,
+  char,
+  quote,
+  word,
+  quotedString,
+} from "./lib/parsers.js";
 /* 
 const helloParser = seq<any, "name">([
   str("hello"),
@@ -44,7 +54,14 @@ const input = `terraform {
   }`;
 
 const line = seq<any, string>(
-  [many(space), word, many(space), char("="), many(space), quote, word, quote],
+  [
+    many(space),
+    capture(word, "key"),
+    many(space),
+    char("="),
+    many(space),
+    capture(quotedString, "value"),
+  ],
   "line"
 );
 
@@ -63,7 +80,12 @@ block = seq<any, string>(
     optional(str("= ")),
     char("{"),
     manyWithJoin(space),
+    // this works
     or([line, (x) => block(x)], "line or block"),
+    // but this doesnt
+    // many(or([line, (x) => block(x)], "line or block")),
+    // nor this
+    // many1(or([line, (x) => block(x)], "line or block")),
     manyWithJoin(space),
     char("}"),
   ],
