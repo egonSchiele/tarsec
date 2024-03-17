@@ -5,6 +5,7 @@ import { success, failure } from "vitest.globals";
 describe("char parser", () => {
   it("should parse correct character", () => {
     const parser = char("a");
+    console.log(success({ match: "a", rest: "bc" }));
     expect(parser("abc")).toEqual(success({ match: "a", rest: "bc" }));
   });
 

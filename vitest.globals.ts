@@ -3,16 +3,16 @@ vi.mock("nanoid", () => {
   return { nanoid: () => "fakeid" };
 });
 
-export function success({
+export function success<T>({
   rest,
   match,
-  matches,
+  captures,
 }: {
   rest: string;
-  match: string;
-  matches?: Record<string, string>;
+  match: T;
+  captures?: Record<string, string>;
 }) {
-  return { success: true, rest, match, matches };
+  return { success: true, rest, match, captures };
 }
 
 export function failure({ rest, message }: { rest: string; message: string }) {

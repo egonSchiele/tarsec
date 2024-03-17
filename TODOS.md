@@ -2,3 +2,4 @@
 - docs
 - ci
 - better perf
+- package for npm

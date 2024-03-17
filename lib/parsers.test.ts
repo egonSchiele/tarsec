@@ -158,7 +158,7 @@ test.skip("hello", () => {
         const parser2 = optional(seq(many1WithJoin(letter), char("!")));
         const result1 = parser2("hello!");
         expect(result1).toEqual(
-          success({ rest: "", match: "hello!", matches: {} })
+          success({ rest: "", match: "hello!", captures: {} })
         );
 
         const result2 = parser2("hello");
@@ -296,7 +296,7 @@ test.skip("hello", () => {
 
     it("should parse both characters in sequence", () => {
       const result = parser("ab");
-      expect(result).toEqual(success({ rest: "", match: "ab", matches: {} }));
+      expect(result).toEqual(success({ rest: "", match: "ab", captures: {} }));
     });
 
     it("should fail if any of the parsers fail", () => {
@@ -318,7 +318,7 @@ test.skip("hello", () => {
       ]);
       const result = parser("hello world");
       expect(result).toEqual(
-        success({ match: "hello", rest: " world", matches: {} })
+        success({ match: "hello", rest: " world", captures: {} })
       );
     });
 
@@ -326,7 +326,7 @@ test.skip("hello", () => {
       const parser = seq([str("hello"), space, str("world")]);
       const result = parser("hello world");
       expect(result).toEqual(
-        success({ match: "hello world", rest: "", matches: {} })
+        success({ match: "hello world", rest: "", captures: {} })
       );
     });
 
@@ -334,7 +334,7 @@ test.skip("hello", () => {
       const parser = seq([str("hello"), space, capture(str("world"), "name")]);
       const result = parser("hello world");
       expect(result).toEqual(
-        success({ match: "hello world", rest: "", matches: { name: "world" } })
+        success({ match: "hello world", rest: "", captures: { name: "world" } })
       );
     });
   });
@@ -342,13 +342,13 @@ test.skip("hello", () => {
   /* test("quote parser - single quote", () => {
   const input = "'";
   const result = quote(input);
-  expect(result).toEqual(success({ rest: "", match: "'", matches: {} }));
+  expect(result).toEqual(success({ rest: "", match: "'", captures: {} }));
 });
 
 test("quote parser - double quote", () => {
   const input = '"';
   const result = quote(input);
-  expect(result).toEqual(success({ rest: "", match: '"', matches: {} }));
+  expect(result).toEqual(success({ rest: "", match: '"', captures: {} }));
 });
 
 test("quote parser - invalid quote", () => {
@@ -363,7 +363,7 @@ test("quote parser - invalid quote", () => {
 test("anyChar parser - non-empty input", () => {
   const input = "abc";
   const result = anyChar(input);
-  expect(result).toEqual(success({ rest: "bc", match: "a", matches: {} }));
+  expect(result).toEqual(success({ rest: "bc", match: "a", captures: {} }));
 });
 
 test("anyChar parser - empty input", () => {
@@ -381,7 +381,7 @@ test("between parser - valid input", () => {
   const parser = anyChar;
   const input = "'abc'";
   const result = between(open, close, parser)(input);
-  expect(result).toEqual(success({ rest: "", match: "a", matches: {} }));
+  expect(result).toEqual(success({ rest: "", match: "a", captures: {} }));
 });
 
 test("between parser - invalid input", () => {
@@ -401,7 +401,7 @@ test("sepBy parser - valid input", () => {
   const parser = anyChar;
   const input = "a,b,c";
   const result = sepBy(separator, parser)(input);
-  expect(result).toEqual(success({ rest: "", match: "abc", matches: {} }));
+  expect(result).toEqual(success({ rest: "", match: "abc", captures: {} }));
 });
 
 test("sepBy parser - invalid input", () => {
@@ -409,7 +409,7 @@ test("sepBy parser - invalid input", () => {
   const parser = anyChar;
   const input = '"a"bc';
   const result = sepBy(separator, parser)(input);
-  expect(result).toEqual(success({ rest: "bc", match: "a", matches: {} }));
+  expect(result).toEqual(success({ rest: "bc", match: "a", captures: {} }));
 });
  */
 });
