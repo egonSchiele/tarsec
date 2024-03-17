@@ -1,3 +1,8 @@
+import { vi } from "vitest";
+vi.mock("nanoid", () => {
+  return { nanoid: () => "fakeid" };
+});
+
 export function success({
   rest,
   match,

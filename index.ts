@@ -9,6 +9,7 @@ import {
   transform,
   many1,
   captureCaptures,
+  shapeCaptures,
 } from "./lib/combinators.js";
 import {
   noneOf,
@@ -67,16 +68,16 @@ const line = seq<any, string>(
 );
 
 let block: any = char("{");
-block = captureCaptures(
+block = shapeCaptures(
   seq<any, string>(
     [
       manyWithJoin(space),
       capture(
         or(
           [str("terraform"), str("required_providers"), str("aws")],
-          "block-name"
+          "blockName"
         ),
-        "block-name"
+        "blockName"
       ),
       space,
       optional(str("= ")),
@@ -93,6 +94,7 @@ block = captureCaptures(
     ],
     "block"
   ),
+  ({ blockName }) => ({ blockName }),
   "block"
 );
 

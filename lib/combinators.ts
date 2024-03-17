@@ -188,6 +188,25 @@ export function captureCaptures<M, C extends string>(
   });
 }
 
+export function shapeCaptures<M, C extends string>(
+  parser: Parser<M>,
+  func: (captures: Record<string, any>) => Record<string, any>,
+  name: string
+): Parser<M, C> {
+  return trace(`captures(${escape(name)})`, (input: string) => {
+    let result = parser(input);
+    if (result.success) {
+      const captures: Record<string, any> = result.captures || {};
+
+      return {
+        ...result,
+        captures: func(captures),
+      };
+    }
+    return result;
+  });
+}
+
 export function transform<T, X>(
   parser: Parser<T>,
   transformerFunc: (x: T) => X
