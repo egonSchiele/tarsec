@@ -36,8 +36,8 @@ export function many1WithJoin(parser: Parser<string>): Parser<string> {
   return transform<string[], string>(many1(parser), (x) => x.join(""));
 }
 
-export function or<T>(parsers: Parser<T>[]): Parser<T> {
-  return trace("or", (input: string) => {
+export function or<T>(parsers: Parser<T>[], name: string = ""): Parser<T> {
+  return trace(`or(${name})`, (input: string) => {
     for (let parser of parsers) {
       let result = parser(input);
       if (result.success) {
@@ -122,8 +122,11 @@ export function sepBy<S, P>(
   };
 }
 
-export function seq<M, C extends string>(parsers: Parser<M>[]): Parser<M[], C> {
-  return trace("seq", (input: string) => {
+export function seq<M, C extends string>(
+  parsers: Parser<M>[],
+  name: string = ""
+): Parser<M[], C> {
+  return trace(`seq(${name})`, (input: string) => {
     let match: M[] = [];
     let rest = input;
     // @ts-ignore

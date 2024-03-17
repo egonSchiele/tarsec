@@ -1,6 +1,13 @@
-import { seq, capture, many1WithJoin } from "./lib/combinators.js";
-import { noneOf, space, str, char } from "./lib/parsers.js";
-
+import {
+  seq,
+  capture,
+  many1WithJoin,
+  many,
+  optional,
+  or,
+} from "./lib/combinators.js";
+import { noneOf, space, str, char, quote, word } from "./lib/parsers.js";
+/* 
 const helloParser = seq<any, "name">([
   str("hello"),
   space,
@@ -20,14 +27,13 @@ const parser = seq<any, "name" | "question">([
 ]);
 
 const result = parser("hello adit! how are you?");
-console.log(result);
+console.log(result); */
 
 /* 
 if (result.success) {
   console.log(result.captures?.name);
 }  */
 
-/*
 const input = `terraform {
     required_providers {
       aws = {
@@ -36,29 +42,26 @@ const input = `terraform {
     }
   }`;
 
-const line = seq(
-  many(space),
-  word,
-  many(space),
-  char("="),
-  many(space),
-  quote,
-  word,
-  quote
+const line = seq<any, string>(
+  [many(space), word, many(space), char("="), many(space), quote, word, quote],
+  "line"
 );
+
 let block: any = char("{");
-block = seq(
-  many(space),
-  or(str("terraform"), str("required_providers"), str("aws")),
-  space,
-  optional(str("= ")),
-  char("{"),
-  many(space),
-  or(line, block),
-  many(space),
-  char("}")
+block = seq<any, string>(
+  [
+    many(space),
+    or([str("terraform"), str("required_providers"), str("aws")], "block-name"),
+    space,
+    optional(str("= ")),
+    char("{"),
+    many(space),
+    or([line, block], "line or block"),
+    many(space),
+    char("}"),
+  ],
+  "block"
 );
 
 const result2 = block(input);
 console.log(result2);
- */

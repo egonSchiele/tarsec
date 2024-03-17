@@ -24,30 +24,34 @@ export function char(c: string): Parser<string> {
 
 export function str(s: string): Parser<string> {
   return trace(`str(${escape(s)})`, (input: string) => {
-    let rest = input;
-    for (let c of s) {
-      let result = char(c)(rest);
-      if (!result.success) {
-        return result;
-      }
-      rest = result.rest;
+    if (input.substring(0, s.length) === s) {
+      return { success: true, match: s, rest: input.slice(s.length) };
     }
-    return { success: true, match: s, rest };
+    return {
+      success: false,
+      rest: input,
+      message: `expected ${s}, got ${input.substring(0, s.length)}`,
+    };
   });
 }
 
 export function oneOf(chars: string): Parser<string> {
   return trace(`oneOf(${escape(chars)})`, (input: string) => {
-    for (let c of chars) {
-      let result = char(c)(input);
-      if (result.success) {
-        return result;
-      }
+    if (input.length === 0) {
+      return {
+        success: false,
+        rest: input,
+        message: "unexpected end of input",
+      };
+    }
+    const c = input[0];
+    if (chars.includes(c)) {
+      return char(c)(input);
     }
     return {
       success: false,
       rest: input,
-      message: `expected one of ${chars}`,
+      message: `expected one of ${escape(chars)}, got ${c}`,
     };
   });
 }
