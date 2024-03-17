@@ -178,6 +178,7 @@ export function seq(...parsers: Parser[]): Parser {
   return (input: string) => {
     let match = "";
     let rest = input;
+    let matches: Record<string, string> = {};
     for (let parser of parsers) {
       let result = parser(rest);
       if (!result.success) {
@@ -185,8 +186,24 @@ export function seq(...parsers: Parser[]): Parser {
       }
       match += result.match;
       rest = result.rest;
+      if (result.matches) {
+        matches = { ...matches, ...result.matches };
+      }
     }
-    return { success: true, match, rest };
+    return { success: true, match, rest, matches };
+  };
+}
+
+export function capture(parser: Parser, name: string): Parser {
+  return (input: string) => {
+    let result = parser(input);
+    if (result.success) {
+      return {
+        ...result,
+        matches: { [name]: result.match },
+      };
+    }
+    return result;
   };
 }
 

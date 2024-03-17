@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   alphanum,
+  capture,
   char,
   digit,
   letter,
@@ -179,7 +180,9 @@ describe("Parser Tests", () => {
     it("should not consume any input if it fails", () => {
       const parser2 = optional(seq(many1(letter), char("!")));
       const result1 = parser2("hello!");
-      expect(result1).toEqual(success({ rest: "", match: "hello!" }));
+      expect(result1).toEqual(
+        success({ rest: "", match: "hello!", matches: {} })
+      );
 
       const result2 = parser2("hello");
       expect(result2).toEqual(success({ rest: "hello", match: "" }));
@@ -316,7 +319,7 @@ describe("seq parser", () => {
 
   it("should parse both characters in sequence", () => {
     const result = parser("ab");
-    expect(result).toEqual(success({ rest: "", match: "ab" }));
+    expect(result).toEqual(success({ rest: "", match: "ab", matches: {} }));
   });
 
   it("should fail if any of the parsers fail", () => {
@@ -331,7 +334,25 @@ describe("seq parser - hello world", () => {
   it("multiple char parsers", () => {
     const parser = seq(char("h"), char("e"), char("l"), char("l"), char("o"));
     const result = parser("hello world");
-    expect(result).toEqual(success({ match: "hello", rest: " world" }));
+    expect(result).toEqual(
+      success({ match: "hello", rest: " world", matches: {} })
+    );
+  });
+
+  it("multiple str parsers", () => {
+    const parser = seq(str("hello"), space, str("world"));
+    const result = parser("hello world");
+    expect(result).toEqual(
+      success({ match: "hello world", rest: "", matches: {} })
+    );
+  });
+
+  it("multiple str parsers + capture", () => {
+    const parser = seq(str("hello"), space, capture(str("world"), "name"));
+    const result = parser("hello world");
+    expect(result).toEqual(
+      success({ match: "hello world", rest: "", matches: { name: "world" } })
+    );
   });
 });
 

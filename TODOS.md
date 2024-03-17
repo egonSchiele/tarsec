@@ -1,1 +1,6 @@
 - debug options
+- handling `matches` in `seq`?
+- trace should take success or failure to string? also parser name and input. Or decorator or wrapping functions
+- simpleparser, capture instead of matchto
+- combinators file
+- bytestring

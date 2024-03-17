@@ -1,7 +1,8 @@
-export type ParserSuccess = {
+export type Object = Record<string, string>;
+export type ParserSuccess<Matches = Object> = {
   success: true;
   match: string;
-  matches?: Record<string, string>;
+  matches?: Matches;
   rest: string;
 };
 
@@ -12,8 +13,11 @@ export type ParserFailure = {
 };
 
 export type ParserOptions = {
-  matchTo: string;
+  capture: string;
 };
 
-export type ParserResult = ParserSuccess | ParserFailure;
-export type Parser = (input: string, debug?: any[]) => ParserResult;
+export type ParserResult<T = Object> = ParserSuccess<T> | ParserFailure;
+export type Parser<T = Object> = (
+  input: string,
+  debug?: any[]
+) => ParserResult<T>;

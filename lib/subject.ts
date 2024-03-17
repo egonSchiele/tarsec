@@ -23,8 +23,8 @@ export class Subject {
         match.push(result.match);
         this.input = result.rest;
         if (options) {
-          if ("matchTo" in options) {
-            matches[options.matchTo] = result.match;
+          if ("capture" in options) {
+            matches[options.capture] = result.match;
           }
         }
       } else {
