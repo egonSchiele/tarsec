@@ -13,7 +13,7 @@ A parser combinator library for TypeScript, inspired by Parsec.
 ## Install
 
 ```
-npm install egonSchiele/tarsec
+npm install tarsec
 ```
 
 ## Hello world
