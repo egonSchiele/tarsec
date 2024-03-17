@@ -179,11 +179,14 @@ export function sepBy<T>(separator: Parser, parser: Parser): Parser<T[]> {
   };
 }
 
-export function seq<T>(...parsers: Parser[]): Parser<T[]> {
+export function seq<T, U extends string>(
+  ...parsers: Parser[]
+): Parser<T[], Record<U, any>> {
   return (input: string) => {
     let match: T[] = [];
     let rest = input;
-    let namedMatches: Record<string, string> = {};
+    // @ts-ignore
+    let namedMatches: Record<U, any> = {};
     for (let parser of parsers) {
       let result = parser(rest);
       if (!result.success) {
@@ -200,11 +203,11 @@ export function seq<T>(...parsers: Parser[]): Parser<T[]> {
   };
 }
 
-export function capture(
+export function capture<U>(
   parser: Parser,
   name: string,
   transform: (x: any) => any = (x) => x
-): Parser {
+): Parser<any, Record<string, U>> {
   return (input: string) => {
     let result = parser(input);
     if (result.success) {

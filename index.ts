@@ -14,19 +14,27 @@ console.log({ r, debug });
  */
 
 const join = (x: string[]) => x.join("");
-const helloParser = seq(
+const helloParser = seq<any, "name">(
   str("hello"),
   space,
-  capture(many1(noneOf("!")), "name", join),
+  capture<string>(many1(noneOf("!")), "name", join),
   char("!")
 );
 
-const questionParser = seq(
-  capture(many1(noneOf("?")), "question", join),
+const questionParser = seq<any, "question">(
+  capture<string>(many1(noneOf("?")), "question", join),
   char("?")
 );
 
-const parser = seq(helloParser, space, questionParser);
+const parser = seq<any, "name" | "question">(
+  helloParser,
+  space,
+  questionParser
+);
 
 const result = parser("hello adit! how are you?");
 console.log(result);
+if (result.success === true) {
+  console.log(result.namedMatches?.name);
+  console.log(result.namedMatches?.question);
+}
