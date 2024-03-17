@@ -16,10 +16,11 @@ import {
   word,
 } from "./lib/parsers.js";
 
-/* const debug: any[] = [];
+const debug: any[] = [];
 const r = char("a", debug)("abc");
 console.log({ r, debug });
- */
+
+process.exit();
 
 const helloParser = seq<any, "name">(
   str("hello"),

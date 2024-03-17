@@ -1,7 +1,8 @@
-import { Parser } from "./types";
+import { trace } from "./trace";
+import { Parser, ParserResult } from "./types";
 
 export function char(c: string, debug: any[] = []): Parser<string> {
-  return (input: string) => {
+  return trace("char", debug, (input: string) => {
     if (input.length === 0) {
       return {
         success: false,
@@ -10,7 +11,6 @@ export function char(c: string, debug: any[] = []): Parser<string> {
       };
     }
     if (input[0] === c) {
-      debug.push(`char(${c})(${input}) => ${input[0]}`);
       return { success: true, match: c, rest: input.slice(1) };
     }
     return {
@@ -18,7 +18,7 @@ export function char(c: string, debug: any[] = []): Parser<string> {
       rest: input,
       message: `expected ${c}, got ${input[0]}`,
     };
-  };
+  });
 }
 
 export function str(s: string): Parser<string> {
