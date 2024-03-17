@@ -19,6 +19,8 @@ npm install tarsec
 ## Hello world
 
 ```ts
+import { str, seq, space } from "tarsec";
+
 // define a parser
 const parser = seq([
     str("hello"),
