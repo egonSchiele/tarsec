@@ -10,6 +10,12 @@
 
 A parser combinator library for TypeScript, inspired by Parsec.
 
+## Install
+
+```
+npm install egonSchiele/tarsec
+```
+
 ## Hello world
 
 ```ts
@@ -55,3 +61,4 @@ const result = parser("hello adit!");
 console.log(result.success); // true
 console.log(result.captures); // { person: "adit" }
 ```
+

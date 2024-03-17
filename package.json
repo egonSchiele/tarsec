@@ -1,8 +1,7 @@
 {
   "name": "tarsec",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "version": "0.0.1",
+  "description": "A parser combinator library for TypeScript, inspired by Parsec.",
   "scripts": {
     "test": "vitest",
     "build": "tsc",
@@ -11,10 +10,8 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "dependencies": {
-    "vitest": "^1.4.0"
-  },
   "devDependencies": {
-    "@types/node": "^20.11.28"
+    "@types/node": "^20.11.28",
+    "vitest": "^1.4.0"
   }
 }

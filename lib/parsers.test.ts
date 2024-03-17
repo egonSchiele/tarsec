@@ -10,8 +10,8 @@ import {
   spaces,
   str,
   word,
+  char,
 } from "./parsers";
-import { char } from "./char";
 import { success, failure } from "../vitest.globals.js";
 import {
   capture,
