@@ -32,14 +32,15 @@ parser("hello there"); // failure
 const parser = seq([
     str("hello"),
     space,
-    // capture group to capture the name.
-    //
-    // `many1(noneOf("!")` parses one or more characters
-    // that are not an exclamation mark.
-    // `many1` returns an array of characters,
-    // `many1WithJoin` joins them into a string.
-    //
-    // This capture group is then given the name "person"
+
+    /* Capture group to capture the name.
+    
+    `many1(noneOf("!"))` parses one or more characters
+    that are not an exclamation mark.
+    `many1` returns an array of characters,
+    `many1WithJoin` joins them into a string.
+    
+    This capture group is then given the name "person". */
     capture(many1WithJoin(noneOf("!")), "person"),
     char("!"),
 ]);
@@ -47,5 +48,6 @@ const parser = seq([
 // parse
 const result = parser("hello adit!");
 
+console.log(result.success); // true
 console.log(result.captures); // { person: "adit" }
 ```
