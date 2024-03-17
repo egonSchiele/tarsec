@@ -174,6 +174,22 @@ export function sepBy(separator: Parser, parser: Parser): Parser {
   };
 }
 
+export function seq(...parsers: Parser[]): Parser {
+  return (input: string) => {
+    let match = "";
+    let rest = input;
+    for (let parser of parsers) {
+      let result = parser(rest);
+      if (!result.success) {
+        return result;
+      }
+      match += result.match;
+      rest = result.rest;
+    }
+    return { success: true, match, rest };
+  };
+}
+
 export const space: Parser = char(" ");
 export const spaces: Parser = many1(space);
 export const digit: Parser = oneOf("0123456789");

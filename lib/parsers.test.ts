@@ -12,6 +12,7 @@ import {
   oneOf,
   optional,
   or,
+  seq,
   space,
   spaces,
   str,
@@ -298,6 +299,22 @@ describe("Parser Tests", () => {
         failure({ rest: "abc", message: "expected at least one match" })
       );
     });
+  });
+});
+
+describe("seq parser", () => {
+  const parser = seq(char("a"), char("b"));
+
+  it("should parse both characters in sequence", () => {
+    const result = parser("ab");
+    expect(result).toEqual(success({ rest: "", match: "ab" }));
+  });
+
+  it("should fail if any of the parsers fail", () => {
+    const result = parser("ac");
+    expect(result).toEqual(
+      failure({ rest: "c", message: "expected b, got c" })
+    );
   });
 });
 
