@@ -300,3 +300,77 @@ describe("Parser Tests", () => {
     });
   });
 });
+
+/* test("quote parser - single quote", () => {
+  const input = "'";
+  const result = quote(input);
+  expect(result).toEqual(success({ rest: "", match: "'", matches: {} }));
+});
+
+test("quote parser - double quote", () => {
+  const input = '"';
+  const result = quote(input);
+  expect(result).toEqual(success({ rest: "", match: '"', matches: {} }));
+});
+
+test("quote parser - invalid quote", () => {
+  const input = "`";
+  const result = quote(input);
+  expect(result).toEqual(
+    failure({ rest: "`", message: "unexpected end of input" })
+  );
+});
+
+// Test for anyChar parser
+test("anyChar parser - non-empty input", () => {
+  const input = "abc";
+  const result = anyChar(input);
+  expect(result).toEqual(success({ rest: "bc", match: "a", matches: {} }));
+});
+
+test("anyChar parser - empty input", () => {
+  const input = "";
+  const result = anyChar(input);
+  expect(result).toEqual(
+    failure({ rest: "", message: "unexpected end of input" })
+  );
+});
+
+// Test for between parser
+test("between parser - valid input", () => {
+  const open = quote;
+  const close = quote;
+  const parser = anyChar;
+  const input = "'abc'";
+  const result = between(open, close, parser)(input);
+  expect(result).toEqual(success({ rest: "", match: "a", matches: {} }));
+});
+
+test("between parser - invalid input", () => {
+  const open = quote;
+  const close = quote;
+  const parser = anyChar;
+  const input = "\"abc'";
+  const result = between(open, close, parser)(input);
+  expect(result).toEqual(
+    failure({ rest: "abc'", message: "unexpected end of input" })
+  );
+});
+
+// Test for sepBy parser
+test("sepBy parser - valid input", () => {
+  const separator = anyChar;
+  const parser = anyChar;
+  const input = "a,b,c";
+  const result = sepBy(separator, parser)(input);
+  expect(result).toEqual(success({ rest: "", match: "abc", matches: {} }));
+});
+
+test("sepBy parser - invalid input", () => {
+  const separator = quote;
+  const parser = anyChar;
+  const input = '"a"bc';
+  const result = sepBy(separator, parser)(input);
+  expect(result).toEqual(success({ rest: "bc", match: "a", matches: {} }));
+});
+ */

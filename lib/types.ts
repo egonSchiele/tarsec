@@ -16,4 +16,4 @@ export type ParserOptions = {
 };
 
 export type ParserResult = ParserSuccess | ParserFailure;
-export type Parser = (input: string) => ParserResult;
+export type Parser = (input: string, debug?: any[]) => ParserResult;

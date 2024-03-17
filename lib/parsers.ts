@@ -1,6 +1,6 @@
 import { Parser } from "./types";
 
-export function char(c: string): Parser {
+export function char(c: string, debug: any[] = []): Parser {
   return (input: string) => {
     if (input.length === 0) {
       return {
@@ -10,6 +10,7 @@ export function char(c: string): Parser {
       };
     }
     if (input[0] === c) {
+      debug.push(`char(${c})(${input}) => ${input[0]}`);
       return { success: true, match: c, rest: input.slice(1) };
     }
     return {
