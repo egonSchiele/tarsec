@@ -101,5 +101,15 @@
     /* Completeness */
     // "skipDefaultLibCheck": true,                      /* Skip type checking .d.ts files that are included with TypeScript. */
     "skipLibCheck": true /* Skip type checking all .d.ts files. */
-  }
+  },
+  "include": [
+    "lib/**/*.ts",
+    "index.ts"
+  ] /* Specify an array of glob patterns that match files to include. */,
+  "exclude": [
+    "node_modules",
+    "vitest*",
+    "test*",
+    "lib/**/*.test.ts"
+  ] /* Specify an array of glob patterns to exclude files and directories from the project. */
 }
