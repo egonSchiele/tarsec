@@ -169,6 +169,25 @@ export function capture<M, C extends string>(
   });
 }
 
+export function captureCaptures<M, C extends string>(
+  parser: Parser<M>,
+  name: string
+): Parser<M, C> {
+  return trace(`captures(${escape(name)})`, (input: string) => {
+    let result = parser(input);
+    if (result.success) {
+      const captures: Record<string, any> = {
+        [name]: result.captures,
+      };
+      return {
+        ...result,
+        captures: mergeCaptures(result.captures || {}, captures),
+      };
+    }
+    return result;
+  });
+}
+
 export function transform<T, X>(
   parser: Parser<T>,
   transformerFunc: (x: T) => X

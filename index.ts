@@ -8,6 +8,7 @@ import {
   manyWithJoin,
   transform,
   many1,
+  captureCaptures,
 } from "./lib/combinators.js";
 import {
   noneOf,
@@ -66,35 +67,37 @@ const line = seq<any, string>(
 );
 
 let block: any = char("{");
-block = seq<any, string>(
-  [
-    manyWithJoin(space),
-    capture(
-      or(
-        [str("terraform"), str("required_providers"), str("aws")],
+block = captureCaptures(
+  seq<any, string>(
+    [
+      manyWithJoin(space),
+      capture(
+        or(
+          [str("terraform"), str("required_providers"), str("aws")],
+          "block-name"
+        ),
         "block-name"
       ),
-      "block-name"
-    ),
-    space,
-    optional(str("= ")),
-    char("{"),
-    manyWithJoin(space),
-    // this works
-    or([line, (x) => block(x)], "line or block"),
-    // but this doesnt
-    // many(or([line, (x) => block(x)], "line or block")),
-    // nor this
-    // many1(or([line, (x) => block(x)], "line or block")),
-    manyWithJoin(space),
-    char("}"),
-  ],
+      space,
+      optional(str("= ")),
+      char("{"),
+      manyWithJoin(space),
+      // this works
+      or([line, (x) => block(x)], "line or block"),
+      // but this doesnt
+      // many(or([line, (x) => block(x)], "line or block")),
+      // nor this
+      // many1(or([line, (x) => block(x)], "line or block")),
+      manyWithJoin(space),
+      char("}"),
+    ],
+    "block"
+  ),
   "block"
 );
 
 const result2 = block(input);
 console.log(result2);
-/* if (result2.success) {
-  console.log(JSON.stringify(result2.match, null, 2));
+if (result2.success) {
+  console.log(JSON.stringify(result2.captures, null, 2));
 }
- */
