@@ -52,7 +52,7 @@ export function many(parser: Parser): Parser {
 export function many1(parser: Parser): Parser {
   return (input: string) => {
     let result = many(parser)(input);
-    if (result.success) {
+    if (result.rest !== input) {
       return result;
     }
     return {
@@ -135,10 +135,59 @@ export function not(parser: Parser): Parser {
   };
 }
 
+export function between(open: Parser, close: Parser, parser: Parser): Parser {
+  return (input: string) => {
+    let result = open(input);
+    if (!result.success) {
+      return result;
+    }
+    const parserResult = parser(result.rest);
+    if (!parserResult.success) {
+      return parserResult;
+    }
+    result = close(parserResult.rest);
+    if (!result.success) {
+      return result;
+    }
+    return { success: true, match: parserResult.match, rest: result.rest };
+  };
+}
+
+export function sepBy(separator: Parser, parser: Parser): Parser {
+  return (input: string) => {
+    let match = "";
+    let rest = input;
+    while (true) {
+      let result = parser(rest);
+      if (!result.success) {
+        return { success: true, match, rest };
+      }
+      match += result.match;
+      rest = result.rest;
+      result = separator(rest);
+      if (!result.success) {
+        return { success: true, match, rest };
+      }
+      rest = result.rest;
+    }
+  };
+}
+
 export const space: Parser = char(" ");
 export const spaces: Parser = many1(space);
 export const digit: Parser = oneOf("0123456789");
 export const letter: Parser = oneOf("abcdefghijklmnopqrstuvwxyz");
 export const alphanum: Parser = oneOf("abcdefghijklmnopqrstuvwxyz0123456789");
 export const word: Parser = many1(letter);
-export const number: Parser = many1(digit);
+export const num: Parser = many1(digit);
+export const quote: Parser = oneOf(`'"`);
+export const anyChar: Parser = (input: string) => {
+  if (input.length === 0) {
+    return {
+      success: false,
+      rest: input,
+      message: "unexpected end of input",
+    };
+  }
+  return { success: true, match: input[0], rest: input.slice(1) };
+};

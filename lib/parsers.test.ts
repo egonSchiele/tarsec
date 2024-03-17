@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { char, str } from "./parsers";
+import {
+  alphanum,
+  char,
+  digit,
+  letter,
+  many,
+  many1,
+  noneOf,
+  not,
+  num,
+  oneOf,
+  optional,
+  or,
+  space,
+  spaces,
+  str,
+  word,
+} from "./parsers";
 import { success, failure } from "../vitest.setup.js";
 
 describe("char parser", () => {
@@ -58,5 +75,228 @@ describe("str parser", () => {
         message: "unexpected end of input",
       })
     );
+  });
+});
+
+describe("Parser Tests", () => {
+  describe("many parser", () => {
+    const parser = many(digit);
+
+    it("should parse multiple digits", () => {
+      const result = parser("1234");
+      expect(result).toEqual(success({ rest: "", match: "1234" }));
+    });
+
+    it("should return an empty string if no matches found", () => {
+      const result = parser("abc");
+      expect(result).toEqual(success({ rest: "abc", match: "" }));
+    });
+  });
+
+  describe("many1 parser", () => {
+    const parser = many1(digit);
+
+    it("should parse multiple digits", () => {
+      const result = parser("1234");
+      expect(result).toEqual(success({ rest: "", match: "1234" }));
+    });
+
+    it("should fail if no matches found", () => {
+      const result = parser("abc");
+      expect(result).toEqual(
+        failure({ rest: "abc", message: "expected at least one match" })
+      );
+    });
+  });
+
+  describe("oneOf parser", () => {
+    const parser = oneOf("abc");
+
+    it("should parse any one of the given characters", () => {
+      const result = parser("b");
+      expect(result).toEqual(success({ rest: "", match: "b" }));
+    });
+
+    it("should fail if none of the characters match", () => {
+      const result = parser("d");
+      expect(result).toEqual(
+        failure({ rest: "d", message: "expected one of abc" })
+      );
+    });
+  });
+
+  describe("noneOf parser", () => {
+    const parser = noneOf("xyz");
+
+    it("should parse any character that is not one of the given characters", () => {
+      const result = parser("a");
+      expect(result).toEqual(success({ rest: "", match: "a" }));
+    });
+
+    it("should fail if any of the given characters match", () => {
+      const result = parser("x");
+      expect(result).toEqual(
+        failure({ rest: "x", message: "expected none of xyz" })
+      );
+    });
+  });
+
+  describe("or parser", () => {
+    const parser = or(char("a"), char("b"));
+
+    it("should parse the first parser if it succeeds", () => {
+      const result = parser("a");
+      expect(result).toEqual(success({ rest: "", match: "a" }));
+    });
+
+    it("should parse the second parser if the first one fails", () => {
+      const result = parser("b");
+      expect(result).toEqual(success({ rest: "", match: "b" }));
+    });
+
+    it("should fail if all parsers fail", () => {
+      const result = parser("c");
+      expect(result).toEqual(
+        failure({ rest: "c", message: "all parsers failed" })
+      );
+    });
+  });
+
+  describe("optional parser", () => {
+    const parser = optional(char("a"));
+
+    it("should parse the character if it exists", () => {
+      const result = parser("a");
+      expect(result).toEqual(success({ rest: "", match: "a" }));
+    });
+
+    it("should return an empty string if the character is missing", () => {
+      const result = parser("b");
+      expect(result).toEqual(success({ rest: "b", match: "" }));
+    });
+  });
+
+  describe("not parser", () => {
+    const parser = not(char("a"));
+
+    it("should fail if the character is present", () => {
+      const result = parser("a");
+      expect(result).toEqual(
+        failure({ rest: "a", message: "unexpected match" })
+      );
+    });
+
+    it("should return an empty string if the character is missing", () => {
+      const result = parser("b");
+      expect(result).toEqual(success({ rest: "b", match: "" }));
+    });
+  });
+
+  describe("space parser", () => {
+    it("should parse a space character", () => {
+      const result = space(" ");
+      expect(result).toEqual(success({ rest: "", match: " " }));
+    });
+
+    it("should fail if the character is not a space", () => {
+      const result = space("a");
+      expect(result).toEqual(
+        failure({ rest: "a", message: "expected  , got a" })
+      );
+    });
+  });
+
+  describe("spaces parser", () => {
+    it("should parse multiple space characters", () => {
+      const result = spaces("  ");
+      expect(result).toEqual(success({ rest: "", match: "  " }));
+    });
+
+    it("should fail if no space characters found", () => {
+      const result = spaces("abc");
+      expect(result).toEqual(
+        failure({ rest: "abc", message: "expected at least one match" })
+      );
+    });
+  });
+
+  describe("digit parser", () => {
+    it("should parse a single digit", () => {
+      const result = digit("1");
+      expect(result).toEqual(success({ rest: "", match: "1" }));
+    });
+
+    it("should fail if the character is not a digit", () => {
+      const result = digit("a");
+      expect(result).toEqual(
+        failure({ rest: "a", message: "expected one of 0123456789" })
+      );
+    });
+  });
+
+  describe("letter parser", () => {
+    it("should parse a single letter", () => {
+      const result = letter("a");
+      expect(result).toEqual(success({ rest: "", match: "a" }));
+    });
+
+    it("should fail if the character is not a letter", () => {
+      const result = letter("1");
+      expect(result).toEqual(
+        failure({
+          rest: "1",
+          message: "expected one of abcdefghijklmnopqrstuvwxyz",
+        })
+      );
+    });
+  });
+
+  describe("alphanum parser", () => {
+    it("should parse a single alphanumeric character", () => {
+      const result = alphanum("1");
+      expect(result).toEqual(success({ rest: "", match: "1" }));
+    });
+
+    it("should fail if the character is not alphanumeric", () => {
+      const result = alphanum("_");
+      expect(result).toEqual(
+        failure({
+          rest: "_",
+          message: "expected one of abcdefghijklmnopqrstuvwxyz0123456789",
+        })
+      );
+    });
+  });
+
+  describe("word parser", () => {
+    const parser = word;
+
+    it("should parse a single word", () => {
+      const result = parser("hello");
+      expect(result).toEqual(success({ rest: "", match: "hello" }));
+    });
+
+    it("should fail if no word characters found", () => {
+      const result = parser("123");
+      expect(result).toEqual(
+        failure({ rest: "123", message: "expected at least one match" })
+      );
+    });
+  });
+
+  describe("number parser", () => {
+    const parser = num;
+
+    it("should parse a single number", () => {
+      const result = parser("123");
+      expect(result).toEqual(success({ rest: "", match: "123" }));
+    });
+
+    it("should fail if no number characters found", () => {
+      const result = parser("abc");
+      expect(result).toEqual(
+        failure({ rest: "abc", message: "expected at least one match" })
+      );
+    });
   });
 });
