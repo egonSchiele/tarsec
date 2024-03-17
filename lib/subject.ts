@@ -1,4 +1,4 @@
-import { Parser, ParserOptions, ParserResult } from "./types";
+/* import { Parser, ParserOptions, ParserResult } from "./types";
 
 export class Subject {
   input: string;
@@ -39,3 +39,4 @@ export class Subject {
     };
   }
 }
+ */

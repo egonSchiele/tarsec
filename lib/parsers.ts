@@ -1,6 +1,6 @@
 import { Parser } from "./types";
 
-export function char(c: string, debug: any[] = []): Parser {
+export function char(c: string, debug: any[] = []): Parser<string> {
   return (input: string) => {
     if (input.length === 0) {
       return {
@@ -21,7 +21,7 @@ export function char(c: string, debug: any[] = []): Parser {
   };
 }
 
-export function str(s: string): Parser {
+export function str(s: string): Parser<string> {
   return (input: string) => {
     let rest = input;
     for (let c of s) {
@@ -35,24 +35,25 @@ export function str(s: string): Parser {
   };
 }
 
-export function many(parser: Parser): Parser {
+export function many<T>(parser: Parser<T>): Parser<T[]> {
   return (input: string) => {
-    let match = "";
+    let match: T[] = [];
     let rest = input;
     while (true) {
       let result = parser(rest);
       if (!result.success) {
         return { success: true, match, rest };
       }
-      match += result.match;
+      match.push(result.match);
       rest = result.rest;
     }
   };
 }
 
-export function many1(parser: Parser): Parser {
+export function many1<T>(parser: Parser<T>): Parser<T[]> {
   return (input: string) => {
     let result = many(parser)(input);
+    // this logic doesn't work with optional and not
     if (result.rest !== input) {
       return result;
     }
@@ -64,7 +65,7 @@ export function many1(parser: Parser): Parser {
   };
 }
 
-export function oneOf(chars: string): Parser {
+export function oneOf(chars: string): Parser<string> {
   return (input: string) => {
     for (let c of chars) {
       let result = char(c)(input);
@@ -80,7 +81,7 @@ export function oneOf(chars: string): Parser {
   };
 }
 
-export function noneOf(chars: string): Parser {
+export function noneOf(chars: string): Parser<string> {
   return (input: string) => {
     for (let c of chars) {
       let result = char(c)(input);
@@ -96,7 +97,7 @@ export function noneOf(chars: string): Parser {
   };
 }
 
-export function or(...parsers: Parser[]): Parser {
+export function or<T>(...parsers: Parser<T>[]): Parser<T> {
   return (input: string) => {
     for (let parser of parsers) {
       let result = parser(input);
@@ -112,17 +113,17 @@ export function or(...parsers: Parser[]): Parser {
   };
 }
 
-export function optional(parser: Parser): Parser {
+export function optional<T>(parser: Parser<T>): Parser<T | null> {
   return (input: string) => {
     let result = parser(input);
     if (result.success) {
       return result;
     }
-    return { success: true, match: "", rest: input };
+    return { success: true, match: null, rest: input };
   };
 }
 
-export function not(parser: Parser): Parser {
+export function not(parser: Parser<any>): Parser<null> {
   return (input: string) => {
     let result = parser(input);
     if (result.success) {
@@ -132,11 +133,15 @@ export function not(parser: Parser): Parser {
         message: "unexpected match",
       };
     }
-    return { success: true, match: "", rest: input };
+    return { success: true, match: null, rest: input };
   };
 }
 
-export function between(open: Parser, close: Parser, parser: Parser): Parser {
+export function between<T>(
+  open: Parser,
+  close: Parser,
+  parser: Parser
+): Parser<T> {
   return (input: string) => {
     let result = open(input);
     if (!result.success) {
@@ -154,16 +159,16 @@ export function between(open: Parser, close: Parser, parser: Parser): Parser {
   };
 }
 
-export function sepBy(separator: Parser, parser: Parser): Parser {
+export function sepBy<T>(separator: Parser, parser: Parser): Parser<T[]> {
   return (input: string) => {
-    let match = "";
+    let match: T[] = [];
     let rest = input;
     while (true) {
       let result = parser(rest);
       if (!result.success) {
         return { success: true, match, rest };
       }
-      match += result.match;
+      match.push(result.match);
       rest = result.rest;
       result = separator(rest);
       if (!result.success) {
@@ -174,40 +179,45 @@ export function sepBy(separator: Parser, parser: Parser): Parser {
   };
 }
 
-export function seq(...parsers: Parser[]): Parser {
+export function seq<T>(...parsers: Parser[]): Parser<T[]> {
   return (input: string) => {
-    let match = "";
+    let match: T[] = [];
     let rest = input;
-    let matches: Record<string, string> = {};
+    let namedMatches: Record<string, string> = {};
     for (let parser of parsers) {
       let result = parser(rest);
       if (!result.success) {
         return result;
       }
-      match += result.match;
+      console.log(result.match);
+      match.push(result.match);
       rest = result.rest;
-      if (result.matches) {
-        matches = { ...matches, ...result.matches };
+      if (result.namedMatches) {
+        namedMatches = { ...namedMatches, ...result.namedMatches };
       }
     }
-    return { success: true, match, rest, matches };
+    return { success: true, match, rest, namedMatches };
   };
 }
 
-export function capture(parser: Parser, name: string): Parser {
+export function capture(
+  parser: Parser,
+  name: string,
+  transform: (x: any) => any = (x) => x
+): Parser {
   return (input: string) => {
     let result = parser(input);
     if (result.success) {
       return {
         ...result,
-        matches: { [name]: result.match },
+        namedMatches: { [name]: transform(result.match) },
       };
     }
     return result;
   };
 }
 
-export const space: Parser = char(" ");
+export const space: Parser = oneOf(" \t\n\r");
 export const spaces: Parser = many1(space);
 export const digit: Parser = oneOf("0123456789");
 export const letter: Parser = oneOf("abcdefghijklmnopqrstuvwxyz");
