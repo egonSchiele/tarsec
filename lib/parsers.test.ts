@@ -175,6 +175,15 @@ describe("Parser Tests", () => {
       const result = parser("b");
       expect(result).toEqual(success({ rest: "b", match: "" }));
     });
+
+    it("should not consume any input if it fails", () => {
+      const parser2 = optional(seq(many1(letter), char("!")));
+      const result1 = parser2("hello!");
+      expect(result1).toEqual(success({ rest: "", match: "hello!" }));
+
+      const result2 = parser2("hello");
+      expect(result2).toEqual(success({ rest: "hello", match: "" }));
+    });
   });
 
   describe("not parser", () => {
