@@ -1,51 +1,31 @@
-import {
-  capture,
-  char,
-  many,
-  many1,
-  many1WithJoin,
-  noneOf,
-  oneOf,
-  optional,
-  or,
-  quote,
-  seq,
-  space,
-  spaces,
-  str,
-  word,
-} from "./lib/parsers.js";
+import { seq, capture, many1WithJoin } from "./lib/combinators.js";
+import { noneOf, space, str, char } from "./lib/parsers.js";
 
-const debug: any[] = [];
-const r = char("a", debug)("abc");
-console.log({ r, debug });
-
-process.exit();
-
-const helloParser = seq<any, "name">(
+const helloParser = seq<any, "name">([
   str("hello"),
   space,
   capture<string, "name">(many1WithJoin(noneOf("!")), "name"),
-  char("!")
-);
+  char("!"),
+]);
 
-const questionParser = seq<any, "question">(
+const questionParser = seq<any, "question">([
   capture<string, "question">(many1WithJoin(noneOf("?")), "question"),
-  char("?")
-);
+  char("?"),
+]);
 
-const parser = seq<any, "name" | "question">(
+const parser = seq<any, "name" | "question">([
   helloParser,
   space,
-  questionParser
-);
+  questionParser,
+]);
 
 const result = parser("hello adit! how are you?");
 console.log(result);
 
+/* 
 if (result.success) {
   console.log(result.captures?.name);
-}
+}  */
 
 /*
 const input = `terraform {

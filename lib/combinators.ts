@@ -1,7 +1,9 @@
+import { trace } from "./trace";
 import { Parser } from "./types";
+import { escape } from "./utils";
 
 export function many<T>(parser: Parser<T>): Parser<T[]> {
-  return (input: string) => {
+  return trace("many", (input: string) => {
     let match: T[] = [];
     let rest = input;
     while (true) {
@@ -12,11 +14,11 @@ export function many<T>(parser: Parser<T>): Parser<T[]> {
       match.push(result.match);
       rest = result.rest;
     }
-  };
+  });
 }
 
 export function many1<T>(parser: Parser<T>): Parser<T[]> {
-  return (input: string) => {
+  return trace(`many1`, (input: string) => {
     let result = many(parser)(input);
     // this logic doesn't work with optional and not
     if (result.rest !== input) {
@@ -27,11 +29,15 @@ export function many1<T>(parser: Parser<T>): Parser<T[]> {
       rest: input,
       message: "expected at least one match",
     };
-  };
+  });
 }
 
-export function or<T>(...parsers: Parser<T>[]): Parser<T> {
-  return (input: string) => {
+export function many1WithJoin(parser: Parser<string>): Parser<string> {
+  return transform<string[], string>(many1(parser), (x) => x.join(""));
+}
+
+export function or<T>(parsers: Parser<T>[]): Parser<T> {
+  return trace("or", (input: string) => {
     for (let parser of parsers) {
       let result = parser(input);
       if (result.success) {
@@ -43,21 +49,21 @@ export function or<T>(...parsers: Parser<T>[]): Parser<T> {
       rest: input,
       message: "all parsers failed",
     };
-  };
+  });
 }
 
 export function optional<T>(parser: Parser<T>): Parser<T | null> {
-  return (input: string) => {
+  return trace<T | null>("optional", (input: string) => {
     let result = parser(input);
     if (result.success) {
       return result;
     }
     return { success: true, match: null, rest: input };
-  };
+  });
 }
 
 export function not(parser: Parser<any>): Parser<null> {
-  return (input: string) => {
+  return trace("not", (input: string) => {
     let result = parser(input);
     if (result.success) {
       return {
@@ -67,7 +73,7 @@ export function not(parser: Parser<any>): Parser<null> {
       };
     }
     return { success: true, match: null, rest: input };
-  };
+  });
 }
 
 export function between<O, C, P>(
@@ -116,10 +122,8 @@ export function sepBy<S, P>(
   };
 }
 
-export function seq<M, C extends string>(
-  ...parsers: Parser<M>[]
-): Parser<M[], C> {
-  return (input: string) => {
+export function seq<M, C extends string>(parsers: Parser<M>[]): Parser<M[], C> {
+  return trace("seq", (input: string) => {
     let match: M[] = [];
     let rest = input;
     // @ts-ignore
@@ -136,7 +140,7 @@ export function seq<M, C extends string>(
       }
     }
     return { success: true, match, rest, captures: namedMatches };
-  };
+  });
 }
 
 export function capture<M, C extends string>(
@@ -144,7 +148,7 @@ export function capture<M, C extends string>(
   name: string,
   transform: (x: M) => M = (x) => x
 ): Parser<M, C> {
-  return (input: string) => {
+  return trace(`captures(${escape(name)})`, (input: string) => {
     let result = parser(input);
     if (result.success) {
       const captures: Record<string, any> = {
@@ -156,14 +160,14 @@ export function capture<M, C extends string>(
       };
     }
     return result;
-  };
+  });
 }
 
 export function transform<T, X>(
   parser: Parser<T>,
   transformerFunc: (x: T) => X
 ): Parser<X> {
-  return (input: string) => {
+  return trace(`transform(${transformerFunc})`, (input: string) => {
     let result = parser(input);
     if (result.success) {
       return {
@@ -172,5 +176,5 @@ export function transform<T, X>(
       };
     }
     return result;
-  };
+  });
 }

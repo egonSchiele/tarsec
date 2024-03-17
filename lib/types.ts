@@ -20,6 +20,5 @@ export type ParserResult<M, C extends string> =
   | ParserSuccess<M, C>
   | ParserFailure;
 export type Parser<M, C extends string = string> = (
-  input: string,
-  debug?: any[]
+  input: string
 ) => ParserResult<M, C>;

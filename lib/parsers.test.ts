@@ -1,26 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
   alphanum,
-  capture,
-  char,
   digit,
   letter,
-  many,
-  many1,
-  many1WithJoin,
   noneOf,
-  not,
   num,
   oneOf,
-  optional,
-  or,
-  seq,
   space,
   spaces,
   str,
   word,
 } from "./parsers";
+import { char } from "./char";
 import { success, failure } from "../vitest.setup.js";
+import {
+  capture,
+  many,
+  many1,
+  many1WithJoin,
+  not,
+  optional,
+  or,
+  seq,
+} from "./combinators";
 
 describe("char parser", () => {
   it("should parse correct character", () => {
@@ -145,7 +147,7 @@ describe("Parser Tests", () => {
   });
 
   describe("or parser", () => {
-    const parser = or(char("a"), char("b"));
+    const parser = or<string>([char("a"), char("b")]);
 
     it("should parse the first parser if it succeeds", () => {
       const result = parser("a");
@@ -179,6 +181,7 @@ describe("Parser Tests", () => {
     });
 
     it("should not consume any input if it fails", () => {
+      // @ts-ignore
       const parser2 = optional(seq(many1WithJoin(letter), char("!")));
       const result1 = parser2("hello!");
       expect(result1).toEqual(
@@ -316,7 +319,7 @@ describe("Parser Tests", () => {
 });
 
 describe("seq parser", () => {
-  const parser = seq(char("a"), char("b"));
+  const parser = seq([char("a"), char("b")]);
 
   it("should parse both characters in sequence", () => {
     const result = parser("ab");
@@ -333,7 +336,7 @@ describe("seq parser", () => {
 
 describe("seq parser - hello world", () => {
   it("multiple char parsers", () => {
-    const parser = seq(char("h"), char("e"), char("l"), char("l"), char("o"));
+    const parser = seq([char("h"), char("e"), char("l"), char("l"), char("o")]);
     const result = parser("hello world");
     expect(result).toEqual(
       success({ match: "hello", rest: " world", matches: {} })
@@ -341,7 +344,7 @@ describe("seq parser - hello world", () => {
   });
 
   it("multiple str parsers", () => {
-    const parser = seq(str("hello"), space, str("world"));
+    const parser = seq([str("hello"), space, str("world")]);
     const result = parser("hello world");
     expect(result).toEqual(
       success({ match: "hello world", rest: "", matches: {} })
@@ -349,7 +352,7 @@ describe("seq parser - hello world", () => {
   });
 
   it("multiple str parsers + capture", () => {
-    const parser = seq(str("hello"), space, capture(str("world"), "name"));
+    const parser = seq([str("hello"), space, capture(str("world"), "name")]);
     const result = parser("hello world");
     expect(result).toEqual(
       success({ match: "hello world", rest: "", matches: { name: "world" } })
