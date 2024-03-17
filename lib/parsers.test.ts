@@ -327,6 +327,14 @@ describe("seq parser", () => {
   });
 });
 
+describe("seq parser - hello world", () => {
+  it("multiple char parsers", () => {
+    const parser = seq(char("h"), char("e"), char("l"), char("l"), char("o"));
+    const result = parser("hello world");
+    expect(result).toEqual(success({ match: "hello", rest: " world" }));
+  });
+});
+
 /* test("quote parser - single quote", () => {
   const input = "'";
   const result = quote(input);
