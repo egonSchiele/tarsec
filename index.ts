@@ -29,7 +29,7 @@ const helloParser = seq<any, "name">(
 );
 
 const questionParser = seq<any, "question">(
-  capture<string>(many1(noneOf("?")), "question", join),
+  capture<string, "question">(many1WithJoin(noneOf("?")), "question"),
   char("?")
 );
 
@@ -41,6 +41,10 @@ const parser = seq<any, "name" | "question">(
 
 const result = parser("hello adit! how are you?");
 console.log(result);
+
+if (result.success) {
+  console.log(result.captures?.name);
+}
 
 /*
 const input = `terraform {

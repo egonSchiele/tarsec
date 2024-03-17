@@ -184,7 +184,7 @@ export function sepBy<S, P>(
 }
 
 export function seq<M, C extends string>(
-  ...parsers: Parser<M, C>[]
+  ...parsers: Parser<M>[]
 ): Parser<M[], C> {
   return (input: string) => {
     let match: M[] = [];
