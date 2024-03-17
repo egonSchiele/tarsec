@@ -103,8 +103,7 @@
     "skipLibCheck": true /* Skip type checking all .d.ts files. */
   },
   "include": [
-    "lib/**/*.ts",
-    "index.ts"
+    "lib/**/*.ts"
   ] /* Specify an array of glob patterns that match files to include. */,
   "exclude": [
     "node_modules",
