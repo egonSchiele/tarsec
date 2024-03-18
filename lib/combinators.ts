@@ -1,5 +1,5 @@
 import { trace } from "./trace";
-import { Parser, ParserSuccess } from "./types";
+import { Object, Parser, ParserSuccess } from "./types";
 import { escape, merge, mergeCaptures } from "./utils";
 
 export function many<T>(parser: Parser<T>): Parser<T[]> {
@@ -32,15 +32,36 @@ export function many1<T>(parser: Parser<T>): Parser<T[]> {
   });
 }
 
+export function count<T, C extends Object>(
+  parser: Parser<T, C>
+): Parser<number, C> {
+  return trace("count", (input: string) => {
+    const result = many(parser)(input);
+    if (result.success) {
+      return {
+        success: true,
+        match: result.match.length,
+        rest: result.rest,
+      };
+    }
+    return result;
+  });
+}
+
 export function manyWithJoin(parser: Parser<string>): Parser<string> {
   return transform<string[], string>(many(parser), (x) => x.join(""));
 }
 
-export function many1WithJoin(parser: Parser<string>): Parser<string> {
+export function many1WithJoin(
+  parser: Parser<string, Object>
+): Parser<string, Object> {
   return transform<string[], string>(many1(parser), (x) => x.join(""));
 }
 
-export function or<T>(parsers: Parser<T>[], name: string = ""): Parser<T> {
+export function or<T>(
+  parsers: Parser<T, Object>[],
+  name: string = ""
+): Parser<T> {
   return trace(`or(${name})`, (input: string) => {
     for (let parser of parsers) {
       let result = parser(input);
@@ -126,15 +147,14 @@ export function sepBy<S, P>(
   };
 }
 
-export function seq<M, C extends string>(
-  parsers: Parser<M>[],
+export function seq<M, C extends Object>(
+  parsers: Parser<M, Object>[],
   name: string = ""
 ): Parser<M[], C> {
   return trace(`seq(${name})`, (input: string) => {
     let match: M[] = [];
     let rest = input;
-    // @ts-ignore
-    let captures: Record<U, any> = {};
+    let captures: C | {} = {};
     for (let parser of parsers) {
       let result = parser(rest);
       if (!result.success) {
@@ -150,14 +170,14 @@ export function seq<M, C extends string>(
   });
 }
 
-export function capture<M, C extends string>(
-  parser: Parser<M>,
-  name: string
-): Parser<M, C> {
+export function capture<const S extends string, M>(
+  parser: Parser<M, Object>,
+  name: S
+): Parser<M, Record<S, M>> {
   return trace(`captures(${escape(name)})`, (input: string) => {
     let result = parser(input);
     if (result.success) {
-      const captures: Record<string, any> = {
+      const captures: Record<S, M> | any = {
         [name]: result.match,
       };
       return {

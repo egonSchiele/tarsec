@@ -2,7 +2,7 @@ import { many1, many1WithJoin, seq, transform } from "./combinators";
 import { trace } from "./trace";
 import { Parser, ParserResult } from "./types";
 import { escape } from "./utils";
-export function char(c: string): Parser<string> {
+export function char(c: string): Parser<string, Object> {
   return trace(`char(${escape(c)})`, (input: string) => {
     if (input.length === 0) {
       return {
