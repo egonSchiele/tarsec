@@ -1,10 +1,10 @@
-import { ParserResult, Parser } from "./types";
+import { ParserResult, Parser, PlainObject } from "./types";
 import { escape } from "./utils";
 const STEP = 2;
 
-export function resultToString<T>(
+export function resultToString<M, C extends PlainObject>(
   name: string,
-  result: ParserResult<T, string>
+  result: ParserResult<M, C>
 ): string {
   if (result.success) {
     return `✅ ${name} -- match: ${escape(result.match)}, rest: ${escape(
@@ -18,7 +18,7 @@ export function resultToString<T>(
 
 let level = 0;
 
-export function trace<T>(name: string, parser: Parser<T>): Parser<T> {
+export function trace(name: string, parser: any): any {
   return (input: string) => {
     if (process.env.DEBUG) {
       console.log(" ".repeat(level) + `🔍 ${name} -- input: ${escape(input)}`);

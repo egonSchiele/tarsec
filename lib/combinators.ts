@@ -2,6 +2,7 @@ import { trace } from "./trace";
 import {
   NonNullableUnionOfObjects,
   Parser,
+  ParserSuccess,
   PlainObject,
   Prettify,
 } from "./types";
@@ -85,7 +86,7 @@ export function or<T>(
 }
 
 export function optional<T>(parser: Parser<T, never>): Parser<T | null, never> {
-  return trace<T | null>("optional", (input: string) => {
+  return trace("optional", (input: string) => {
     let result = parser(input);
     if (result.success) {
       return result;
@@ -163,7 +164,7 @@ type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
 
 type Merged<T> = T extends Parser<infer M, infer C extends PlainObject>[]
   ? UnionToIntersection<C> extends PlainObject
-    ? Parser<M, Prettify<UnionToIntersection<C>>>
+    ? Parser<M[], Prettify<UnionToIntersection<C>>>
     : never
   : never;
 
@@ -216,6 +217,32 @@ export function capture<M, const S extends string>(
       };
     }
     return result;
+  });
+}
+
+export function setCapturesAsMatch<M, C extends PlainObject>(
+  parser: Parser<M, C>
+): Parser<C, never> {
+  return trace(`setCapturesAsMatch`, (input: string) => {
+    let result = parser(input);
+    if (result.success) {
+      return {
+        ...result,
+        match: result.captures as any,
+        captures: {},
+      };
+    }
+    return result;
+  });
+}
+
+export function captureCaptures<
+  M,
+  C extends PlainObject,
+  const S extends string
+>(parser: Parser<M, C>, name: S): Parser<C, Record<S, C>> {
+  return trace(`captureCaptures(${escape(name)})`, (input: string) => {
+    return capture(setCapturesAsMatch(parser), name)(input);
   });
 }
 

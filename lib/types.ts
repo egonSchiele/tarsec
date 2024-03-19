@@ -37,7 +37,7 @@ export type UnionToIntersection<U> = (
   ? I
   : never;
 
-export type Merge<O extends Array<T>, T = any> = Prettify<
+export type Merge2<O extends Array<T>, T = any> = Prettify<
   UnionToIntersection<O[number]>
 >;
 

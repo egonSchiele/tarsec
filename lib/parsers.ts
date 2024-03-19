@@ -76,7 +76,7 @@ export function noneOf(chars: string): Parser<string, never> {
   });
 }
 
-export function anyChar(input: string): Parser<string> {
+export function anyChar(input: string): Parser<string, never> {
   return trace("anyChar", (input: string) => {
     if (input.length === 0) {
       return {
@@ -105,6 +105,6 @@ export const tab: Parser<string, never> = char("\t");
 export const newline: Parser<string, never> = char("\n");
 
 export const quotedString = transform(
-  seq<any, string>([quote, word, quote], "quotedString"),
-  (x) => x.join("")
+  seq([quote, word, quote], "quotedString"),
+  (x: string[]) => x.join("")
 );
