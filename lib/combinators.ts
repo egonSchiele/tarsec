@@ -2,7 +2,7 @@ import { trace } from "./trace";
 import { Merged, Parser, PlainObject, Prettify } from "./types";
 import { escape, mergeCaptures } from "./utils";
 
-export function many<T>(parser: Parser<T, never>): Parser<T[], never> {
+export function many<T>(parser: Parser<T>): Parser<T[]> {
   return trace("many", (input: string) => {
     let match: T[] = [];
     let rest = input;
@@ -17,7 +17,7 @@ export function many<T>(parser: Parser<T, never>): Parser<T[], never> {
   });
 }
 
-export function many1<T>(parser: Parser<T, never>): Parser<T[], never> {
+export function many1<T>(parser: Parser<T>): Parser<T[]> {
   return trace(`many1`, (input: string) => {
     let result = many(parser)(input);
     // this logic doesn't work with optional and not
@@ -32,9 +32,7 @@ export function many1<T>(parser: Parser<T, never>): Parser<T[], never> {
   });
 }
 
-export function count<T, C extends never>(
-  parser: Parser<T, C>
-): Parser<number, C> {
+export function count<T>(parser: Parser<T>): Parser<number> {
   return trace("count", (input: string) => {
     const result = many(parser)(input);
     if (result.success) {
@@ -48,22 +46,15 @@ export function count<T, C extends never>(
   });
 }
 
-export function manyWithJoin(
-  parser: Parser<string, never>
-): Parser<string, never> {
+export function manyWithJoin(parser: Parser<string>): Parser<string> {
   return transform<string[], string>(many(parser), (x) => x.join(""));
 }
 
-export function many1WithJoin(
-  parser: Parser<string, never>
-): Parser<string, never> {
+export function many1WithJoin(parser: Parser<string>): Parser<string> {
   return transform<string[], string>(many1(parser), (x) => x.join(""));
 }
 
-export function or<T>(
-  parsers: Parser<T, never>[],
-  name: string = ""
-): Parser<T, never> {
+export function or<T>(parsers: Parser<T>[], name: string = ""): Parser<T> {
   return trace(`or(${name})`, (input: string) => {
     for (let parser of parsers) {
       let result = parser(input);
@@ -79,7 +70,7 @@ export function or<T>(
   });
 }
 
-export function optional<T>(parser: Parser<T, never>): Parser<T | null, never> {
+export function optional<T>(parser: Parser<T>): Parser<T | null> {
   return trace("optional", (input: string) => {
     let result = parser(input);
     if (result.success) {
@@ -89,7 +80,7 @@ export function optional<T>(parser: Parser<T, never>): Parser<T | null, never> {
   });
 }
 
-export function not(parser: Parser<any, never>): Parser<null, never> {
+export function not(parser: Parser<any>): Parser<null> {
   return trace("not", (input: string) => {
     let result = parser(input);
     if (result.success) {
@@ -104,10 +95,10 @@ export function not(parser: Parser<any, never>): Parser<null, never> {
 }
 
 export function between<O, C, P>(
-  open: Parser<O, never>,
-  close: Parser<C, never>,
-  parser: Parser<P, never>
-): Parser<P, never> {
+  open: Parser<O>,
+  close: Parser<C>,
+  parser: Parser<P>
+): Parser<P> {
   return (input: string) => {
     const result1 = open(input);
     if (!result1.success) {
@@ -126,9 +117,9 @@ export function between<O, C, P>(
 }
 
 export function sepBy<S, P>(
-  separator: Parser<S, never>,
-  parser: Parser<P, never>
-): Parser<P[], never> {
+  separator: Parser<S>,
+  parser: Parser<P>
+): Parser<P[]> {
   return (input: string) => {
     let match: P[] = [];
     let rest = input;
@@ -149,10 +140,7 @@ export function sepBy<S, P>(
   };
 }
 
-export function seq<M, const T extends Parser<M, PlainObject>[]>(
-  parsers: T,
-  name: string = ""
-): Merged<T> {
+export function seq<T, U>(parsers: Parser<T>[], name: string = ""): Parser<U> {
   return trace(`seq(${name})`, (input: string) => {
     let match: M[] = [];
     let rest = input;
@@ -177,8 +165,8 @@ export function seq<M, const T extends Parser<M, PlainObject>[]>(
   });
 }
 
-export function capture<M, const S extends string>(
-  parser: Parser<M, never>,
+/* export function capture<M, const S extends string>(
+  parser: Parser<M>,
   name: S
 ): Parser<M, Record<S, M>> {
   return trace(`captures(${escape(name)})`, (input: string) => {
@@ -198,7 +186,7 @@ export function capture<M, const S extends string>(
 
 export function setCapturesAsMatch<M, C extends PlainObject>(
   parser: Parser<M, C>
-): Parser<C, never> {
+): Parser<C> {
   return trace(`setCapturesAsMatch`, (input: string) => {
     let result = parser(input);
     if (result.success) {
@@ -220,10 +208,10 @@ export function captureCaptures<
   return trace(`captureCaptures(${escape(name)})`, (input: string) => {
     return capture(setCapturesAsMatch(parser), name)(input);
   });
-}
+} */
 
 /* export function captureCaptures<M, C extends string>(
-  parser: Parser<M, never>,
+  parser: Parser<M>,
   name: string
 ): Parser<M, C> {
   return trace(`captures(${escape(name)})`, (input: string) => {
@@ -262,9 +250,9 @@ export function captureCaptures<
 } */
 
 export function transform<T, X>(
-  parser: Parser<T, never>,
+  parser: Parser<T>,
   transformerFunc: (x: T) => X
-): Parser<X, never> {
+): Parser<X> {
   return trace(`transform(${transformerFunc})`, (input: string) => {
     let result = parser(input);
     if (result.success) {

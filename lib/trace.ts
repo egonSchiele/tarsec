@@ -2,9 +2,9 @@ import { ParserResult, Parser, PlainObject } from "./types";
 import { escape } from "./utils";
 const STEP = 2;
 
-export function resultToString<M, C extends PlainObject>(
+export function resultToString<T>(
   name: string,
-  result: ParserResult<M, C>
+  result: ParserResult<T>
 ): string {
   if (result.success) {
     return `✅ ${name} -- match: ${escape(result.match)}, rest: ${escape(
