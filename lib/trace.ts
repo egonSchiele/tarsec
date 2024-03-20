@@ -7,7 +7,7 @@ export function resultToString<T>(
   result: ParserResult<T>
 ): string {
   if (result.success) {
-    return `✅ ${name} -- match: ${escape(result.match)}, rest: ${escape(
+    return `✅ ${name} -- match: ${escape(result.result)}, rest: ${escape(
       result.rest
     )}`;
   }

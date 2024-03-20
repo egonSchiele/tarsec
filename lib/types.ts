@@ -1,11 +1,14 @@
 export type PlainObject = Record<string, unknown>;
 export type ParserSuccess<T> = {
   success: true;
-  match: T;
+  result: T;
   rest: string;
 };
 
-export type CaptureParserSuccess<T, C> = ParserSuccess<T> & {
+export type CaptureParserSuccess<
+  T,
+  C extends PlainObject
+> = ParserSuccess<T> & {
   captures: C;
 };
 
@@ -16,23 +19,35 @@ export type ParserFailure = {
 };
 
 export type ParserResult<T> = ParserSuccess<T> | ParserFailure;
-export type CaptureParserResult<T, C> =
+export type CaptureParserResult<T, C extends PlainObject> =
   | CaptureParserSuccess<T, C>
   | ParserFailure;
 
 export type Parser<T> = (input: string) => ParserResult<T>;
-export type CaptureParser<T, C> = (input: string) => CaptureParserResult<T, C>;
+export type CaptureParser<T, C extends PlainObject> = (
+  input: string
+) => CaptureParserResult<T, C>;
 
-export function success<T>(match: T, rest: string): ParserSuccess<T> {
-  return { success: true, match, rest };
+export type GeneralParser<T, C extends PlainObject> =
+  | Parser<T>
+  | CaptureParser<T, C>;
+
+export function isCaptureResult<T, C extends PlainObject>(
+  result: ParserResult<T>
+): result is CaptureParserSuccess<T, C> {
+  return "captures" in result;
 }
 
-export function captureSuccess<T, C>(
-  match: T,
+export function success<T>(result: T, rest: string): ParserSuccess<T> {
+  return { success: true, result, rest };
+}
+
+export function captureSuccess<T, C extends PlainObject>(
+  result: T,
   rest: string,
   captures: C
 ): CaptureParserSuccess<T, C> {
-  return { success: true, match, rest, captures };
+  return { success: true, result, rest, captures };
 }
 
 export function failure(message: string, rest: string): ParserFailure {
