@@ -3,6 +3,8 @@ import {
   CaptureParser,
   GeneralParser,
   isCaptureResult,
+  MergedCaptures,
+  MergedResults,
   Parser,
   PlainObject,
   success,
@@ -143,18 +145,23 @@ export function sepBy<S, P>(
   };
 }
 
-export const getResults = (r: any[], c: PlainObject) => r;
-export const getCaptures = (r: any[], c: PlainObject) => c;
+export function getResults<R, C>(results: R, captures: C): R {
+  return results;
+}
 
-export function seq<T extends readonly GeneralParser<any, any>[], U>(
+export function getCaptures<R, C>(results: R, captures: C): C {
+  return captures;
+}
+
+export function seq<const T extends readonly GeneralParser<any, any>[], U>(
   parsers: T,
-  transform: (results: any[], captures: Record<string, unknown>) => U,
+  transform: (results: MergedResults<T>[], captures: MergedCaptures<T>) => U,
   debugName: string = ""
 ): Parser<U> {
   return trace(`seq(${debugName})`, (input: string) => {
     const results: any[] = [];
     let rest = input;
-    const captures: Record<string, unknown> = {};
+    const captures: MergedResults<T>[] | any = {};
     for (let parser of parsers) {
       let parsed = parser(rest);
       if (!parsed.success) {
@@ -168,7 +175,6 @@ export function seq<T extends readonly GeneralParser<any, any>[], U>(
         }
       }
     }
-    console.log({ results, captures });
     const result = transform(results, captures);
     return success(result, rest);
   });

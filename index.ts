@@ -6,7 +6,7 @@ import {
   many1WithJoin,
   seq,
 } from "./lib/combinators.js";
-import { char, noneOf, spaces, str } from "./lib/parsers.js";
+import { char, noneOf, space, spaces, str } from "./lib/parsers.js";
 import { Parser } from "./lib/types.js";
 
 /* const foo = capture(count(char("#")), "level");
@@ -28,23 +28,20 @@ const headingParser = seq(
 const result = headingParser("## a subheading\n");
 console.log({ result });
 
-/*
-const helloParser = seq([
-  str("hello"),
-  space,
-  capture(many1WithJoin(noneOf("!")), "name"),
-  char("!"),
-]);
+type Hello = { name: string };
 
-const bothParser = seq([
-  captureCaptures(headingParser, "heading"),
-  captureCaptures(helloParser, "hello"),
-]);
+const helloParser: Parser<Hello> = seq(
+  [str("hello"), space, capture(many1WithJoin(noneOf("!")), "name"), char("!")],
+  getCaptures
+);
+
+const bothParser = seq(
+  [capture(headingParser, "heading"), capture(helloParser, "hello")],
+  getCaptures
+);
 
 const result2 = bothParser("## a subheading\nhello world!");
 console.log({ result2 });
 if (result2.success) {
-  console.log(result2.match);
-  console.log(result2.captures);
+  console.log(result2.result);
 }
- */

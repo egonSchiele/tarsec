@@ -59,17 +59,31 @@ export type Prettify<T> = {
 } & {};
 
 // see <https://stackoverflow.com/a/50375286/3625>
-type UnionToIntersection<U> = (U extends any ? (x: U) => void : never) extends (
-  x: infer I
-) => void
+export type UnionToIntersection<U> = (
+  U extends any ? (x: U) => void : never
+) extends (x: infer I) => void
   ? I
   : never;
 
-export type Merged<T> = T extends Parser<infer M extends PlainObject>[]
-  ? UnionToIntersection<M> extends PlainObject
-    ? Parser<Prettify<UnionToIntersection<M>>>
-    : never
-  : never;
+type ExtractResults<T> = T extends Parser<infer U> ? U : never;
+type ExtractCaptures<T> = T extends CaptureParser<any, infer U> ? U : never;
+
+type ExtractCaptureParsers<T extends readonly GeneralParser<any, any>[]> =
+  Extract<T[number], CaptureParser<any, any>>;
+
+export type MergedCaptures<T extends readonly GeneralParser<any, any>[]> =
+  Prettify<UnionToIntersection<ExtractCaptures<ExtractCaptureParsers<T>>>>;
+
+/*
+  1. No UnionToIntersection because this looks like `string | number` and the intersection is `never`.
+  2. Instead of a union, a tuple type would be more useful, but it looks like that's not possible.
+     See this answer https://stackoverflow.com/a/55128956
+     TLDR, we can't rely on the ordering of a union.
+  3. Finally, this just returns a union of all the result types, but `results` is going to be an array,
+     so stick a `[]` at the end when you use it. I can't do it here for some reason, messes up the type.
+  */
+export type MergedResults<T extends readonly GeneralParser<any, any>[]> =
+  ExtractResults<T[number]>;
 
 /* export type Merge2<O extends Array<T>, T = any> = Prettify<
   UnionToIntersection<O[number]>
@@ -93,3 +107,10 @@ export type DeepNonNullable<T> = {
  */
 /* type ValueOf<T> = T[keyof T]; */
 /* type RemoveNeverKeys<T> = Pick<T, ValueOf<FilterNeverKeys<T>>>; */
+
+const data = [1, "2", 3, "4", "5"] as const;
+// 1. Create a union type from the array
+type Data = (typeof data)[number]; // 1 | 2 | 3 | 4 | 5
+
+type Bar<T> = T extends 1 ? "one" : "two";
+type X = Bar<Data>;
