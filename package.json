@@ -3,7 +3,6 @@
   "version": "0.0.8",
   "description": "A parser combinator library for TypeScript, inspired by Parsec.",
   "homepage": "https://github.com/egonSchiele/tarsec",
- 
   "scripts": {
     "test": "vitest",
     "build": "tsc",
@@ -11,7 +10,7 @@
   },
   "files": [
     "./dist"
-  ],  
+  ],
   "exports": {
     ".": {
       "import": "./dist/index.js",
@@ -23,6 +22,7 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^20.11.28",
+    "typescript": "^5.4.2",
     "vitest": "^1.4.0"
   }
 }
