@@ -1,6 +1,7 @@
 import { trace } from "./trace";
 import {
   CaptureParser,
+  createTree,
   failure,
   GeneralParser,
   isCaptureResult,
@@ -167,8 +168,12 @@ export function seq<const T extends readonly GeneralParser<any, any>[], U>(
     const results: any[] = [];
     let rest = input;
     const captures: MergedResults<T>[] | any = {};
-    for (let parser of parsers) {
-      let parsed = parser(rest);
+    const rootNode = createTree(parsers);
+
+    let current = rootNode;
+    while (current) {
+      const parser = current.parser;
+      const parsed = parser(rest);
       if (!parsed.success) {
         return parsed;
       }
@@ -179,7 +184,9 @@ export function seq<const T extends readonly GeneralParser<any, any>[], U>(
           captures[key] = parsed.captures[key];
         }
       }
+      current = current.child;
     }
+
     const result = transform(results, captures);
     return success(result, rest);
   });

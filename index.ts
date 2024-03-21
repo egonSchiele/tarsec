@@ -1,35 +1,51 @@
 import {
   capture,
-  captureCaptures,
-  count,
-  many1WithJoin,
+  getCaptures,
+  getResults,
+  optional,
+  or,
   seq,
 } from "./lib/combinators.js";
-import { char, noneOf, space, spaces, str } from "./lib/parsers.js";
-import { Parser, PlainObject } from "./lib/types.js";
-
-const headingParser = seq([
-  capture(count(char("#")), "level"),
-  spaces,
-  capture(many1WithJoin(noneOf("\n")), "heading"),
-  str("\n"),
-]);
-
-const helloParser = seq([
-  str("hello"),
+import { space, str } from "./lib/parsers.js";
+import { createTree } from "./lib/types.js";
+const parser = seq(
+  [
+    str("the robot"),
+    space,
+    str("ate"),
+    space,
+    or([str("the"), str("the cake")]),
+    capture(optional(str(" pie")), "food"),
+  ],
+  getResults
+);
+// without needing to backtrack
+const resultPie = parser("the robot ate the pie");
+console.log(resultPie);
+/* 
+const parser = seq(
+  [
+    str("the robot"),
+    space,
+    str("ate"),
+    space,
+    or([str("the"), str("the cake")]),
+    optional(str(" pie")),
+  ],
+  getResults
+);
+// without needing to backtrack
+const resultCake = parser("the robot ate the cake");
+console.log(resultCake); */
+/* 
+const tree = createTree([
+  str("the robot"),
   space,
-  capture(many1WithJoin(noneOf("!")), "name"),
-  char("!"),
+  str("ate"),
+  space,
+  or([str("the"), str("the cake")]),
+  optional(str(" pie")),
 ]);
 
-const bothParser = seq([
-  captureCaptures(headingParser, "heading"),
-  captureCaptures(helloParser, "hello"),
-]);
-
-const result2 = bothParser("## a subheading\nhello world!");
-console.log({ result2 });
-if (result2.success) {
-  console.log(result2.match);
-  console.log(result2.captures);
-}
+console.log(tree);
+ */
