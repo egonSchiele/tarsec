@@ -19,14 +19,14 @@ npm install tarsec
 ## Hello world
 
 ```ts
-import { str, seq, space } from "tarsec";
+import { getResults, str, seq, space } from "tarsec";
 
 // define a parser
 const parser = seq([
     str("hello"),
     space,
     str("world")
-]);
+], getResults);
 
 // then use it
 parser("hello world"); // success
@@ -55,12 +55,12 @@ const parser = seq([
     */
     capture(many1WithJoin(noneOf("!")), "person"),
     char("!"),
-]);
+], getCaptures);
 
 // parse
-const result = parser("hello adit!");
+const parsed = parser("hello adit!");
 
-console.log(result.success); // true
-console.log(result.captures); // { person: "adit" }
+console.log(parsed.success); // true
+console.log(parsed.result); // { person: "adit" }
 ```
 
