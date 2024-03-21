@@ -59,7 +59,14 @@ export function many1WithJoin(parser: Parser<string>): Parser<string> {
   return transform<string[], string>(many1(parser), (x) => x.join(""));
 }
 
-export function or<T>(parsers: Parser<T>[], name: string = ""): Parser<T> {
+/* seq<, U>(
+  parsers: T,
+  transform: (results: MergedResults<T>[], captures: MergedCaptures<T>) => U,
+ */
+export function or<const T extends readonly GeneralParser<any, any>[]>(
+  parsers: T,
+  name: string = ""
+): Parser<MergedResults<T>> {
   return trace(`or(${name})`, (input: string) => {
     for (let parser of parsers) {
       let result = parser(input);

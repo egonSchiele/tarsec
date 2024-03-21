@@ -4,6 +4,7 @@ import {
   getCaptures,
   getResults,
   many1WithJoin,
+  or,
   seq,
 } from "./lib/combinators.js";
 import { char, noneOf, space, spaces, str } from "./lib/parsers.js";
@@ -37,6 +38,11 @@ const helloParser: Parser<Hello> = seq(
 
 const bothParser = seq(
   [capture(headingParser, "heading"), capture(helloParser, "hello")],
+  getCaptures
+);
+
+const bothOrParser = seq(
+  [capture(or([capture(headingParser, "foo"), helloParser]), "result")],
   getCaptures
 );
 
