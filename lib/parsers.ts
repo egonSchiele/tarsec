@@ -14,7 +14,7 @@ export function char(c: string): Parser<string> {
     if (input[0] === c) {
       return success(c, input.slice(1));
     }
-    return failure(`expected ${c}, got ${input[0]}`, input);
+    return failure(`expected ${escape(c)}, got ${escape(input[0])}`, input);
   });
 }
 
