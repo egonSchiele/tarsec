@@ -16,6 +16,6 @@ describe("hello world", () => {
       getCaptures
     );
     const result = parser("hello adit!");
-    expect(result.success).toEqual(success({ name: "adit" }, ""));
+    expect(result).toEqual(success({ name: "adit" }, ""));
   });
 });
