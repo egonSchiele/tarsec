@@ -1,12 +1,14 @@
 import { trace } from "./trace";
 import {
   CaptureParser,
+  failure,
   GeneralParser,
   isCaptureResult,
   MergedCaptures,
   MergedResults,
   Parser,
   PlainObject,
+  Prettify,
   success,
 } from "./types";
 import { escape } from "./utils";
@@ -63,7 +65,7 @@ export function many1WithJoin(parser: Parser<string>): Parser<string> {
   parsers: T,
   transform: (results: MergedResults<T>[], captures: MergedCaptures<T>) => U,
  */
-export function or<const T extends readonly GeneralParser<any, any>[]>(
+export function or<const T extends readonly Parser<any>[]>(
   parsers: T,
   name: string = ""
 ): Parser<MergedResults<T>> {
@@ -74,11 +76,7 @@ export function or<const T extends readonly GeneralParser<any, any>[]>(
         return result;
       }
     }
-    return {
-      success: false,
-      rest: input,
-      message: "all parsers failed",
-    };
+    return failure(`all parsers failed`, input);
   });
 }
 
@@ -199,7 +197,25 @@ export function capture<T, const S extends string>(
       };
       return {
         ...result,
-        captures, //: mergeCaptures(result.captures || {}, captures),
+        captures,
+      };
+    }
+    return result;
+  });
+}
+
+export function wrap<T, const S extends string>(
+  parser: Parser<T>,
+  name: S
+): Parser<Prettify<Record<S, T>>> {
+  return trace(`capture(${escape(name)})`, (input: string) => {
+    let result = parser(input);
+    if (result.success) {
+      return {
+        ...result,
+        result: {
+          [name]: result.result,
+        },
       };
     }
     return result;
