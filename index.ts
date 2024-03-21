@@ -6,9 +6,9 @@ import {
   or,
   seq,
 } from "./lib/combinators.js";
-import { space, str } from "./lib/parsers.js";
+import { eof, space, str } from "./lib/parsers.js";
 import { createTree } from "./lib/types.js";
-const parser = seq(
+/* const parser = seq(
   [
     str("the robot"),
     space,
@@ -22,7 +22,8 @@ const parser = seq(
 // without needing to backtrack
 const resultPie = parser("the robot ate the pie");
 console.log(resultPie);
-/* 
+ */
+
 const parser = seq(
   [
     str("the robot"),
@@ -31,12 +32,13 @@ const parser = seq(
     space,
     or([str("the"), str("the cake")]),
     optional(str(" pie")),
+    eof,
   ],
   getResults
 );
 // without needing to backtrack
 const resultCake = parser("the robot ate the cake");
-console.log(resultCake); */
+console.log(resultCake);
 /* 
 const tree = createTree([
   str("the robot"),

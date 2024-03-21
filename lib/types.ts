@@ -3,6 +3,7 @@ export type ParserSuccess<T> = {
   success: true;
   result: T;
   rest: string;
+  nextParser?: GeneralParser<any, any>;
 };
 
 export type CaptureParserSuccess<
@@ -111,8 +112,10 @@ export type DeepNonNullable<T> = {
 export type Node = ParserNode | EmptyNode;
 export type ParserNode = {
   parent: Node;
-  parser: GeneralParser<any, any>;
+  parser: GeneralParser<any, any> | null;
+  input?: string;
   child: Node;
+  closed: boolean;
 };
 export type EmptyNode = null;
 
@@ -124,6 +127,7 @@ export function createNode(
     parent,
     parser,
     child: null,
+    closed: false,
   };
 }
 

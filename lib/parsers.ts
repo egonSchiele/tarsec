@@ -77,6 +77,12 @@ export const quote: Parser<string> = oneOf(`'"`);
 export const tab: Parser<string> = char("\t");
 export const newline: Parser<string> = char("\n");
 
+export const eof: Parser<null> = (input: string) => {
+  if (input === "") {
+    return success(null, input);
+  }
+  return failure("expected end of input", input);
+};
 export const quotedString = transform(
   seq([quote, word, quote], getResults),
   (x: string[]) => x.join("")

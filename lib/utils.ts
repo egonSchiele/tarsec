@@ -1,3 +1,5 @@
+import { Node } from "./types";
+
 export function escape(str: any) {
   return JSON.stringify(str);
 }
@@ -30,4 +32,18 @@ export function mergeCaptures(
     }
   });
   return result;
+}
+
+export function findAncestorWithNextParser(node: Node): Node {
+  if (node === null) return null;
+  if (node.parser && !node.closed) {
+    console.log("node has parser and is not closed");
+    return node;
+  }
+  if (node.parent) {
+    console.log("node has parent");
+    return findAncestorWithNextParser(node.parent);
+  }
+  console.log("returning null");
+  return null;
 }

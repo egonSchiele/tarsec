@@ -12,7 +12,7 @@ import {
   Prettify,
   success,
 } from "./types";
-import { escape } from "./utils";
+import { escape, findAncestorWithNextParser } from "./utils";
 
 export function many<T>(parser: Parser<T>): Parser<T[]> {
   return trace("many", (input: string) => {
@@ -71,12 +71,19 @@ export function or<const T extends readonly Parser<any>[]>(
   name: string = ""
 ): Parser<MergedResults<T>> {
   return trace(`or(${name})`, (input: string) => {
-    for (let parser of parsers) {
-      let result = parser(input);
+    for (let i = 0; i < parsers.length; i++) {
+      let result = parsers[i](input);
       if (result.success) {
-        return result;
+        if (i === parsers.length - 1) return result;
+        const nextParser = or(parsers.slice(i + 1), name);
+        console.log({ nextParser }, parsers.slice(i + 1));
+        return {
+          ...result,
+          nextParser,
+        };
       }
     }
+
     return failure(`all parsers failed`, input);
   });
 }
@@ -173,11 +180,32 @@ export function seq<const T extends readonly GeneralParser<any, any>[], U>(
     let current = rootNode;
     while (current) {
       const parser = current.parser;
+      if (!parser) {
+        console.log({ current, parser, results, captures });
+        throw new Error("parser is null");
+      }
       const parsed = parser(rest);
+      current.closed = true;
+      console.log({ parsed });
       if (!parsed.success) {
-        return parsed;
+        const ancestor = findAncestorWithNextParser(current);
+        if (ancestor) {
+          current = ancestor;
+          rest = ancestor.input!;
+          continue;
+        } else {
+          return parsed;
+        }
       }
       results.push(parsed.result);
+
+      if (parsed.nextParser) {
+        console.log("setting next parser", parsed.nextParser);
+        current.parser = parsed.nextParser;
+        current.input = rest;
+        current.closed = false;
+      }
+
       rest = parsed.rest;
       if (isCaptureResult(parsed)) {
         for (const key in parsed.captures) {
