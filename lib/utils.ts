@@ -34,16 +34,22 @@ export function mergeCaptures(
   return result;
 }
 
-export function findAncestorWithNextParser(node: Node): Node {
-  if (node === null) return null;
+export function findAncestorWithNextParser(
+  node: Node,
+  count = 0
+): [Node, number] {
+  if (node === null) return [null, count];
   if (node.parser && !node.closed) {
-    console.log("node has parser and is not closed");
-    return node;
+    return [node, count];
   }
   if (node.parent) {
-    console.log("node has parent");
-    return findAncestorWithNextParser(node.parent);
+    return findAncestorWithNextParser(node.parent, count + 1);
   }
-  console.log("returning null");
-  return null;
+  return [null, count];
+}
+
+export function popMany(arr: any[], count: number) {
+  for (let i = 0; i < count; i++) {
+    arr.pop();
+  }
 }

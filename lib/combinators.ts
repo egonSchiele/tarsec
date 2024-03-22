@@ -12,7 +12,7 @@ import {
   Prettify,
   success,
 } from "./types";
-import { escape, findAncestorWithNextParser } from "./utils";
+import { escape, findAncestorWithNextParser, popMany } from "./utils";
 
 export function many<T>(parser: Parser<T>): Parser<T[]> {
   return trace("many", (input: string) => {
@@ -76,7 +76,7 @@ export function or<const T extends readonly Parser<any>[]>(
       if (result.success) {
         if (i === parsers.length - 1) return result;
         const nextParser = or(parsers.slice(i + 1), name);
-        console.log({ nextParser }, parsers.slice(i + 1));
+        /* console.log({ nextParser }, parsers.slice(i + 1)); */
         return {
           ...result,
           nextParser,
@@ -186,21 +186,25 @@ export function seq<const T extends readonly GeneralParser<any, any>[], U>(
       }
       const parsed = parser(rest);
       current.closed = true;
-      console.log({ parsed });
+      /*       console.log({ parsed }); */
       if (!parsed.success) {
-        const ancestor = findAncestorWithNextParser(current);
+        const [ancestor, count] = findAncestorWithNextParser(current);
         if (ancestor) {
           current = ancestor;
           rest = ancestor.input!;
+
+          popMany(results, count);
+
           continue;
         } else {
           return parsed;
         }
       }
+
       results.push(parsed.result);
 
       if (parsed.nextParser) {
-        console.log("setting next parser", parsed.nextParser);
+        /* console.log("setting next parser", parsed.nextParser); */
         current.parser = parsed.nextParser;
         current.input = rest;
         current.closed = false;
