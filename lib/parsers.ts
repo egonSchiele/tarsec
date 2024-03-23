@@ -2,6 +2,13 @@ import { getResults, many1WithJoin, seq, transform } from "./combinators";
 import { trace } from "./trace";
 import { failure, Parser, success } from "./types";
 import { escape } from "./utils";
+
+/**
+ * Takes a character. Returns a parser that parses that character. asldkjaslkdajsdlkj
+ *
+ * @param c - character to parse
+ * @returns - parser that parses the given character
+ */
 export function char<const S extends string>(c: S): Parser<S> {
   return trace(`char(${escape(c)})`, (input: string) => {
     if (input.length === 0) {
@@ -18,6 +25,12 @@ export function char<const S extends string>(c: S): Parser<S> {
   });
 }
 
+/**
+ * Takes a string. Returns a parser that parses that string.
+ *
+ * @param s - string to parse
+ * @returns - parser that parses the given string
+ */
 export function str<const S extends string>(s: S): Parser<S> {
   return trace(`str(${escape(s)})`, (input: string) => {
     if (input.substring(0, s.length) === s) {
@@ -27,6 +40,13 @@ export function str<const S extends string>(s: S): Parser<S> {
   });
 }
 
+/**
+ * Takes a string. Returns a parser that parses
+ * one of the characters in that string.
+ *
+ * @param chars - string of possible characters
+ * @returns - parser that parses one of the given characters
+ */
 export function oneOf(chars: string): Parser<string> {
   return trace(`oneOf(${escape(chars)})`, (input: string) => {
     if (input.length === 0) {
@@ -40,6 +60,13 @@ export function oneOf(chars: string): Parser<string> {
   });
 }
 
+/**
+ * Takes a string. Returns a parser that parses one character
+ * that's not any of the characters in the given string
+ *
+ * @param chars - string of characters to avoid
+ * @returns - parser that parses a character that is not in the given string
+ */
 export function noneOf(chars: string): Parser<string> {
   return trace(`noneOf(${escape(chars)})`, (input: string) => {
     if (input.length === 0) {
@@ -55,6 +82,13 @@ export function noneOf(chars: string): Parser<string> {
   });
 }
 
+/**
+ * A parser that parses any one character.
+ * Fails on empty strings, succeeds otherwise.
+ *
+ * @param input - input string
+ * @returns - ParserResult
+ */
 export function anyChar(input: string): Parser<string> {
   return trace("anyChar", (input: string) => {
     if (input.length === 0) {
