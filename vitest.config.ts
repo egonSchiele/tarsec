@@ -12,6 +12,7 @@ const config = defineConfig({
     include: ["./lib/**/*.test.{js,ts,tsx}", "./tests/**/*.test.{js,ts,tsx}"],
     exclude: [...configDefaults.exclude, "./build/**/*", "./dist/**/*"],
     coverage: {
+      exclude: ["index.ts", "docs/**/*", "lib/index.ts"],
       //include: ["./src/**/*", "./app/**/*"],
     },
   },
