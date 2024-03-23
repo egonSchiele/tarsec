@@ -39,7 +39,9 @@ parser("hello there"); // failure
 - [API reference](https://egonschiele.github.io/tarsec/)
 
 ## Features
-- Tarsec is entirely TypeScript. There's nothing to compile.
+- tarsec is entirely TypeScript. There's nothing to compile.
 - [Debug mode](/tutorials/debugging.md) that prints what's happening step-by-step
 - Derived types: tarsec will generate TypeScript types for your parser
 - Partial [backtracking](/tutorials/backtracking.md) support
+
+Read more about [use cases for tarsec](/tutorials/use-case.md).
