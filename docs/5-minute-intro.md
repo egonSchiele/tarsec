@@ -136,4 +136,4 @@ There is an error in that parser definition. Do you see it? Instead of using `co
       Type 'string' is not assignable to type 'number'.ts(2322)
 ```
 
-That was the five minute intro to tarsec. If you feel ready, you can start writing parsers. Otherwise, read about the three big concepts in tarsec. After that, you should be ready to write a parser.
+That was the five minute intro to tarsec. If you feel ready, you can start writing parsers. Otherwise, read about the [three big concepts](/docs/three-building-blocks.md) in tarsec. After that, you should be ready to write a parser.
