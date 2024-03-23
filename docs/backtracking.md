@@ -69,3 +69,7 @@ Generally, you should try to avoid making your parser backtrack. You can do this
 2. the longest option comes first.
 
 In the example above, either of these parsers would have avoided backtracking:
+
+
+
+Tarsec doesn't always catch backtracking issues, though. Read [this](/docs/backtracking/other-backtracking-issues.md) for more examples.
