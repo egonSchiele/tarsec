@@ -7,6 +7,7 @@ import {
   escape,
 } from "./utils";
 import { Node } from "./types";
+import { char } from "./parsers";
 describe("escape", () => {
   test("escape should return a JSON string of the input", () => {
     const input = {
@@ -64,18 +65,18 @@ describe("mergeCaptures", () => {
 });
 
 describe("findAncestorWithNextParser", () => {
-  test.skip("findAncestorWithNextParser should return the first ancestor node with next parser", () => {
+  test("findAncestorWithNextParser should return the first ancestor node that is not closed", () => {
     const parent: Node = {
-      closed: false,
+      closed: true,
       parent: {
-        closed: true,
+        closed: false,
         parent: {
           closed: false,
           parent: null,
           parser: null,
           child: null,
         },
-        parser: null,
+        parser: char("a"),
         child: null,
       },
       parser: null,
