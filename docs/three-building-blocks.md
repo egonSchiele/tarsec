@@ -109,4 +109,6 @@ const excitementParser = many1("!")
 const result = excitementParser("!!!!!")
 ```
 
-Those are the three building blocks in tarsec. Now you're ready to write your own parsers. Check out the parsers and parser combinators in the tarsec standard library to see what's available.
+Those are the three building blocks in tarsec. Next, [read the 5-minute intro](/docs/5-minute-intro.md)
+
+Now you're ready to write your own parsers. Check out the parsers and parser combinators in the tarsec standard library to see what's available.
