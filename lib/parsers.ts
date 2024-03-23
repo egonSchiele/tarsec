@@ -89,14 +89,12 @@ export function noneOf(chars: string): Parser<string> {
  * @param input - input string
  * @returns - ParserResult
  */
-export function anyChar(input: string): Parser<string> {
-  return trace("anyChar", (input: string) => {
-    if (input.length === 0) {
-      return failure("unexpected end of input", input);
-    }
-    return { success: true, match: input[0], rest: input.slice(1) };
-  });
-}
+export const anyChar = trace("anyChar", (input: string) => {
+  if (input.length === 0) {
+    return failure("unexpected end of input", input);
+  }
+  return success(input[0], input.slice(1));
+});
 
 export const space: Parser<string> = oneOf(" \t\n\r");
 export const spaces: Parser<string> = many1WithJoin(space);

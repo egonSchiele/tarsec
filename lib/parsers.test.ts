@@ -25,48 +25,6 @@ import {
 } from "./combinators";
 test.skip("hello", () => {
   describe("Parser Tests", () => {
-    describe("optional parser", () => {
-      const parser = optional(char("a"));
-
-      it("should parse the character if it exists", () => {
-        const result = parser("a");
-        expect(result).toEqual(success({ rest: "", match: "a" }));
-      });
-
-      it("should return an empty string if the character is missing", () => {
-        const result = parser("b");
-        expect(result).toEqual(success({ rest: "b", match: "" }));
-      });
-
-      it("should not consume any input if it fails", () => {
-        // @ts-ignore
-        const parser2 = optional(seq(many1WithJoin(letter), char("!")));
-        const result1 = parser2("hello!");
-        expect(result1).toEqual(
-          success({ rest: "", match: "hello!", captures: {} })
-        );
-
-        const result2 = parser2("hello");
-        expect(result2).toEqual(success({ rest: "hello", match: "" }));
-      });
-    });
-
-    describe("not parser", () => {
-      const parser = not(char("a"));
-
-      it("should fail if the character is present", () => {
-        const result = parser("a");
-        expect(result).toEqual(
-          failure({ rest: "a", message: "unexpected match" })
-        );
-      });
-
-      it("should return an empty string if the character is missing", () => {
-        const result = parser("b");
-        expect(result).toEqual(success({ rest: "b", match: "" }));
-      });
-    });
-
     describe("space parser", () => {
       it("should parse a space character", () => {
         const result = space(" ");
@@ -176,22 +134,6 @@ test.skip("hello", () => {
     });
   });
 
-  describe("seq parser", () => {
-    const parser = seq([char("a"), char("b")]);
-
-    it("should parse both characters in sequence", () => {
-      const result = parser("ab");
-      expect(result).toEqual(success({ rest: "", match: "ab", captures: {} }));
-    });
-
-    it("should fail if any of the parsers fail", () => {
-      const result = parser("ac");
-      expect(result).toEqual(
-        failure({ rest: "c", message: "expected b, got c" })
-      );
-    });
-  });
-
   describe("seq parser - hello world", () => {
     it("multiple char parsers", () => {
       const parser = seq([
@@ -244,20 +186,6 @@ test("quote parser - invalid quote", () => {
   );
 });
 
-// Test for anyChar parser
-test("anyChar parser - non-empty input", () => {
-  const input = "abc";
-  const result = anyChar(input);
-  expect(result).toEqual(success({ rest: "bc", match: "a", captures: {} }));
-});
-
-test("anyChar parser - empty input", () => {
-  const input = "";
-  const result = anyChar(input);
-  expect(result).toEqual(
-    failure({ rest: "", message: "unexpected end of input" })
-  );
-});
 
 // Test for between parser
 test("between parser - valid input", () => {
@@ -281,20 +209,5 @@ test("between parser - invalid input", () => {
 });
 
 // Test for sepBy parser
-test("sepBy parser - valid input", () => {
-  const separator = anyChar;
-  const parser = anyChar;
-  const input = "a,b,c";
-  const result = sepBy(separator, parser)(input);
-  expect(result).toEqual(success({ rest: "", match: "abc", captures: {} }));
-});
-
-test("sepBy parser - invalid input", () => {
-  const separator = quote;
-  const parser = anyChar;
-  const input = '"a"bc';
-  const result = sepBy(separator, parser)(input);
-  expect(result).toEqual(success({ rest: "bc", match: "a", captures: {} }));
-});
  */
 });

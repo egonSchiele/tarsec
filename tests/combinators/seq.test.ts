@@ -2,7 +2,22 @@ import { seq, capture } from "@/lib/combinators";
 import { char, str, space } from "@/lib/parsers";
 import { describe, it, expect } from "vitest";
 import { getCaptures, getResults } from "../../lib/combinators";
-import { success } from "../../lib/types";
+import { failure, success } from "../../lib/types";
+
+describe("seq parser", () => {
+  const parser = seq([char("a"), char("b")], getResults);
+
+  it("should parse both characters in sequence", () => {
+    const result = parser("ab");
+    expect(result).toEqual(success(["a", "b"], ""));
+  });
+
+  it("should fail if any of the parsers fail", () => {
+    const result = parser("ac");
+    // TODO should it consume input?
+    expect(result).toEqual(failure('expected "b", got "c"', "c"));
+  });
+});
 
 describe("seq parser - hello world", () => {
   it("multiple char parsers", () => {
