@@ -3,6 +3,7 @@ import { char } from "@/lib/parsers";
 import { describe, it, expect } from "vitest";
 import { failure, success } from "../../lib/types";
 import { compareSuccess } from "../../vitest.globals";
+import { str } from "../../lib/parsers";
 
 describe("or parser", () => {
   const parser = or<string>([char("a"), char("b")]);
@@ -20,5 +21,15 @@ describe("or parser", () => {
   it("should fail if all parsers fail", () => {
     const result = parser("c");
     expect(result).toEqual(failure("all parsers failed", "c"));
+  });
+
+  it("returns a nextParser", () => {
+    const parser = or([str("hello"), str("hello!")]);
+    const result = parser("hello");
+    compareSuccess(result, success("hello", ""));
+    expect(result.nextParser).toBeDefined();
+
+    const result2 = result.nextParser("hello!");
+    compareSuccess(result2, success("hello!", ""));
   });
 });
