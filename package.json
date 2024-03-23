@@ -7,8 +7,8 @@
     "test": "vitest",
     "build": "rm -rf dist && tsc",
     "start": "cd dist && node index.js",
-    "doc": "typedoc --disableSources --out typedoc-docs lib && prettier typedoc-docs/ --write",
-    "doc:prettier": "prettier typedoc-docs/ --write"
+    "doc": "typedoc --disableSources --out docs lib && prettier docs/ --write",
+    "doc:prettier": "prettier docs/ --write"
   },
   "files": [
     "./dist"

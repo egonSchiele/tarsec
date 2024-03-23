@@ -34,11 +34,11 @@ parser("hello there"); // failure
 ```
 
 ## Learning tarsec
-- [A five minute introduction](/docs/5-minute-intro.md)
-- [The three building blocks in tarsec](/docs/three-building-blocks.md)
+- [A five minute introduction](/tutorials/5-minute-intro.md)
+- [The three building blocks in tarsec](/tutorials/three-building-blocks.md)
 
 ## Features
 - Tarsec is entirely TypeScript. There's nothing to compile.
-- [Debug mode](/docs/debugging.md) that prints what's happening step-by-step
+- [Debug mode](/tutorials/debugging.md) that prints what's happening step-by-step
 - Derived types: tarsec will generate TypeScript types for your parser
-- Partial [backtracking](/docs/backtracking.md) support
+- Partial [backtracking](/tutorials/backtracking.md) support
