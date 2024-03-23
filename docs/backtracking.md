@@ -33,7 +33,7 @@ Suppose we try the string `"hello world?"`. Here's the path we would take.
 Start with hello, then world, then it's not exclamation mark, but we can try its sibling, question mark.
 
 
-*In a parser tree, we can go down or sideways*. Here's another way to write the same parser.
+*In this parser tree, we can go down or sideways*. Here's another way to write the same parser.
 
 ```ts
     const parser = seq([
