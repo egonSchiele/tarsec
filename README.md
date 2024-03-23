@@ -38,6 +38,6 @@ parser("hello there"); // failure
 
 ## Features
 - Tarsec is entirely TypeScript. There's nothing to compile.
-- Debug mode that prints what's happening step-by-step
+- [Debug mode](/docs/debugging.md) that prints what's happening step-by-step
 - Derived types: tarsec will generate TypeScript types for your parser
 - Partial [backtracking](/docs/backtracking.md) support
