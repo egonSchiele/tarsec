@@ -15,7 +15,7 @@ describe("seq parser", () => {
   it("should fail if any of the parsers fail", () => {
     const result = parser("ac");
     // TODO should it consume input?
-    expect(result).toEqual(failure('expected "b", got "c"', "c"));
+    expect(result).toEqual(failure('expected "b", got "c"', "ac"));
   });
 });
 

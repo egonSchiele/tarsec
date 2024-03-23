@@ -100,7 +100,8 @@ export function seq<const T extends readonly GeneralParser<any, any>[], U>(
 
           continue;
         } else {
-          return parsed;
+          // don't consume input if we're failing
+          return { ...parsed, rest: input };
         }
       }
 
