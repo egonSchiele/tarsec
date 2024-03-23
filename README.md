@@ -36,6 +36,7 @@ parser("hello there"); // failure
 ## Learning tarsec
 - [A five minute introduction](/tutorials/5-minute-intro.md)
 - [The three building blocks in tarsec](/tutorials/three-building-blocks.md)
+- [API reference](https://egonschiele.github.io/tarsec/)
 
 ## Features
 - Tarsec is entirely TypeScript. There's nothing to compile.
