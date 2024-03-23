@@ -4,6 +4,8 @@ A quick tour of the most important tarsec features.
 
 ## 1. Running parsers in sequence
 
+![](images/5-minute-intro/seq.png)
+
 `seq` allows you to run parsers in sequence:
 
 ```ts
@@ -26,6 +28,8 @@ const parsed = parser("hello adit!");
 
 ## 2. Composing parsers
 
+![](images/5-minute-intro/composition.png)
+
 Composing parsers is easy.
 
 In the last example, that many1WithJoin line was kind of a mouthful. You you can define a new parser instead:
@@ -47,6 +51,8 @@ const parser = seq([
 ```
 
 ## 3. Captures
+
+![](images/5-minute-intro/captures.png)
 
 `seq` will return an array of matches, this can be hard to work with, so you can capture certain matches and assign them a name:
 
@@ -71,6 +77,8 @@ console.log(parsed.result); // { person: "adit" }
 ```
 
 ## 4. Inferred types
+
+![](images/5-minute-intro/inference.png)
 
 A big benefit of tarsec is it's type inference. Let's look at the type of the parser above.
 

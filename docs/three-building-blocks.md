@@ -1,5 +1,7 @@
 # Three building blocks
 
+![](images/three-building-blocks/building-blocks.png)
+
 There are three building blocks in tarsec:
 1. parsers
 2. functions that return parsers

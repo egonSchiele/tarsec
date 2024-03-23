@@ -70,6 +70,6 @@ Generally, you should try to avoid making your parser backtrack. You can do this
 
 In the example above, either of these parsers would have avoided backtracking:
 
-
+![](images/backtracking/robot-parser-good.png)
 
 Tarsec doesn't always catch backtracking issues, though. Read [this](/docs/backtracking/other-backtracking-issues.md) for more examples.
