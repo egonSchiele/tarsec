@@ -45,13 +45,26 @@ export function many1<T>(parser: Parser<T>): Parser<T[]> {
   });
 }
 
-export function count<T>(parser: Parser<T>): Parser<number> {
+/**
+ * Takes a parser, runs it n times, and returns the results as an array.
+ * If it cannot run the parser n times, it fails without consuming input.
+ * @param num - number of times to run the parser
+ * @param parser - parser to run
+ * @returns - parser that runs the given parser `num` times and returns an array of the results
+ */
+export function count<T>(num: number, parser: Parser<T>): Parser<T[]> {
   return trace("count", (input: string) => {
-    const result = many(parser)(input);
-    if (result.success) {
-      return success(result.result.length, result.rest);
+    let results: T[] = [];
+    let rest = input;
+    for (let i = 0; i < num; i++) {
+      let parsed = parser(rest);
+      if (!parsed.success) {
+        return failure(`expected ${num} matches, got ${i}`, input);
+      }
+      results.push(parsed.result);
+      rest = parsed.rest;
     }
-    return result;
+    return success(results, rest);
   });
 }
 

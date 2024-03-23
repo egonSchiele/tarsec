@@ -3,3 +3,6 @@ all:
 
 test:
 	npm run test
+
+doc:
+	npm run doc
