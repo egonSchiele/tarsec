@@ -1,6 +1,8 @@
+export { seq } from "./combinators/seq";
 import { trace } from "./trace";
 import {
   CaptureParser,
+  createTree,
   failure,
   GeneralParser,
   isCaptureResult,
@@ -11,7 +13,7 @@ import {
   Prettify,
   success,
 } from "./types";
-import { escape } from "./utils";
+import { escape, findAncestorWithNextParser, popMany } from "./utils";
 
 export function many<T>(parser: Parser<T>): Parser<T[]> {
   return trace("many", (input: string) => {
@@ -70,12 +72,19 @@ export function or<const T extends readonly Parser<any>[]>(
   name: string = ""
 ): Parser<MergedResults<T>> {
   return trace(`or(${name})`, (input: string) => {
-    for (let parser of parsers) {
-      let result = parser(input);
+    for (let i = 0; i < parsers.length; i++) {
+      let result = parsers[i](input);
       if (result.success) {
-        return result;
+        if (i === parsers.length - 1) return result;
+        const nextParser = or(parsers.slice(i + 1), name);
+        /* console.log({ nextParser }, parsers.slice(i + 1)); */
+        return {
+          ...result,
+          nextParser,
+        };
       }
     }
+
     return failure(`all parsers failed`, input);
   });
 }
@@ -156,33 +165,6 @@ export function getResults<R, C>(results: R, captures: C): R {
 
 export function getCaptures<R, C>(results: R, captures: C): C {
   return captures;
-}
-
-export function seq<const T extends readonly GeneralParser<any, any>[], U>(
-  parsers: T,
-  transform: (results: MergedResults<T>[], captures: MergedCaptures<T>) => U,
-  debugName: string = ""
-): Parser<U> {
-  return trace(`seq(${debugName})`, (input: string) => {
-    const results: any[] = [];
-    let rest = input;
-    const captures: MergedResults<T>[] | any = {};
-    for (let parser of parsers) {
-      let parsed = parser(rest);
-      if (!parsed.success) {
-        return parsed;
-      }
-      results.push(parsed.result);
-      rest = parsed.rest;
-      if (isCaptureResult(parsed)) {
-        for (const key in parsed.captures) {
-          captures[key] = parsed.captures[key];
-        }
-      }
-    }
-    const result = transform(results, captures);
-    return success(result, rest);
-  });
 }
 
 export function capture<T, const S extends string>(

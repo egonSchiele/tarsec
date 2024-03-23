@@ -3,6 +3,7 @@ export type ParserSuccess<T> = {
   success: true;
   result: T;
   rest: string;
+  nextParser?: GeneralParser<any, any>;
 };
 
 export type CaptureParserSuccess<
@@ -107,3 +108,38 @@ export type DeepNonNullable<T> = {
  */
 /* type ValueOf<T> = T[keyof T]; */
 /* type RemoveNeverKeys<T> = Pick<T, ValueOf<FilterNeverKeys<T>>>; */
+
+export type Node = ParserNode | EmptyNode;
+export type ParserNode = {
+  parent: Node;
+  parser: GeneralParser<any, any> | null;
+  input?: string;
+  child: Node;
+  closed: boolean;
+};
+export type EmptyNode = null;
+
+export function createNode(
+  parent: Node | null,
+  parser: GeneralParser<any, any>
+): ParserNode {
+  return {
+    parent,
+    parser,
+    child: null,
+    closed: false,
+  };
+}
+
+export function createTree(parsers: readonly GeneralParser<any, any>[]): Node {
+  if (parsers.length === 0) {
+    return null;
+  }
+  const rootNode = createNode(null, parsers[0]);
+  let currentNode = rootNode;
+  for (let i = 1; i < parsers.length; i++) {
+    currentNode.child = createNode(currentNode, parsers[i]);
+    currentNode = currentNode.child;
+  }
+  return rootNode;
+}

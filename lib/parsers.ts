@@ -2,7 +2,7 @@ import { getResults, many1WithJoin, seq, transform } from "./combinators";
 import { trace } from "./trace";
 import { failure, Parser, success } from "./types";
 import { escape } from "./utils";
-export function char(c: string): Parser<string> {
+export function char<const S extends string>(c: S): Parser<S> {
   return trace(`char(${escape(c)})`, (input: string) => {
     if (input.length === 0) {
       return {
@@ -18,7 +18,7 @@ export function char(c: string): Parser<string> {
   });
 }
 
-export function str(s: string): Parser<string> {
+export function str<const S extends string>(s: S): Parser<S> {
   return trace(`str(${escape(s)})`, (input: string) => {
     if (input.substring(0, s.length) === s) {
       return success(s, input.slice(s.length));
@@ -77,7 +77,12 @@ export const quote: Parser<string> = oneOf(`'"`);
 export const tab: Parser<string> = char("\t");
 export const newline: Parser<string> = char("\n");
 
-export const quotedString = transform(
-  seq([quote, word, quote], getResults),
-  (x: string[]) => x.join("")
+export const eof: Parser<null> = (input: string) => {
+  if (input === "") {
+    return success(null, input);
+  }
+  return failure("expected end of input", input);
+};
+export const quotedString = seq([quote, word, quote], (results: string[]) =>
+  results.join("")
 );
