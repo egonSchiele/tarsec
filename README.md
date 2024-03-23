@@ -33,34 +33,11 @@ parser("hello world"); // success
 parser("hello there"); // failure
 ```
 
-## A longer example
+## Learning tarsec
+- [A five minute introduction](/docs/5-minute-intro.md)
 
-```ts
-// define a parser to parse "hello, <name>!"
-const parser = seq([
-    str("hello"),
-    space,
-
-    /*
-    
-    Capture group to capture the name.
-    
-    `many1(noneOf("!"))` parses one or more characters
-    that are not an exclamation mark.
-    `many1` returns an array of characters,
-    `many1WithJoin` joins them into a string.
-    
-    This capture group is then given the name "person".
-    
-    */
-    capture(many1WithJoin(noneOf("!")), "person"),
-    char("!"),
-], getCaptures);
-
-// parse
-const parsed = parser("hello adit!");
-
-console.log(parsed.success); // true
-console.log(parsed.result); // { person: "adit" }
-```
-
+## Features
+- Tarsec is entirely TypeScript. There's nothing to compile.
+- Debug mode that prints what's happening step-by-step
+- Derived types: tarsec will generate TypeScript types for your parser
+- Partial [backtracking](/docs/backtracking.md) support

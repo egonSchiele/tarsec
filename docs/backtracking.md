@@ -43,7 +43,7 @@ Start with hello, then world, then it's not exclamation mark, but we can try its
     ], getResults);
 ```
 
-This again parses either `"hello world!"` or `"hello world?"`, and it has two paths. Here's the tree:
+This again parses either `"hello world!"` or `"hello world?"`. Here's the tree:
 
 ![](images/backtracking/branch-backtracking.png)
 
@@ -62,3 +62,10 @@ Here's another example.
 This parser will parse `"the robot ate the pie"`, but will fail to parse `"the robot ate the cake"`!
 
 The tarsec parser does some backtracking, so it would be able to parse `"the robot ate the cake"`. But it doesn't backtrack fully, due of performance. *Backtracking can make parsers run much slower.*
+
+Generally, you should try to avoid making your parser backtrack. You can do this by making sure:
+
+1. there is no overlap and
+2. the longest option comes first.
+
+In the example above, either of these parsers would have avoided backtracking:
