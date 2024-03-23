@@ -4,7 +4,7 @@ import { failure, Parser, success } from "./types";
 import { escape } from "./utils";
 
 /**
- * Takes a character. Returns a parser that parses that character. asldkjaslkdajsdlkj
+ * Takes a character. Returns a parser that parses that character.
  *
  * @param c - character to parse
  * @returns - parser that parses the given character
