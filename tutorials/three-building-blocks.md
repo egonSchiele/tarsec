@@ -107,7 +107,7 @@ const greetingParser = or([str("hello"), str("hi")]);
 `many1` runs a parser one or more times.
 
 ```ts
-const excitementParser = many1("!")
+const excitementParser = many1(char("!"))
 const result = excitementParser("!!!!!")
 ```
 
