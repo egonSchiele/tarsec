@@ -1,19 +1,15 @@
 export { seq } from "./combinators/seq";
+import { within } from "./parsers/within";
 import { trace } from "./trace";
 import {
   CaptureParser,
-  createTree,
   failure,
-  GeneralParser,
-  isCaptureResult,
-  MergedCaptures,
   MergedResults,
   Parser,
-  PlainObject,
   Prettify,
   success,
 } from "./types";
-import { escape, findAncestorWithNextParser, popMany } from "./utils";
+import { escape } from "./utils";
 
 export function many<T>(parser: Parser<T>): Parser<T[]> {
   return trace("many", (input: string) => {
@@ -315,5 +311,17 @@ export function transform<T, X>(
       };
     }
     return parsed;
+  });
+}
+
+export function search(parser: Parser<string>): Parser<string> {
+  return trace("search", (input: string) => {
+    let result = within(parser)(input);
+    if (result.success) {
+      return result.result
+        .filter((x) => x.type === "matched")
+        .map((x) => x.value);
+    }
+    return success("", input);
   });
 }
