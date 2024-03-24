@@ -1,8 +1,15 @@
-import { getResults, many1WithJoin, seq, transform } from "./combinators";
+import {
+  getResults,
+  many,
+  many1WithJoin,
+  manyWithJoin,
+  seq,
+  transform,
+} from "./combinators";
 import { trace } from "./trace";
 import { failure, Parser, success } from "./types";
 import { escape } from "./utils";
-export { betweenWithin } from "./parsers/betweenWithin";
+export { within as betweenWithin } from "./parsers/within";
 /**
  * Takes a character. Returns a parser that parses that character.
  *
@@ -115,6 +122,7 @@ export const eof: Parser<null> = (input: string) => {
   }
   return failure("expected end of input", input);
 };
-export const quotedString = seq([quote, word, quote], (results: string[]) =>
-  results.join("")
+export const quotedString = seq(
+  [quote, manyWithJoin(noneOf(`"'`)), quote],
+  (results: string[]) => results.join("")
 );
