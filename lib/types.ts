@@ -8,7 +8,7 @@ export type ParserSuccess<T> = {
 
 export type CaptureParserSuccess<
   T,
-  C extends PlainObject
+  C extends PlainObject,
 > = ParserSuccess<T> & {
   captures: C;
 };
@@ -143,3 +143,8 @@ export function createTree(parsers: readonly GeneralParser<any, any>[]): Node {
   }
   return rootNode;
 }
+
+export type Matched = { type: "matched"; value: string };
+export type Unmatched = { type: "unmatched"; value: string };
+
+export type BetweenWithinResult = Matched | Unmatched;

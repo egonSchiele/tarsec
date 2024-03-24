@@ -2,7 +2,7 @@ import { getResults, many1WithJoin, seq, transform } from "./combinators";
 import { trace } from "./trace";
 import { failure, Parser, success } from "./types";
 import { escape } from "./utils";
-
+export { betweenWithin } from "./parsers/betweenWithin";
 /**
  * Takes a character. Returns a parser that parses that character.
  *
