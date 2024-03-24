@@ -69,6 +69,30 @@ This approach has some issues. Notably, it doesn't work if you need to backtrack
 The code is also complex and it would be easy to have bugs in this logic. I wish there was a cleaner solution for rewinding state.
 */
 
+/**
+ * seq takes an array of parsers and runs them sequentially.
+ * If any of the parsers fail, seq fails without consuming any input.
+ *
+ * The second argument to seq is a function.
+ * The first argument of that function is an array of results:
+ * one result from each of the parsers you gave to seq.
+ * The second is an object containing any captures.
+ * You can use this second argument, the transformer function,
+ * to transform these however you want and return a result
+ *
+ * Tarsec includes the utility functions `getResults` and `getCaptures`
+ * to just return the results array or captures object respectively for you.
+ *
+ * Finally, you don't need to use seq at all. You can just hand write the logic.
+ * But you'll need to do the error handling
+ * and pass the remaining input to the next parser yourself.
+ * seq also does some backtracking for you that you will need to do yourself.
+ *
+ * @param parsers - parsers to run sequentially
+ * @param transform - function to transform the results and captures. The params are the results and captures
+ * @param debugName - optional name for trace debugging
+ * @returns
+ */
 export function seq<const T extends readonly GeneralParser<any, any>[], U>(
   parsers: T,
   transform: (results: MergedResults<T>[], captures: MergedCaptures<T>) => U,

@@ -103,6 +103,34 @@
               ></a>
             </li>
             <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  seq takes an array of parsers and runs them sequentially. If
+                  any of the parsers fail, seq fails without consuming any
+                  input.
+                </p>
+                <p>
+                  The second argument to seq is a function. The first argument
+                  of that function is an array of results: one result from each
+                  of the parsers you gave to seq. The second is an object
+                  containing any captures. You can use this second argument, the
+                  transformer function, to transform these however you want and
+                  return a result
+                </p>
+                <p>
+                  Tarsec includes the utility functions
+                  <code>getResults</code> and <code>getCaptures</code> to just
+                  return the results array or captures object respectively for
+                  you.
+                </p>
+                <p>
+                  Finally, you don&#39;t need to use seq at all. You can just
+                  hand write the logic. But you&#39;ll need to do the error
+                  handling and pass the remaining input to the next parser
+                  yourself. seq also does some backtracking for you that you
+                  will need to do yourself.
+                </p>
+              </div>
               <section class="tsd-panel">
                 <h4>Type Parameters</h4>
                 <ul class="tsd-type-parameter-list">
@@ -145,6 +173,10 @@
                         >T</a
                       ></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>parsers to run sequentially</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                   <li>
                     <span
@@ -161,6 +193,13 @@
                         >U</a
                       ><span class="tsd-signature-symbol">)</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>
+                        function to transform the results and captures. The
+                        params are the results and captures
+                      </p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                     <ul class="tsd-parameters">
                       <li class="tsd-parameter-signature">
                         <ul class="tsd-signatures">
@@ -299,6 +338,10 @@
                         = &quot;&quot;</span
                       ></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>optional name for trace debugging</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                 </ul>
               </div>
@@ -315,6 +358,7 @@
                   >U</a
                 ><span class="tsd-signature-symbol">&gt;</span>
               </h4>
+              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>
