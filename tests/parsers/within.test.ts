@@ -11,7 +11,7 @@ import {
 import { success, failure, Parser } from "../../lib/types";
 import { trace } from "../../lib/trace";
 import { betweenWithin } from "../../lib/parsers";
-import { seq, manyWithJoin } from "../../lib/combinators";
+import { seq, manyWithJoin, manyTill, transform } from "../../lib/combinators";
 
 describe("betweenWithin", () => {
   const quotesParser = betweenWithin(quotedString);
@@ -325,12 +325,16 @@ describe("markdown", () => {
     ];
     expect(result).toEqual(success(expectedResult, ""));
   });
-  /* test("parses a code block over multiple lines", () => {
+  test("parses a code block over multiple lines", () => {
     const boldedString = seq(
-      [str("```"), manyWithJoin(noneOf("`")), str("```")],
+      [
+        str("```"),
+        transform(manyTill(anyChar, str("```")), (x) => x.join("")),
+        str("```"),
+      ],
       (results: string[]) => results.join("")
     );
-    const parser = betweenWithin(str("```"));
+    const parser = betweenWithin(boldedString);
     const input = `this is a code block
 \`\`\`
 code block
@@ -352,5 +356,5 @@ so what`;
       },
     ];
     expect(result).toEqual(success(expectedResult, ""));
-  }); */
+  });
 });

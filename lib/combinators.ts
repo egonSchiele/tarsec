@@ -217,6 +217,25 @@ export function wrap<T, const S extends string>(
   });
 }
 
+export function manyTill<T, U>(parser: Parser<T>, end: Parser<U>): Parser<T[]> {
+  return (input: string) => {
+    let results: T[] = [];
+    let rest = input;
+    while (true) {
+      const endResult = end(rest);
+      if (endResult.success) {
+        return success(results, rest);
+      }
+      const result = parser(rest);
+      if (!result.success) {
+        return failure(`expected ${endResult.message}`, input);
+      }
+      results.push(result.result);
+      rest = result.rest;
+    }
+  };
+}
+
 /*
 export function setCapturesAsMatch<M, C extends PlainObject>(
   parser: Parser<M, C>
