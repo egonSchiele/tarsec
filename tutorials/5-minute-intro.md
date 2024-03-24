@@ -54,7 +54,7 @@ const parser = seq([
 
 ![](images/5-minute-intro/captures.png)
 
-`seq` will return an array of matches, this can be hard to work with, so you can capture certain matches and assign them a name:
+`seq` will return an array of matches. This can be hard to work with, so you can capture certain matches and assign them a name:
 
 ```ts
 // define a parser to parse "hello, <name>!"
@@ -80,7 +80,7 @@ console.log(parsed.result); // { person: "adit" }
 
 ![](images/5-minute-intro/inference.png)
 
-A big benefit of tarsec is it's type inference. Let's look at the type of the parser above.
+A big benefit of tarsec is its type inference. Let's look at the type of the parser above.
 
 ```ts
 /*
