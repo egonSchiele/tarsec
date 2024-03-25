@@ -232,6 +232,13 @@ export function manyTill<T, U>(parser: Parser<T>, end: Parser<U>): Parser<T[]> {
   };
 }
 
+export function manyTillWithJoin<U>(
+  parser: Parser<string>,
+  end: Parser<U>
+): Parser<string> {
+  return transform(manyTill(parser, end), (x) => x.join(""));
+}
+
 /*
 export function setCapturesAsMatch<M, C extends PlainObject>(
   parser: Parser<M, C>
@@ -314,13 +321,18 @@ export function transform<T, X>(
   });
 }
 
-export function search(parser: Parser<string>): Parser<string> {
+export function search(parser: Parser<string>): Parser<string[]> {
   return trace("search", (input: string) => {
-    let result = within(parser)(input);
-    if (result.success) {
-      return result.result
+    let parsed = within(parser)(input);
+    if (parsed.success) {
+      const result = parsed.result
         .filter((x) => x.type === "matched")
         .map((x) => x.value);
+      const rest = parsed.result
+        .filter((x) => x.type === "unmatched")
+        .map((x) => x.value)
+        .join(" ");
+      return success(result, rest);
     }
     return success("", input);
   });

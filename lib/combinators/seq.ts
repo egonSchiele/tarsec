@@ -9,6 +9,7 @@ import {
   success,
 } from "@/lib/types";
 import { findAncestorWithNextParser, popMany } from "@/lib/utils";
+import { getResults } from "../combinators";
 
 /*
 To add backtracking support requires a fairly big change. Here's an example that needs backtracking.
@@ -150,4 +151,10 @@ export function seq<const T extends readonly GeneralParser<any, any>[], U>(
     const result = transform(results, captures);
     return success(result, rest);
   });
+}
+
+export function seqResults<T extends readonly GeneralParser<any, any>[], U>(
+  ...parsers: T
+): Parser<U> {
+  return seq<T, U>(parsers, getResults as any);
 }
