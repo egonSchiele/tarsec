@@ -97,7 +97,7 @@ export function many1WithJoin(parser: Parser<string>): Parser<string> {
  * // but or returns the untried parsers as a new parser
  * result.nextParser("hello!"); // works
  *
- * result.nextParser is the same as or(str("hello!"))
+ * // result.nextParser is the same as or(str("hello!"))
  * ```
  *
  * @param parsers - parsers to try

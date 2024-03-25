@@ -81,6 +81,14 @@ export type UnionOfCaptures<T extends readonly GeneralParser<any, any>[]> =
 export type HasCaptureParsers<T extends readonly GeneralParser<any, any>[]> =
   ExtractCaptureParsers<T> extends never ? false : true;
 
+/**
+ * PickParserType
+ * For a given array of GeneralParsers, if any of them is a CaptureParser,
+ * PickParserType says the array is an array of CaptureParsers,
+ * otherwise it's an array of Parsers. It also correctly merges
+ * the result and capture types. This is useful for a combinator like `or`
+ * which is not able to infer its return type correctly.
+ */
 export type PickParserType<T extends readonly GeneralParser<any, any>[]> =
   HasCaptureParsers<T> extends true
     ? CaptureParser<MergedResults<T>, UnionOfCaptures<T>>

@@ -128,6 +128,16 @@
           ><span class="tsd-signature-symbol">&gt;</span
           ><span class="tsd-signature-symbol">&gt;</span>
         </div>
+        <div class="tsd-comment tsd-typography">
+          <p>
+            PickParserType For a given array of GeneralParsers, if any of them
+            is a CaptureParser, PickParserType says the array is an array of
+            CaptureParsers, otherwise it&#39;s an array of Parsers. It also
+            correctly merges the result and capture types. This is useful for a
+            combinator like <code>or</code> which is not able to infer its
+            return type correctly.
+          </p>
+        </div>
         <section class="tsd-panel">
           <h4>Type Parameters</h4>
           <ul class="tsd-type-parameter-list">
@@ -151,6 +161,7 @@
             </li>
           </ul>
         </section>
+        <div class="tsd-comment tsd-typography"></div>
       </div>
       <div class="col-sidebar">
         <div class="page-menu">
