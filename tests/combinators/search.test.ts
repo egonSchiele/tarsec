@@ -16,8 +16,8 @@ import {
   space,
   str,
 } from "../../lib/parsers";
-import { success, failure, Parser } from "../../lib/types";
-import { seqR } from "../../lib/combinators/seq";
+import { success, failure, Parser, ParserSuccess } from "../../lib/types";
+import { seqR } from "../../lib/combinators";
 
 const _siteParser: Parser<["site:", string | null, string]> = seqR(
   str("site:"),
@@ -96,6 +96,8 @@ describe("search", () => {
       ["-hey", "-foo"],
     ];
     expect(result.success).toEqual(true);
-    expect(result.result).toEqual(expectedResult);
+    expect((result as ParserSuccess<string[][]>).result).toEqual(
+      expectedResult
+    );
   });
 });

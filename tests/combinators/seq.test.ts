@@ -1,10 +1,9 @@
 import { seq, capture } from "@/lib/combinators";
 import { char, str, space } from "@/lib/parsers";
 import { describe, it, expect } from "vitest";
-import { getCaptures, getResults } from "../../lib/combinators";
+import { seqC, seqR, getCaptures, getResults } from "../../lib/combinators";
 import { failure, success } from "../../lib/types";
 import { word } from "../../lib/parsers";
-import { seqC, seqR } from "../../lib/combinators/seq";
 
 describe("seq parser", () => {
   const parser = seq([char("a"), char("b")], getResults);
