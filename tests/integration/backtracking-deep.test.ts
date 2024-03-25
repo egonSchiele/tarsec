@@ -11,9 +11,9 @@ describe("backtracking - 1 level", () => {
       space,
       str("ate"),
       space,
-      or([str("the"), str("the cake")]),
+      or(str("the"), str("the cake")),
       space,
-      or([str("cake"), str("cake cake")]),
+      or(str("cake"), str("cake cake")),
       str("!"),
       eof,
     ],
@@ -50,9 +50,9 @@ test.skip("backtracking - see comment", () => {
         space,
         str("ate"),
         space,
-        or([str("the"), str("the cake-")]), // or #1
+        or(str("the"), str("the cake-")), // or#1
         space,
-        or([str("cake"), str("cake cake")]), // or #2
+        or(str("cake"), str("cake cake")), // or#2
         str("!"),
         eof,
       ],

@@ -18,18 +18,18 @@ import {
   str,
 } from "../../lib/parsers";
 import { success, failure, Parser } from "../../lib/types";
-import { seqResults } from "../../lib/combinators/seq";
+import { seqR } from "../../lib/combinators/seq";
 
-const _siteParser: Parser<["site:", string | null, string]> = seqResults(
+const _siteParser: Parser<["site:", string | null, string]> = seqR(
   str("site:"),
   optional(space),
-  manyTillWithJoin(anyChar, or([str(" "), eof]))
+  manyTillWithJoin(anyChar, or(str(" "), eof))
 );
 const siteParser = transform(_siteParser, (results) =>
   results.filter(Boolean).join("")
 );
 const notParser = transform(
-  seqResults(char("-"), manyTillWithJoin(anyChar, or([str(" "), eof]))),
+  seqR(char("-"), manyTillWithJoin(anyChar, or(str(" "), eof))),
   (results: string[]) => results.join("")
 );
 

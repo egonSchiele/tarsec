@@ -9,7 +9,7 @@ import {
   success,
 } from "@/lib/types";
 import { findAncestorWithNextParser, popMany } from "@/lib/utils";
-import { getResults } from "../combinators";
+import { getCaptures, getResults } from "../combinators";
 
 /*
 To add backtracking support requires a fairly big change. Here's an example that needs backtracking.
@@ -17,7 +17,7 @@ To add backtracking support requires a fairly big change. Here's an example that
 ```ts
   const parser = seq([
         str("hello "),        
-        or([str("world"), str("world!")]),
+        or(str("world"), str("world!")),
         optional("?")
     ], getResults);
 ```
@@ -27,7 +27,7 @@ If we try to parse `"hello world!"`, the first parser in the OR will succeed, bu
 1. instead of just processing these parsers sequentially in a for loop, we need to model them as a tree
 2. the OR parser needs to let us know that there are other branches to try.
 
-For #2, there's an optional `nextParser` key on a parser success. The or parser can use this to say "a parser succeeded and here's the result, but there are other parsers that could be tried". `nextParser` is a parser that runs the remaining branches. So in this example, the OR would return a success with `nextParser = or([str("world")])`.
+For #2, there's an optional `nextParser` key on a parser success. The or parser can use this to say "a parser succeeded and here's the result, but there are other parsers that could be tried". `nextParser` is a parser that runs the remaining branches. So in this example, the OR would return a success with `nextParser = or(str("world"))`.
 
 Next, we need to model this as a tree. Each node in the tree has a parent and child and the parser for that node.
 
@@ -46,12 +46,12 @@ So, going back to the hello world example, let's say we're stuck at the `optiona
 ```ts
   const parser = seq([
         str("hello "),        
-        or([str("world"), str("world!")]),
+        or(str("world"), str("world!")),
         optional("?")
     ], getResults);
 ```
 
-We use `.parent` to go back up the tree. We're looking for a node that isn't closed. If we find one, we start again from there. In this case, we'd find an open node at the or with parser `or([str("world")])`. We can restart from there, but there's a bunch of state to reset.
+We use `.parent` to go back up the tree. We're looking for a node that isn't closed. If we find one, we start again from there. In this case, we'd find an open node at the or with parser `or(str("world"))`. We can restart from there, but there's a bunch of state to reset.
 
 1. From the new `or` parser, we need to go to the optional parser. We're doing it all again in the same order. This is one reason why it's easier to model this without multiple children. Otherwise, all the children would have to point to the next level, the next level would have to point to all the children in the previous level, and you'd have multiple parents, which is awful to deal with.
 
@@ -153,8 +153,14 @@ export function seq<const T extends readonly GeneralParser<any, any>[], U>(
   });
 }
 
-export function seqResults<T extends readonly GeneralParser<any, any>[], U>(
+export function seqR<T extends readonly GeneralParser<any, any>[], U>(
   ...parsers: T
 ): Parser<U> {
   return seq<T, U>(parsers, getResults as any);
+}
+
+export function seqC<T extends readonly GeneralParser<any, any>[], U>(
+  ...parsers: T
+): Parser<U> {
+  return seq<T, U>(parsers, getCaptures as any);
 }

@@ -6,7 +6,7 @@ import { compareSuccess } from "../../vitest.globals";
 import { str } from "../../lib/parsers";
 
 describe("or parser", () => {
-  const parser = or<string>([char("a"), char("b")]);
+  const parser = or<string>(char("a"), char("b"));
 
   it("should parse the first parser if it succeeds", () => {
     const result = parser("a");
@@ -24,7 +24,7 @@ describe("or parser", () => {
   });
 
   it("returns a nextParser", () => {
-    const parser = or([str("hello"), str("hello!")]);
+    const parser = or(str("hello"), str("hello!"));
     const result = parser("hello");
     compareSuccess(result, success("hello", ""));
     expect(result.nextParser).toBeDefined();

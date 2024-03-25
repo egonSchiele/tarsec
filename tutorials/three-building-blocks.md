@@ -99,7 +99,7 @@ const helloParser = str("hello")
 `or` runs a series of parsers until one of them succeeds.
 
 ```ts
-const greetingParser = or([str("hello"), str("hi")]);
+const greetingParser = or(str("hello"), str("hi"));
 ```
 
 **many1**

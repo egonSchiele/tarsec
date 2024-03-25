@@ -18,7 +18,7 @@ It's pretty simple: first we parse `hello`, then we parse `world`. Now, suppose 
     const parser = seq([
         str("hello "),
         str("world"),
-        or([char("!"), char("?")])
+        or(char("!"), char("?"))
     ], getResults);
 ```
 
@@ -38,7 +38,7 @@ Start with hello, then world, then it's not exclamation mark, but we can try its
 ```ts
     const parser = seq([
         str("hello "),        
-        or([str("world"), str("world!")]),
+        or(str("world"), str("world!")),
         optional("?")
     ], getResults);
 ```

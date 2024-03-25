@@ -10,7 +10,7 @@ const parser = seq(
     space,
     str("ate"),
     space,
-    or([str("the"), str("the cake")]),
+    or(str("the"), str("the cake")),
     optional(str(" pie")),
     eof,
   ],

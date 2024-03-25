@@ -7,9 +7,9 @@ There are plenty of backtracking issues, and tarsec doesn't solve them all. For 
         space,
         str("ate"),
         space,
-        or([str("the"), str("the cake-")]), // or #1
+        or(str("the"), str("the cake-")), // or #1
         space,
-        or([str("cake"), str("cake cake")]), // or #2
+        or(str("cake"), str("cake cake")), // or #2
         str("!"),
         eof,
       ],
@@ -27,10 +27,10 @@ A couple examples using many1. Suppose you want to parse a sentence. This parser
 
 ```ts
 const sentenceParser = seq([
-    many1(or([
+    many1(or(
         word,
         seq([word, space], getResults)
-    ])),
+    )),
     eof], getResults)
 ```
 
