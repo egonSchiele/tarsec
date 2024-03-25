@@ -81,14 +81,25 @@
               ><span class="tsd-signature-symbol">)</span
               ><span class="tsd-signature-symbol">: </span
               ><a
-                href="../types/Parser.html"
+                href="../types/GeneralParser.html"
                 class="tsd-signature-type tsd-kind-type-alias"
-                >Parser</a
+                >GeneralParser</a
               ><span class="tsd-signature-symbol">&lt;</span
               ><a
                 href="../types/MergedResults.html"
                 class="tsd-signature-type tsd-kind-type-alias"
                 >MergedResults</a
+              ><span class="tsd-signature-symbol">&lt;</span
+              ><a
+                class="tsd-signature-type tsd-kind-type-parameter"
+                href="or.html#or.T"
+                >T</a
+              ><span class="tsd-signature-symbol">&gt;</span
+              ><span class="tsd-signature-symbol">, </span
+              ><a
+                href="../types/UnionOfCaptures.html"
+                class="tsd-signature-type tsd-kind-type-alias"
+                >UnionOfCaptures</a
               ><span class="tsd-signature-symbol">&lt;</span
               ><a
                 class="tsd-signature-type tsd-kind-type-parameter"
@@ -102,6 +113,22 @@
               ></a>
             </li>
             <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  <code>or</code> takes an array of parsers and runs them
+                  sequentially. It returns the results of the first parser that
+                  succeeds. You can use <code>capture</code> in an
+                  <code>or</code>:
+                </p>
+                <pre><code class="language-ts"><span class="hl-8">const</span><span class="hl-0"> </span><span class="hl-5">parser</span><span class="hl-0"> = </span><span class="hl-9">or</span><span class="hl-0">(</span><span class="hl-9">capture</span><span class="hl-0">(</span><span class="hl-1">digit</span><span class="hl-0">, </span><span class="hl-3">&quot;num&quot;</span><span class="hl-0">), </span><span class="hl-9">capture</span><span class="hl-0">(</span><span class="hl-1">word</span><span class="hl-0">, </span><span class="hl-3">&quot;name&quot;</span><span class="hl-0">));</span>
+</code><button>Copy</button></pre>
+                <p>
+                  <code>or</code> supports backtracking by returning a
+                  <code>nextParser</code>:
+                </p>
+                <pre><code class="language-ts"><span class="hl-8">const</span><span class="hl-0"> </span><span class="hl-5">parser</span><span class="hl-0"> = </span><span class="hl-9">or</span><span class="hl-0">(</span><span class="hl-9">str</span><span class="hl-0">(</span><span class="hl-3">&quot;hello&quot;</span><span class="hl-0">), </span><span class="hl-9">str</span><span class="hl-0">(</span><span class="hl-3">&quot;hello!&quot;</span><span class="hl-0">));</span><br/><br/><span class="hl-6">// this will match the first parser</span><br/><span class="hl-8">const</span><span class="hl-0"> </span><span class="hl-5">result</span><span class="hl-0"> = </span><span class="hl-9">parser</span><span class="hl-0">(</span><span class="hl-3">&quot;hello&quot;</span><span class="hl-0">);</span><br/><br/><span class="hl-6">// but or returns the untried parsers as a new parser</span><br/><span class="hl-1">result</span><span class="hl-0">.</span><span class="hl-9">nextParser</span><span class="hl-0">(</span><span class="hl-3">&quot;hello!&quot;</span><span class="hl-0">); </span><span class="hl-6">// works</span><br/><br/><span class="hl-1">result</span><span class="hl-0">.</span><span class="hl-1">nextParser</span><span class="hl-0"> </span><span class="hl-1">is</span><span class="hl-0"> </span><span class="hl-1">the</span><span class="hl-0"> </span><span class="hl-1">same</span><span class="hl-0"> </span><span class="hl-7">as</span><span class="hl-0"> </span><span class="hl-10">or</span><span class="hl-0">(</span><span class="hl-10">str</span><span class="hl-0">(</span><span class="hl-3">&quot;hello!&quot;</span><span class="hl-0">))</span>
+</code><button>Copy</button></pre>
+              </div>
               <section class="tsd-panel">
                 <h4>Type Parameters</h4>
                 <ul class="tsd-type-parameter-list">
@@ -113,10 +140,12 @@
                       ><span class="tsd-signature-keyword"> extends </span
                       ><span class="tsd-signature-keyword">readonly </span
                       ><a
-                        href="../types/Parser.html"
+                        href="../types/GeneralParser.html"
                         class="tsd-signature-type tsd-kind-type-alias"
-                        >Parser</a
+                        >GeneralParser</a
                       ><span class="tsd-signature-symbol">&lt;</span
+                      ><span class="tsd-signature-type">any</span
+                      ><span class="tsd-signature-symbol">, </span
                       ><span class="tsd-signature-type">any</span
                       ><span class="tsd-signature-symbol">&gt;</span
                       ><span class="tsd-signature-symbol">[]</span></span
@@ -138,15 +167,19 @@
                         >T</a
                       ></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>parsers to try</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                 </ul>
               </div>
               <h4 class="tsd-returns-title">
                 Returns
                 <a
-                  href="../types/Parser.html"
+                  href="../types/GeneralParser.html"
                   class="tsd-signature-type tsd-kind-type-alias"
-                  >Parser</a
+                  >GeneralParser</a
                 ><span class="tsd-signature-symbol">&lt;</span
                 ><a
                   href="../types/MergedResults.html"
@@ -158,8 +191,26 @@
                   href="or.html#or.T"
                   >T</a
                 ><span class="tsd-signature-symbol">&gt;</span
+                ><span class="tsd-signature-symbol">, </span
+                ><a
+                  href="../types/UnionOfCaptures.html"
+                  class="tsd-signature-type tsd-kind-type-alias"
+                  >UnionOfCaptures</a
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><a
+                  class="tsd-signature-type tsd-kind-type-parameter"
+                  href="or.html#or.T"
+                  >T</a
+                ><span class="tsd-signature-symbol">&gt;</span
                 ><span class="tsd-signature-symbol">&gt;</span>
               </h4>
+              <ul>
+                <li>
+                  a parser that tries each parser in order. Returns the result
+                  of the first parser that succeeds.
+                </li>
+              </ul>
+              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>

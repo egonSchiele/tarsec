@@ -11,6 +11,7 @@ import {
   Parser,
   Prettify,
   success,
+  UnionOfCaptures,
 } from "./types";
 import { escape, findAncestorWithNextParser, popMany } from "./utils";
 
@@ -75,13 +76,35 @@ export function many1WithJoin(parser: Parser<string>): Parser<string> {
   return transform<string[], string>(many1(parser), (x) => x.join(""));
 }
 
-/* seq<, U>(
-  parsers: T,
-  transform: (results: MergedResults<T>[], captures: MergedCaptures<T>) => U,
+/**
+ * `or` takes an array of parsers and runs them sequentially.
+ * It returns the results of the first parser that succeeds.
+ * You can use `capture` in an `or`:
+ *
+ * ```ts
+ * const parser = or(capture(digit, "num"), capture(word, "name"));
+ * ```
+ *
+ * `or` supports backtracking by returning a `nextParser`:
+ *
+ * ```ts
+ * const parser = or(str("hello"), str("hello!"));
+ *
+ * // this will match the first parser
+ * const result = parser("hello");
+ *
+ * // but or returns the untried parsers as a new parser
+ * result.nextParser("hello!"); // works
+ *
+ * result.nextParser is the same as or(str("hello!"))
+ * ```
+ *
+ * @param parsers - parsers to try
+ * @returns - a parser that tries each parser in order. Returns the result of the first parser that succeeds.
  */
 export function or<const T extends readonly GeneralParser<any, any>[]>(
   ...parsers: T
-): GeneralParser<MergedResults<T>, any> {
+): GeneralParser<MergedResults<T>, UnionOfCaptures<T>> {
   return trace(`or()`, (input: string) => {
     for (let i = 0; i < parsers.length; i++) {
       let result = parsers[i](input);

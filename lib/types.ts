@@ -73,7 +73,10 @@ type ExtractCaptureParsers<T extends readonly GeneralParser<any, any>[]> =
   Extract<T[number], CaptureParser<any, any>>;
 
 export type MergedCaptures<T extends readonly GeneralParser<any, any>[]> =
-  Prettify<UnionToIntersection<ExtractCaptures<ExtractCaptureParsers<T>>>>;
+  Prettify<UnionToIntersection<UnionOfCaptures<T>>>;
+
+export type UnionOfCaptures<T extends readonly GeneralParser<any, any>[]> =
+  ExtractCaptures<ExtractCaptureParsers<T>>;
 
 /* const arr = [str("hello"), space, str("world")] */
 
