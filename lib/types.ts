@@ -76,7 +76,15 @@ export type MergedCaptures<T extends readonly GeneralParser<any, any>[]> =
   Prettify<UnionToIntersection<UnionOfCaptures<T>>>;
 
 export type UnionOfCaptures<T extends readonly GeneralParser<any, any>[]> =
-  ExtractCaptures<ExtractCaptureParsers<T>>;
+  Prettify<ExtractCaptures<ExtractCaptureParsers<T>>>;
+
+export type HasCaptureParsers<T extends readonly GeneralParser<any, any>[]> =
+  ExtractCaptureParsers<T> extends never ? false : true;
+
+export type PickParserType<T extends readonly GeneralParser<any, any>[]> =
+  HasCaptureParsers<T> extends true
+    ? CaptureParser<MergedResults<T>, UnionOfCaptures<T>>
+    : Parser<MergedResults<T>>;
 
 /* const arr = [str("hello"), space, str("world")] */
 

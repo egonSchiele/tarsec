@@ -9,6 +9,7 @@ import {
   MergedCaptures,
   MergedResults,
   Parser,
+  PickParserType,
   Prettify,
   success,
   UnionOfCaptures,
@@ -104,7 +105,7 @@ export function many1WithJoin(parser: Parser<string>): Parser<string> {
  */
 export function or<const T extends readonly GeneralParser<any, any>[]>(
   ...parsers: T
-): GeneralParser<MergedResults<T>, UnionOfCaptures<T>> {
+): PickParserType<T> {
   return trace(`or()`, (input: string) => {
     for (let i = 0; i < parsers.length; i++) {
       let result = parsers[i](input);
