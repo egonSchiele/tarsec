@@ -3,6 +3,8 @@ import { char, str, space } from "@/lib/parsers";
 import { describe, it, expect } from "vitest";
 import { getCaptures, getResults } from "../../lib/combinators";
 import { failure, success } from "../../lib/types";
+import { word } from "../../lib/parsers";
+import { seqC, seqR } from "../../lib/combinators/seq";
 
 describe("seq parser", () => {
   const parser = seq([char("a"), char("b")], getResults);
@@ -40,6 +42,20 @@ describe("seq parser - hello world", () => {
       [str("hello"), space, capture(str("world"), "name")],
       getCaptures
     );
+    const result = parser("hello world");
+    expect(result).toEqual(success({ name: "world" }, ""));
+  });
+});
+
+describe("seqR and seqC", () => {
+  it("seqR", () => {
+    const parser = seqR(str("hello"), space, str("world"));
+    const result = parser("hello world");
+    expect(result).toEqual(success(["hello", " ", "world"], ""));
+  });
+
+  it("seqC", () => {
+    const parser = seqC(str("hello"), space, capture(word, "name"));
     const result = parser("hello world");
     expect(result).toEqual(success({ name: "world" }, ""));
   });
