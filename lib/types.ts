@@ -75,6 +75,8 @@ type ExtractCaptureParsers<T extends readonly GeneralParser<any, any>[]> =
 export type MergedCaptures<T extends readonly GeneralParser<any, any>[]> =
   Prettify<UnionToIntersection<ExtractCaptures<ExtractCaptureParsers<T>>>>;
 
+/* const arr = [str("hello"), space, str("world")] */
+
 /*
   1. No UnionToIntersection because this looks like `string | number` and the intersection is `never`.
   2. Instead of a union, a tuple type would be more useful, but it looks like that's not possible.

@@ -19,7 +19,7 @@ import {
 import { success, failure, Parser, ParserSuccess } from "../../lib/types";
 import { seqR } from "../../lib/combinators";
 
-const _siteParser: Parser<["site:", string | null, string]> = seqR(
+const _siteParser = seqR(
   str("site:"),
   optional(space),
   manyTill(or(str(" "), eof))

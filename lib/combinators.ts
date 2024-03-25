@@ -470,14 +470,22 @@ export function seq<const T extends readonly GeneralParser<any, any>[], U>(
   });
 }
 
-export function seqR<T extends readonly GeneralParser<any, any>[], U>(
+export function seqR<const T extends readonly GeneralParser<any, any>[]>(
   ...parsers: T
-): Parser<U> {
-  return seq<T, U>(parsers, getResults as any);
+): Parser<MergedResults<T>[]> {
+  return seq<T, MergedResults<T>[]>(parsers, getResults);
 }
 
-export function seqC<T extends readonly GeneralParser<any, any>[], U>(
+export function seqC<const T extends readonly GeneralParser<any, any>[]>(
   ...parsers: T
-): Parser<U> {
-  return seq<T, U>(parsers, getCaptures as any);
+): Parser<MergedCaptures<T>> {
+  return seq(parsers, getCaptures);
 }
+
+/* 
+export function seqX<const T extends readonly GeneralParser<any, any>[], U>(
+  parsers: T,
+  transform: (results: MergedResults<T>[], captures: MergedCaptures<T>) => U,
+  debugName: string = ""
+): Parser<U> {
+ */
