@@ -327,11 +327,7 @@ describe("markdown", () => {
   });
   test("parses a code block over multiple lines", () => {
     const boldedString = seq(
-      [
-        str("```"),
-        transform(manyTill(anyChar, str("```")), (x) => x.join("")),
-        str("```"),
-      ],
+      [str("```"), manyTill(str("```")), str("```")],
       (results: string[]) => results.join("")
     );
     const parser = betweenWithin(boldedString);

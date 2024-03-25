@@ -212,30 +212,18 @@ export function wrap<T, const S extends string>(
   });
 }
 
-export function manyTill<T, U>(parser: Parser<T>, end: Parser<U>): Parser<T[]> {
+export function manyTill<T>(parser: Parser<T>): Parser<string> {
   return (input: string) => {
-    let results: T[] = [];
-    let rest = input;
-    while (true) {
-      const endResult = end(rest);
-      if (endResult.success) {
-        return success(results, rest);
+    let current = 0;
+    while (current < input.length) {
+      const parsed = parser(input.slice(current));
+      if (parsed.success) {
+        return success(input.slice(0, current), input.slice(current));
       }
-      const result = parser(rest);
-      if (!result.success) {
-        return failure(`expected ${endResult.message}`, input);
-      }
-      results.push(result.result);
-      rest = result.rest;
+      current++;
     }
+    return success(input, "");
   };
-}
-
-export function manyTillWithJoin<U>(
-  parser: Parser<string>,
-  end: Parser<U>
-): Parser<string> {
-  return transform(manyTill(parser, end), (x) => x.join(""));
 }
 
 /*

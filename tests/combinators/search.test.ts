@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import {
   getResults,
   manyTill,
-  manyTillWithJoin,
   optional,
   or,
   search,
@@ -23,13 +22,13 @@ import { seqR } from "../../lib/combinators/seq";
 const _siteParser: Parser<["site:", string | null, string]> = seqR(
   str("site:"),
   optional(space),
-  manyTillWithJoin(anyChar, or(str(" "), eof))
+  manyTill(or(str(" "), eof))
 );
 const siteParser = transform(_siteParser, (results) =>
   results.filter(Boolean).join("")
 );
 const notParser = transform(
-  seqR(char("-"), manyTillWithJoin(anyChar, or(str(" "), eof))),
+  seqR(char("-"), manyTill(or(str(" "), eof))),
   (results: string[]) => results.join("")
 );
 
