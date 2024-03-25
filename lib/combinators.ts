@@ -79,9 +79,9 @@ export function many1WithJoin(parser: Parser<string>): Parser<string> {
   parsers: T,
   transform: (results: MergedResults<T>[], captures: MergedCaptures<T>) => U,
  */
-export function or<const T extends readonly Parser<any>[]>(
+export function or<const T extends readonly GeneralParser<any, any>[]>(
   ...parsers: T
-): Parser<MergedResults<T>> {
+): GeneralParser<MergedResults<T>, any> {
   return trace(`or()`, (input: string) => {
     for (let i = 0; i < parsers.length; i++) {
       let result = parsers[i](input);
@@ -228,72 +228,6 @@ export function manyTill<T>(parser: Parser<T>): Parser<string> {
     return success(input, "");
   };
 }
-
-/*
-export function setCapturesAsMatch<M, C extends PlainObject>(
-  parser: Parser<M, C>
-): Parser<C> {
-  return trace(`setCapturesAsMatch`, (input: string) => {
-    let result = parser(input);
-    if (result.success) {
-      return {
-        ...result,
-        match: result.captures as any,
-        captures: {},
-      };
-    }
-    return result;
-  });
-}
-
-export function captureCaptures<
-  M,
-  C extends PlainObject,
-  const S extends string
->(parser: Parser<M, C>, name: S): Parser<C, Record<S, C>> {
-  return trace(`captureCaptures(${escape(name)})`, (input: string) => {
-    return capture(setCapturesAsMatch(parser), name)(input);
-  });
-} */
-
-/* export function captureCaptures<M, C extends string>(
-  parser: Parser<M>,
-  name: string
-): Parser<M, C> {
-  return trace(`captures(${escape(name)})`, (input: string) => {
-    let result = parser(input);
-    if (result.success) {
-      const captures: Record<string, any> = {
-        [name]: result.captures,
-      };
-      return {
-        ...result,
-        captures: mergeCaptures(result.captures || {}, captures),
-      };
-    }
-    return result;
-  });
-}
-
- */
-/* export function shapeCaptures<M, C extends string>(
-  parser: Parser<M>,
-  func: (captures: Record<string, any>) => Record<string, any>,
-  name: string
-): Parser<M, C> {
-  return trace(`captures(${escape(name)})`, (input: string) => {
-    let result = parser(input);
-    if (result.success) {
-      const captures: Record<string, any> = result.captures || {};
-
-      return {
-        ...result,
-        captures: func(captures),
-      };
-    }
-    return result;
-  });
-} */
 
 export function transform<T, X>(
   parser: Parser<T>,

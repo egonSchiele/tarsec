@@ -5,8 +5,9 @@ import {
   optional,
   or,
   seq,
+  seqC,
 } from "./lib/combinators.js";
-import { char, eof, space, str } from "./lib/parsers.js";
+import { char, digit, eof, space, str, word } from "./lib/parsers.js";
 import { createTree } from "./lib/types.js";
 
 const parser = seq(
@@ -26,4 +27,10 @@ const parser = seq(
 
 const resultCake = parser("the robot ate the cake- cake!");
 
-console.log(resultCake);
+//console.log(resultCake);
+
+const parser2 = or(capture(digit, "num"), capture(word, "name"));
+//const parser3 = seqC(str("hello"), space, capture(word, "name"));
+
+const parsed = parser2("123");
+console.log(parsed);
