@@ -3,14 +3,15 @@ export type ParserSuccess<T> = {
   success: true;
   result: T;
   rest: string;
-  nextParser?: GeneralParser<any, any>;
+  nextParser?: Parser<any>;
 };
 
-export type CaptureParserSuccess<
-  T,
-  C extends PlainObject,
-> = ParserSuccess<T> & {
+export type CaptureParserSuccess<T, C extends PlainObject> = {
+  success: true;
+  result: T;
+  rest: string;
   captures: C;
+  nextParser?: CaptureParser<any, any>;
 };
 
 export type ParserFailure = {
@@ -82,7 +83,6 @@ export type HasCaptureParsers<T extends readonly GeneralParser<any, any>[]> =
   ExtractCaptureParsers<T> extends never ? false : true;
 
 /**
- * PickParserType
  * For a given array of GeneralParsers, if any of them is a CaptureParser,
  * PickParserType says the array is an array of CaptureParsers,
  * otherwise it's an array of Parsers. It also correctly merges
@@ -94,6 +94,10 @@ export type PickParserType<T extends readonly GeneralParser<any, any>[]> =
     ? CaptureParser<MergedResults<T>, UnionOfCaptures<T>>
     : Parser<MergedResults<T>>;
 
+export type InferManyReturnType<T extends GeneralParser<any, any>> =
+  T extends CaptureParser<infer R, infer C>
+    ? CaptureParser<R[], { captures: C[] }>
+    : Parser<T[]>;
 /* const arr = [str("hello"), space, str("world")] */
 
 /*

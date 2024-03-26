@@ -7,7 +7,7 @@ import { digit, str, word } from "../../lib/parsers";
 import { capture } from "../../lib/combinators";
 
 describe("or parser", () => {
-  const parser = or<string>(char("a"), char("b"));
+  const parser = or(char("a"), char("b"));
 
   it("should parse the first parser if it succeeds", () => {
     const result = parser("a");
@@ -28,10 +28,11 @@ describe("or parser", () => {
     const parser = or(str("hello"), str("hello!"));
     const result = parser("hello");
     compareSuccess(result, success("hello", ""));
-    expect(result.nextParser).toBeDefined();
-
-    const result2 = result.nextParser("hello!");
-    compareSuccess(result2, success("hello!", ""));
+    if (result.success) {
+      expect(result.nextParser).toBeDefined();
+      const result2 = result.nextParser!("hello!");
+      compareSuccess(result2, success("hello!", ""));
+    }
   });
 });
 
@@ -51,8 +52,10 @@ describe("or parser with captures", () => {
   it("returns a nextParser with captures", () => {
     const result = parser("123");
     compareSuccessCaptures(result, { num: "1" }, "23");
-    expect(result.nextParser).toBeDefined();
-    const result2 = result.nextParser("hi");
-    compareSuccessCaptures(result2, { name: "hi" }, "");
+    if (result.success) {
+      expect(result.nextParser).toBeDefined();
+      const result2 = result.nextParser!("hi");
+      compareSuccessCaptures(result2, { name: "hi" }, "");
+    }
   });
 });

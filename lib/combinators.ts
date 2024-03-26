@@ -2,36 +2,51 @@ import { within } from "./parsers/within";
 import { trace } from "./trace";
 import {
   CaptureParser,
+  captureSuccess,
   createTree,
   failure,
   GeneralParser,
+  InferManyReturnType,
   isCaptureResult,
   MergedCaptures,
   MergedResults,
   Parser,
   PickParserType,
+  PlainObject,
   Prettify,
   success,
   UnionOfCaptures,
 } from "./types";
 import { escape, findAncestorWithNextParser, popMany } from "./utils";
 
-export function many<T>(parser: Parser<T>): Parser<T[]> {
+export function many<const T extends GeneralParser<any, any>>(
+  parser: T
+): InferManyReturnType<T> {
   return trace("many", (input: string) => {
     let results: T[] = [];
+    let captures: any[] = [];
     let rest = input;
     while (true) {
       let parsed = parser(rest);
       if (!parsed.success) {
-        return success(results, rest);
+        if (Object.keys(captures).length) {
+          return captureSuccess(results, rest, { captures });
+        } else {
+          return success(results, rest);
+        }
       }
       results.push(parsed.result);
+      if (isCaptureResult(parsed)) {
+        captures.push(parsed.captures);
+      }
       rest = parsed.rest;
     }
   });
 }
 
-export function many1<T>(parser: Parser<T>): Parser<T[]> {
+export function many1<const T extends GeneralParser<any, any>>(
+  parser: T
+): InferManyReturnType<T> {
   return trace(`many1`, (input: string) => {
     let result = many(parser)(input);
     // this logic doesn't work with optional and not
@@ -69,12 +84,32 @@ export function count<T>(num: number, parser: Parser<T>): Parser<T[]> {
   });
 }
 
-export function manyWithJoin(parser: Parser<string>): Parser<string> {
-  return transform<string[], string>(many(parser), (x) => x.join(""));
+export function manyWithJoin<const T extends GeneralParser<string, any>>(
+  parser: T
+): GeneralParser<string, any> {
+  return trace("manyWithJoin", (input: string) => {
+    const result = many(parser)(input);
+    if (result.success) {
+      return {
+        ...result,
+        result: result.result.join(""),
+      };
+    }
+    return result;
+  });
 }
 
 export function many1WithJoin(parser: Parser<string>): Parser<string> {
-  return transform<string[], string>(many1(parser), (x) => x.join(""));
+  return trace("many1WithJoin", (input: string) => {
+    const result = many1(parser)(input);
+    if (result.success) {
+      return {
+        ...result,
+        result: result.result.join(""),
+      };
+    }
+    return result;
+  });
 }
 
 /**
@@ -253,10 +288,10 @@ export function manyTill<T>(parser: Parser<T>): Parser<string> {
   };
 }
 
-export function transform<T, X>(
-  parser: Parser<T>,
-  transformerFunc: (x: T) => X
-): Parser<X> {
+export function transform<R, C extends PlainObject, X>(
+  parser: GeneralParser<R, C>,
+  transformerFunc: (x: R) => X
+): GeneralParser<X, C> {
   return trace(`transform(${transformerFunc})`, (input: string) => {
     let parsed = parser(input);
     if (parsed.success) {
