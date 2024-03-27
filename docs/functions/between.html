@@ -106,6 +106,16 @@
               ></a>
             </li>
             <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  Takes three parsers, <code>open</code>, <code>close</code>,
+                  and <code>parser</code>. <code>between</code> matches
+                  something that matches <code>parser</code>, surrounded by
+                  <code>open</code> and <code>close</code>. It returns the
+                  result of <code>parser</code>. If any of the parsers fail,
+                  <code>between</code> fails.
+                </p>
+              </div>
               <section class="tsd-panel">
                 <h4>Type Parameters</h4>
                 <ul class="tsd-type-parameter-list">
@@ -146,6 +156,10 @@
                         >O</a
                       ><span class="tsd-signature-symbol">&gt;</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>parser for the opening delimiter</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                   <li>
                     <span
@@ -161,6 +175,10 @@
                         >C</a
                       ><span class="tsd-signature-symbol">&gt;</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>parser for the closing delimiter</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                   <li>
                     <span
@@ -176,6 +194,10 @@
                         >P</a
                       ><span class="tsd-signature-symbol">&gt;</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>parser for the content</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                 </ul>
               </div>
@@ -192,6 +214,8 @@
                   >P</a
                 ><span class="tsd-signature-symbol">&gt;</span>
               </h4>
+              <p>a parser that returns the result of <code>parser</code>.</p>
+              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>

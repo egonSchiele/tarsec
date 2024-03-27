@@ -19,6 +19,16 @@ import {
 } from "./types";
 import { escape, findAncestorWithNextParser, popMany } from "./utils";
 
+/**
+ * Takes a parser and runs it zero or more times, returning the results as an array.
+ * If the parser is a capture parser, it returns the captures as an array in this form:
+ *
+ * { captures: <array of captures> }
+ *
+ * @param parser - parser to run
+ * @returns - parser that runs the given parser zero to many times,
+ * and returns the result as an array
+ */
 export function many<const T extends GeneralParser<any, any>>(
   parser: T
 ): InferManyReturnType<T> {
@@ -44,6 +54,12 @@ export function many<const T extends GeneralParser<any, any>>(
   });
 }
 
+/**
+ * Same as `many`, but fails if the parser doesn't match at least once.
+ *
+ * @param parser - parser to run
+ * @returns a parser that runs the given parser one to many times,
+ */
 export function many1<const T extends GeneralParser<any, any>>(
   parser: T
 ): InferManyReturnType<T> {
@@ -84,6 +100,13 @@ export function count<T>(num: number, parser: Parser<T>): Parser<T[]> {
   });
 }
 
+/**
+ * Same as `many`, but joins the results into a single string.
+ *
+ * @param parser - parser to run. The parser must return a string as its result.
+ * @returns - parser that runs the given parser zero to many times,
+ * and returns the result as a single string
+ */
 export function manyWithJoin<const T extends GeneralParser<string, any>>(
   parser: T
 ): GeneralParser<string, any> {
@@ -99,6 +122,13 @@ export function manyWithJoin<const T extends GeneralParser<string, any>>(
   });
 }
 
+/**
+ * Same as `many1`, but joins the results into a single string.
+ *
+ * @param parser - parser to run. The parser must return a string as its result.
+ * @returns - parser that runs the given parser one to many times,
+ * and returns the result as a single string
+ */
 export function many1WithJoin(parser: Parser<string>): Parser<string> {
   return trace("many1WithJoin", (input: string) => {
     const result = many1(parser)(input);
@@ -159,6 +189,14 @@ export function or<const T extends readonly GeneralParser<any, any>[]>(
   });
 }
 
+/**
+ * Takes a parser and runs it. If the parser fails,
+ * optional returns a success with a null result.
+ *
+ * @param parser - parser to run
+ * @returns - a parser that runs the given parser.
+ * If it fails, returns a success with a null result.
+ */
 export function optional<T>(parser: Parser<T>): Parser<T | null> {
   return trace("optional", (input: string) => {
     let result = parser(input);
@@ -169,6 +207,16 @@ export function optional<T>(parser: Parser<T>): Parser<T | null> {
   });
 }
 
+/**
+ * Takes a parser and runs it. If the parser fails,
+ * `not` returns a success with a `null` result.
+ * If the parser succeeds, `not` returns a failure.
+ *
+ * @param parser - parser to run
+ * @returns - a parser that runs the given parser.
+ * If it fails, returns a success with a `null` result.
+ * If it succeeds, returns a failure.
+ */
 export function not(parser: Parser<any>): Parser<null> {
   return trace("not", (input: string) => {
     let result = parser(input);
@@ -176,13 +224,24 @@ export function not(parser: Parser<any>): Parser<null> {
       return {
         success: false,
         rest: input,
-        message: "unexpected match",
+        message: "expected parser not to succeed",
       };
     }
     return success(null, input);
   });
 }
 
+/**
+ * Takes three parsers, `open`, `close`, and `parser`.
+ * `between` matches something that matches `parser`,
+ * surrounded by `open` and `close`. It returns the result of `parser`.
+ * If any of the parsers fail, `between` fails.
+ *
+ * @param open - parser for the opening delimiter
+ * @param close - parser for the closing delimiter
+ * @param parser - parser for the content
+ * @returns a parser that returns the result of `parser`.
+ */
 export function between<O, C, P>(
   open: Parser<O>,
   close: Parser<C>,
@@ -256,24 +315,13 @@ export function capture<T, const S extends string>(
   });
 }
 
-export function wrap<T, const S extends string>(
-  parser: Parser<T>,
-  name: S
-): Parser<Prettify<Record<S, T>>> {
-  return trace(`capture(${escape(name)})`, (input: string) => {
-    let result = parser(input);
-    if (result.success) {
-      return {
-        ...result,
-        result: {
-          [name]: result.result,
-        },
-      };
-    }
-    return result;
-  });
-}
-
+/**
+ * Returns a parser that consumes input till the given parser succeeds.
+ * @param parser - the stop parser
+ * @returns a parser that consumes the input string until the stop parser succeeds.
+ * Then it returns the consumed input as a string.
+ * The stop parser's match is not included in the result.
+ */
 export function manyTill<T>(parser: Parser<T>): Parser<string> {
   return (input: string) => {
     let current = 0;
@@ -283,6 +331,23 @@ export function manyTill<T>(parser: Parser<T>): Parser<string> {
         return success(input.slice(0, current), input.slice(current));
       }
       current++;
+    }
+    return success(input, "");
+  };
+}
+
+export function many1Till<T>(parser: Parser<T>): Parser<string> {
+  return (input: string) => {
+    let current = 0;
+    while (current < input.length) {
+      const parsed = parser(input.slice(current));
+      if (parsed.success) {
+        return success(input.slice(0, current), input.slice(current));
+      }
+      current++;
+    }
+    if (current === 0) {
+      return failure("expected at least one match", input);
     }
     return success(input, "");
   };

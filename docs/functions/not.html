@@ -85,6 +85,14 @@
               ></a>
             </li>
             <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  Takes a parser and runs it. If the parser fails,
+                  <code>not</code> returns a success with a
+                  <code>null</code> result. If the parser succeeds,
+                  <code>not</code> returns a failure.
+                </p>
+              </div>
               <div class="tsd-parameters">
                 <h4 class="tsd-parameters-title">Parameters</h4>
                 <ul class="tsd-parameter-list">
@@ -99,6 +107,10 @@
                       ><span class="tsd-signature-type">any</span
                       ><span class="tsd-signature-symbol">&gt;</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>parser to run</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                 </ul>
               </div>
@@ -112,6 +124,14 @@
                 ><span class="tsd-signature-type">null</span
                 ><span class="tsd-signature-symbol">&gt;</span>
               </h4>
+              <ul>
+                <li>
+                  a parser that runs the given parser. If it fails, returns a
+                  success with a <code>null</code> result. If it succeeds,
+                  returns a failure.
+                </li>
+              </ul>
+              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>

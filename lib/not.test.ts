@@ -8,7 +8,7 @@ describe("not parser", () => {
 
   it("should fail if the character is present", () => {
     const result = parser("a");
-    expect(result).toEqual(failure("unexpected match", "a"));
+    expect(result).toEqual(failure("expected parser not to succeed", "a"));
   });
 
   it("should return null if the character is missing", () => {
