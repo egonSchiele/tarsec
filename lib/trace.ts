@@ -21,6 +21,9 @@ let counts: Record<string, number> = {};
 let times: Record<string, number> = {};
 let debugFlag = !!process.env.DEBUG;
 
+let stepCount = 0;
+let stepLimit = -1;
+
 export function trace(name: string, parser: any): any {
   return (input: string) => {
     if (debugFlag) {
@@ -34,6 +37,7 @@ export function trace(name: string, parser: any): any {
       });
 
       counts[name] = counts[name] ? counts[name] + 1 : 1;
+      stepCount += 1;
       if (time) {
         times[name] = times[name] ? times[name] + time : time;
       }
@@ -74,6 +78,7 @@ export function printTime(name: string, callback: Function) {
 
 export function parserDebug(name: string, callback: Function) {
   debugFlag = true;
+  stepCount = 0;
   counts = {};
   times = {};
   printTime(name, callback);
@@ -90,7 +95,10 @@ export function parserDebug(name: string, callback: Function) {
   for (const [name, time] of sortedTimes) {
     console.log(`  ${name}: ${round(time)}ms`);
   }
+  console.log("\n");
+  console.log(`📊 ${name} -- step count: ${stepCount}`);
   console.log("\n\n");
+  stepCount = 0;
   counts = {};
   times = {};
 }
