@@ -27,6 +27,7 @@ import { escape, findAncestorWithNextParser, popMany } from "./utils";
  * { captures: <array of captures> }
  * ```
  *
+ * Fails on empty strings
  * @param parser - parser to run
  * @returns - parser that runs the given parser zero to many times,
  * and returns the result as an array
@@ -38,6 +39,7 @@ export function many<const T extends GeneralParser<any, any>>(
     let results: T[] = [];
     let captures: any[] = [];
     let rest = input;
+
     while (true) {
       let parsed = parser(rest);
       if (!parsed.success) {
@@ -52,6 +54,15 @@ export function many<const T extends GeneralParser<any, any>>(
         captures.push(parsed.captures);
       }
       rest = parsed.rest;
+
+      // don't loop infinitely on empty strings
+      if (rest === "") {
+        if (Object.keys(captures).length) {
+          return captureSuccess(results, rest, { captures });
+        } else {
+          return success(results, rest);
+        }
+      }
     }
   });
 }
