@@ -14,7 +14,7 @@ import {
 } from "@/lib/combinators";
 import { char, quote, regexParser, space, str } from "@/lib/parsers";
 import { Parser } from "@/lib/types";
-import { parserDebug, parserTime } from "@/lib/trace";
+import { parserDebug, printTime } from "@/lib/trace";
 
 function gen() {
   const inputs: string[] = [];
@@ -24,7 +24,7 @@ function gen() {
   return inputs;
 }
 
-parserTime("negationParser with capture x100", () => {
+printTime("negationParser with capture x100", () => {
   const negationParser = seqR(char("-"), capture(manyTill(space), "phrase"));
 
   gen().forEach((input) => {
@@ -32,7 +32,7 @@ parserTime("negationParser with capture x100", () => {
   });
 });
 
-parserTime("negationParser x100", () => {
+printTime("negationParser x100", () => {
   const parser = seqR(char("-"), manyTill(space));
 
   gen().forEach((input) => {
@@ -40,7 +40,7 @@ parserTime("negationParser x100", () => {
   });
 });
 
-parserTime("negationParser with manyTillStr x100", () => {
+printTime("negationParser with manyTillStr x100", () => {
   const parser = seqR(char("-"), manyTillStr(" "));
 
   gen().forEach((input) => {
@@ -48,7 +48,7 @@ parserTime("negationParser with manyTillStr x100", () => {
   });
 });
 
-parserTime("regex Parser x100", () => {
+printTime("regex Parser x100", () => {
   const parser = regexParser("-([^ ]*)");
 
   gen().forEach((input) => {
@@ -56,7 +56,7 @@ parserTime("regex Parser x100", () => {
   });
 });
 
-parserTime("regex x100", () => {
+printTime("regex x100", () => {
   const regex = new RegExp("-([^ ]*)");
 
   gen().forEach((input) => {
