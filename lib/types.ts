@@ -1,4 +1,7 @@
+/** A generic object type. */
 export type PlainObject = Record<string, unknown>;
+
+/** Represents a parse success with no captures. */
 export type ParserSuccess<T> = {
   success: true;
   result: T;
@@ -6,6 +9,7 @@ export type ParserSuccess<T> = {
   nextParser?: Parser<any>;
 };
 
+/** Represents a parse success with captures. Notice nextParser is also a CaptureParser. */
 export type CaptureParserSuccess<T, C extends PlainObject> = {
   success: true;
   result: T;
@@ -14,6 +18,7 @@ export type CaptureParserSuccess<T, C extends PlainObject> = {
   nextParser?: CaptureParser<any, any>;
 };
 
+/** Represents a parse failure. */
 export type ParserFailure = {
   success: false;
   rest: string;
@@ -25,7 +30,12 @@ export type CaptureParserResult<T, C extends PlainObject> =
   | CaptureParserSuccess<T, C>
   | ParserFailure;
 
+/** A parser is any function that takes a string and returns a ParserResult. */
 export type Parser<T> = (input: string) => ParserResult<T>;
+
+/** A capture parser is any function that takes a string and returns a CaptureParserResult.
+ * A CaptureParserResult is the same as a ParserResult, except it also includes captures,
+ * i.e. matches selected using `capture`. */
 export type CaptureParser<T, C extends PlainObject> = (
   input: string
 ) => CaptureParserResult<T, C>;
@@ -40,10 +50,12 @@ export function isCaptureResult<T, C extends PlainObject>(
   return "captures" in result;
 }
 
+/** Convenience function to return a ParserSuccess */
 export function success<T>(result: T, rest: string): ParserSuccess<T> {
   return { success: true, result, rest };
 }
 
+/** Convenience function to return a CaptureParserSuccess */
 export function captureSuccess<T, C extends PlainObject>(
   result: T,
   rest: string,
@@ -52,33 +64,51 @@ export function captureSuccess<T, C extends PlainObject>(
   return { success: true, result, rest, captures };
 }
 
+/** Convenience function to return a ParserFailure */
 export function failure(message: string, rest: string): ParserFailure {
   return { success: false, message, rest };
 }
 
+/** Prettify an intersected type, to make it easier to read. */
 export type Prettify<T> = {
   [K in keyof T]: T[K];
 } & {};
 
-// see <https://stackoverflow.com/a/50375286/3625>
+/** see <https://stackoverflow.com/a/50375286/3625> */
 export type UnionToIntersection<U> = (
   U extends any ? (x: U) => void : never
 ) extends (x: infer I) => void
   ? I
   : never;
 
+/** Convenience type to get the result type out of a parser. */
 type ExtractResults<T> = T extends Parser<infer U> ? U : never;
+
+/** Convenience type to get the capture type out of a capture parser. */
 type ExtractCaptures<T> = T extends CaptureParser<any, infer U> ? U : never;
 
+/** Convenience type where given an array of parsers and capture parsers,
+ * it returns the types of the capture parsers, like
+ * CaptureParser<string, { name: string }> | CaptureParser<number, { age: number }>
+ */
 type ExtractCaptureParsers<T extends readonly GeneralParser<any, any>[]> =
   Extract<T[number], CaptureParser<any, any>>;
 
+/** Convenience type where given an array of parsers and capture parsers,
+ * it returns a single capture type that merges all the capture types. */
 export type MergedCaptures<T extends readonly GeneralParser<any, any>[]> =
   Prettify<UnionToIntersection<UnionOfCaptures<T>>>;
 
+/** Convenience type where given an array of parsers and capture parsers,
+ * it first gets the capture parsers, then extracts the capture types,
+ * and returns a union of all the capture types. Example:
+ * { name: string } | { age: number }
+ */
 export type UnionOfCaptures<T extends readonly GeneralParser<any, any>[]> =
   Prettify<ExtractCaptures<ExtractCaptureParsers<T>>>;
 
+/** Convenience type where given an array of parsers and capture parsers,
+ * it returns true if there are any capture parsers, otherwise false. */
 export type HasCaptureParsers<T extends readonly GeneralParser<any, any>[]> =
   ExtractCaptureParsers<T> extends never ? false : true;
 
@@ -94,6 +124,13 @@ export type PickParserType<T extends readonly GeneralParser<any, any>[]> =
     ? CaptureParser<MergedResults<T>, UnionOfCaptures<T>>
     : Parser<MergedResults<T>>;
 
+/** This is used to generate a return type for the `many` and `many1` combinators.
+ * Given a parser we want to apply `many` to. Suppose its type is `Parser<string>`.
+ * This will return `Parser<string[]>` as the return type.
+ *
+ * Suppose the parser is a `CaptureParser<string, { name: string }>`.
+ * This will return `CaptureParser<string[], { captures: { name: string }[] }>` as the return type.
+ */
 export type InferManyReturnType<T extends GeneralParser<any, any>> =
   T extends CaptureParser<infer R, infer C>
     ? CaptureParser<R[], { captures: C[] }>
@@ -111,29 +148,7 @@ export type InferManyReturnType<T extends GeneralParser<any, any>> =
 export type MergedResults<T extends readonly GeneralParser<any, any>[]> =
   ExtractResults<T[number]>;
 
-/* export type Merge2<O extends Array<T>, T = any> = Prettify<
-  UnionToIntersection<O[number]>
->;
-
-export type NonNullObject<T> = {
-  [K in keyof T]: T[K] extends null | undefined ? never : T[K];
-}; */
-
-/* export type NonNullableUnionOfObjects<T> = T extends object
-  ? RemoveNeverKeys<DeepNonNullable<T>>
-  : T;
-
-export type DeepNonNullable<T> = {
-  [P in keyof T]-?: NonNullable<T[P]>;
-}; */
-
-/* export type FilterNeverKeys<T> = {
-  [K in keyof T]: T[K] extends never ? never : K;
-};
- */
-/* type ValueOf<T> = T[keyof T]; */
-/* type RemoveNeverKeys<T> = Pick<T, ValueOf<FilterNeverKeys<T>>>; */
-
+/** Used to create a parser tree for backtracking. */
 export type Node = ParserNode | EmptyNode;
 export type ParserNode = {
   parent: Node;
@@ -144,6 +159,7 @@ export type ParserNode = {
 };
 export type EmptyNode = null;
 
+/** Convenience function to create a ParserNode. */
 export function createNode(
   parent: Node | null,
   parser: GeneralParser<any, any>
@@ -156,6 +172,10 @@ export function createNode(
   };
 }
 
+/** Convenience function where, given an array of parsers, it creates a tree we can use for backtracking.
+ * This tree is what `seq` use. It's used to keep track of the parsers we've tried so far,
+ * so we can backtrack if we need to.
+ */
 export function createTree(parsers: readonly GeneralParser<any, any>[]): Node {
   if (parsers.length === 0) {
     return null;
@@ -169,7 +189,7 @@ export function createTree(parsers: readonly GeneralParser<any, any>[]): Node {
   return rootNode;
 }
 
+/** Used by `within`. */
 export type Matched = { type: "matched"; value: string };
 export type Unmatched = { type: "unmatched"; value: string };
-
-export type BetweenWithinResult = Matched | Unmatched;
+export type WithinResult = Matched | Unmatched;

@@ -118,6 +118,25 @@
           ><span class="tsd-signature-symbol">[]</span
           ><span class="tsd-signature-symbol">&gt;</span>
         </div>
+        <div class="tsd-comment tsd-typography">
+          <p>
+            This is used to generate a return type for the <code>many</code> and
+            <code>many1</code> combinators. Given a parser we want to apply
+            <code>many</code> to. Suppose its type is
+            <code>Parser&lt;string&gt;</code>. This will return
+            <code>Parser&lt;string[]&gt;</code> as the return type.
+          </p>
+          <p>
+            Suppose the parser is a
+            <code>CaptureParser&lt;string, { name: string }&gt;</code>. This
+            will return
+            <code
+              >CaptureParser&lt;string[], { captures: { name: string }[]
+              }&gt;</code
+            >
+            as the return type.
+          </p>
+        </div>
         <section class="tsd-panel">
           <h4>Type Parameters</h4>
           <ul class="tsd-type-parameter-list">
@@ -139,6 +158,7 @@
             </li>
           </ul>
         </section>
+        <div class="tsd-comment tsd-typography"></div>
       </div>
       <div class="col-sidebar">
         <div class="page-menu">

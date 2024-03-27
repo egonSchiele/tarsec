@@ -1,11 +1,11 @@
 import { trace } from "../trace";
-import { BetweenWithinResult, Parser, failure, success } from "../types";
+import { WithinResult, Parser, failure, success } from "../types";
 
-export function within(parser: Parser<string>): Parser<BetweenWithinResult[]> {
+export function within(parser: Parser<string>): Parser<WithinResult[]> {
   return trace("within", (input: string) => {
     let start = 0;
     let current = 0;
-    const results: BetweenWithinResult[] = [];
+    const results: WithinResult[] = [];
 
     while (current < input.length) {
       const parsed = parser(input.slice(current));
