@@ -46,4 +46,14 @@ describe("regexParser", () => {
       failure("expected hello, got world hell", "world hello")
     );
   });
+
+  test("a string with capture groups", () => {
+    const input = "-world";
+    const pattern = "-([^ ]+)";
+    const parser: Parser<string> = regexParser(pattern);
+
+    const result = parser(input);
+
+    expect(result).toEqual(success("-world", ""));
+  });
 });
