@@ -23,7 +23,9 @@ import { escape, findAncestorWithNextParser, popMany } from "./utils";
  * Takes a parser and runs it zero or more times, returning the results as an array.
  * If the parser is a capture parser, it returns the captures as an array in this form:
  *
+ * ```ts
  * { captures: <array of captures> }
+ * ```
  *
  * @param parser - parser to run
  * @returns - parser that runs the given parser zero to many times,
