@@ -103,25 +103,49 @@ export const anyChar = trace("anyChar", (input: string) => {
   return success(input[0], input.slice(1));
 });
 
+/** A parser that matches one of " \t\n\r". */
 export const space: Parser<string> = oneOf(" \t\n\r");
+
+/** A parser that matches one or more spaces. */
 export const spaces: Parser<string> = many1WithJoin(space);
+
+/** A parser that matches one digit. */
 export const digit: Parser<string> = oneOf("0123456789");
+
+/** A parser that matches one letter, currently lowercase only. */
 export const letter: Parser<string> = oneOf("abcdefghijklmnopqrstuvwxyz");
+
+/** A parser that matches one digit or letter, currently lowercase only. */
 export const alphanum: Parser<string> = oneOf(
   "abcdefghijklmnopqrstuvwxyz0123456789"
 );
+
+/** A parser that matches one lowercase word. */
 export const word: Parser<string> = many1WithJoin(letter);
+
+/** A parser that matches one or more digits. */
 export const num: Parser<string> = many1WithJoin(digit);
+
+/** A parser that matches one single or double quote. */
 export const quote: Parser<string> = oneOf(`'"`);
+
+/** A parser that matches one tab character. */
 export const tab: Parser<string> = char("\t");
+
+/** A parser that matches one newline ("\n" only) character. */
 export const newline: Parser<string> = char("\n");
 
+/** A parser that succeeds on an empty string. Returns `null` as the result. */
 export const eof: Parser<null> = (input: string) => {
   if (input === "") {
     return success(null, input);
   }
   return failure("expected end of input", input);
 };
+
+/** A parser that matches a quoted string, in single or double quotes.
+ * Returns the string as the result, including the quotes.
+ */
 export const quotedString = seq(
   [quote, manyWithJoin(noneOf(`"'`)), quote],
   (results: string[]) => results.join("")
