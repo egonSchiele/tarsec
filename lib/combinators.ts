@@ -575,10 +575,7 @@ export function seqC<const T extends readonly GeneralParser<any, any>[]>(
   return seq(parsers, getCaptures);
 }
 
-/* 
-export function seqX<const T extends readonly GeneralParser<any, any>[], U>(
-  parsers: T,
-  transform: (results: MergedResults<T>[], captures: MergedCaptures<T>) => U,
-  debugName: string = ""
-): Parser<U> {
- */
+export function match(input: string, parser: GeneralParser<any, any>): boolean {
+  const result = parser(input);
+  return result.success && result.rest === "";
+}

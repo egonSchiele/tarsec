@@ -1,4 +1,3 @@
-- better perf
-- jsdocs for combinators
-- match function which returns bool
+- better perf - many1TillStr, any others that go character-by-character?
+- jsdocs for combinators and trace functions
 - tests for inferred types
