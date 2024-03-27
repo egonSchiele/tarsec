@@ -1,5 +1,5 @@
 import { ParserResult, Parser, PlainObject } from "./types";
-import { escape } from "./utils";
+import { escape, round } from "./utils";
 const STEP = 2;
 
 export function resultToString<T>(
@@ -17,16 +17,27 @@ export function resultToString<T>(
 }
 
 let level = 0;
+let counts: Record<string, number> = {};
+let times: Record<string, number> = {};
+let debugFlag = !!process.env.DEBUG;
 
 export function trace(name: string, parser: any): any {
   return (input: string) => {
-    if (process.env.DEBUG) {
+    if (debugFlag) {
       console.log(" ".repeat(level) + `🔍 ${name} -- input: ${escape(input)}`);
-    }
-    level += STEP;
-    const result = parser(input);
-    level -= STEP;
-    if (process.env.DEBUG) {
+
+      let result: any;
+      const time = parserTime(() => {
+        level += STEP;
+        result = parser(input);
+        level -= STEP;
+      });
+
+      counts[name] = counts[name] ? counts[name] + 1 : 1;
+      if (time) {
+        times[name] = times[name] ? times[name] + time : time;
+      }
+
       console.log(" ".repeat(level) + resultToString(name, result));
       if (result.success && result.captures) {
         console.log(
@@ -34,7 +45,52 @@ export function trace(name: string, parser: any): any {
             `⭐ ${name} -- captures: ${JSON.stringify(result.captures)}`
         );
       }
+      return result;
+    } else {
+      return parser(input);
     }
-    return result;
   };
+}
+
+export function parserTime(callback: Function): number | null {
+  if (performance && performance.now) {
+    const start = performance.now();
+    callback();
+    const end = performance.now();
+    return end - start;
+  } else {
+    console.error("performance.now not available");
+    callback();
+    return null;
+  }
+}
+
+export function printTime(name: string, callback: Function) {
+  const time = parserTime(callback);
+  if (time) {
+    console.log(`⏱ ${name} -- time: ${round(time)}ms`);
+  }
+}
+
+export function parserDebug(name: string, callback: Function) {
+  debugFlag = true;
+  counts = {};
+  times = {};
+  printTime(name, callback);
+  debugFlag = false;
+  console.log("\n");
+  console.log(`📊 ${name} -- counts:`);
+  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  for (const [name, count] of sorted) {
+    console.log(`  ${name}: ${count}`);
+  }
+  console.log("\n");
+  console.log(`📊 ${name} -- times:`);
+  const sortedTimes = Object.entries(times).sort((a, b) => b[1] - a[1]);
+  for (const [name, time] of sortedTimes) {
+    console.log(`  ${name}: ${round(time)}ms`);
+  }
+  console.log("\n\n");
+  counts = {};
+  times = {};
 }

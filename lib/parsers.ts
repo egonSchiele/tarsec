@@ -150,3 +150,14 @@ export const quotedString = seq(
   [quote, manyWithJoin(noneOf(`"'`)), quote],
   (results: string[]) => results.join("")
 );
+
+export function regexParser(str: string | RegExp): Parser<string> {
+  const re = typeof str === "string" ? new RegExp(`^(${str})`) : str;
+  return trace(`regex(${str})`, (input: string) => {
+    const match = input.match(re);
+    if (match) {
+      return success(match[0], input.slice(match[0].length));
+    }
+    return failure(`expected ${str}, got ${input.slice(0, 10)}`, input);
+  });
+}

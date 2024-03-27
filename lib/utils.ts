@@ -53,3 +53,7 @@ export function popMany(arr: any[], count: number) {
     arr.pop();
   }
 }
+
+export function round(num: number, places = 2) {
+  return Math.round(num * 10 ** places) / 10 ** places;
+}

@@ -355,15 +355,35 @@ export function many1Till<T>(parser: Parser<T>): Parser<string> {
     while (current < input.length) {
       const parsed = parser(input.slice(current));
       if (parsed.success) {
+        if (current === 0) {
+          return failure(
+            "expected to consume at least one character of input",
+            input
+          );
+        }
+
         return success(input.slice(0, current), input.slice(current));
       }
       current++;
     }
     if (current === 0) {
-      return failure("expected at least one match", input);
+      return failure(
+        "expected to consume at least one character of input",
+        input
+      );
     }
     return success(input, "");
   };
+}
+
+export function manyTillStr(str: string): Parser<string> {
+  return trace(`manyTillStr(${str})`, (input: string) => {
+    const index = input.indexOf(str);
+    if (index === -1) {
+      return success(input, "");
+    }
+    return success(input.slice(0, index), input.slice(index));
+  });
 }
 
 export function transform<R, C extends PlainObject, X>(
@@ -476,6 +496,8 @@ The code is also complex and it would be easy to have bugs in this logic. I wish
  * But you'll need to do the error handling
  * and pass the remaining input to the next parser yourself.
  * seq also does some backtracking for you that you will need to do yourself.
+ *
+ * Also see `seqR` and `seqC` for convenience functions that return the results or captures respectively.
  *
  * @param parsers - parsers to run sequentially
  * @param transform - function to transform the results and captures. The params are the results and captures
