@@ -1,4 +1,4 @@
-import { manyTillStr } from "@/lib/combinators";
+import { iManyTillStr, manyTillStr } from "@/lib/combinators";
 import { char } from "@/lib/parsers";
 import { failure, success } from "@/lib/types";
 import { test, expect, describe } from "vitest";
@@ -29,5 +29,19 @@ describe("manyTillStr combinator", () => {
     const result = parser2("aabbcc");
 
     expect(result).toEqual(success("aab", "bcc"));
+  });
+
+  test("manyTillStr can be case insensitive", () => {
+    const parser2 = manyTillStr("bc", { caseInsensitive: true });
+    const result = parser2("AABBCC");
+
+    expect(result).toEqual(success("AAB", "BCC"));
+  });
+
+  test("iManyTillStr is case insensitive", () => {
+    const parser2 = iManyTillStr("bc");
+    const result = parser2("AABBCC");
+
+    expect(result).toEqual(success("AAB", "BCC"));
   });
 });

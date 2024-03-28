@@ -432,16 +432,31 @@ export function many1Till<T>(parser: Parser<T>): Parser<string> {
  * than running a parser over every character.
  *
  * @param str - the string to stop at
+ * @param options - object of optional parameters. { caseInsensitive: boolean }
  * @returns a parser that consumes the input string until the given string is found.
  */
-export function manyTillStr(str: string): Parser<string> {
+export function manyTillStr(
+  str: string,
+  { caseInsensitive = false }: { caseInsensitive?: boolean } = {}
+): Parser<string> {
   return trace(`manyTillStr(${str})`, (input: string) => {
-    const index = input.indexOf(str);
+    const index = caseInsensitive
+      ? input.toLocaleLowerCase().indexOf(str.toLocaleLowerCase())
+      : input.indexOf(str);
     if (index === -1) {
       return success(input, "");
     }
     return success(input.slice(0, index), input.slice(index));
   });
+}
+
+/**
+ * Like `manyTillStr`, but case insensitive.
+ * @param str - the string to stop at
+ * @returns a parser that consumes the input string until the given string is found.
+ */
+export function iManyTillStr(str: string): Parser<string> {
+  return manyTillStr(str, { caseInsensitive: true });
 }
 
 /**

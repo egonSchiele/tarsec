@@ -1,4 +1,4 @@
-import { str } from "@/lib/parsers";
+import { istr, str } from "@/lib/parsers";
 import { describe, expect, it } from "vitest";
 import { success, failure } from "../../lib/types";
 
@@ -6,6 +6,11 @@ describe("str parser", () => {
   it("should parse correct string", () => {
     const parser = str("hello");
     expect(parser("hello world")).toEqual(success("hello", " world"));
+  });
+
+  it("should parse incorrectly", () => {
+    const parser = istr("hello");
+    expect(parser("HELLO world")).toEqual(success("HELLO", " world"));
   });
 
   it("should handle incorrect string", () => {

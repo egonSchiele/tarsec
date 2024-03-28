@@ -28,13 +28,29 @@ export function char<const S extends string>(c: S): Parser<S> {
 /**
  * Takes a string. Returns a parser that parses that string.
  *
- * @param s - string to parse
+ * @param s - string to match on
  * @returns - parser that parses the given string
  */
 export function str<const S extends string>(s: S): Parser<S> {
   return trace(`str(${escape(s)})`, (input: string) => {
     if (input.substring(0, s.length) === s) {
       return success(s, input.slice(s.length));
+    }
+    return failure(`expected ${s}, got ${input.substring(0, s.length)}`, input);
+  });
+}
+
+/**
+ * Like `str`, but case insensitive.
+ * @param s - string to match on, case insensitive
+ * @returns - parser that matches the given string, case insensitive
+ */
+export function istr<const S extends string>(s: S): Parser<S> {
+  return trace(`istr(${escape(s)})`, (input: string) => {
+    if (
+      input.substring(0, s.length).toLocaleLowerCase() === s.toLocaleLowerCase()
+    ) {
+      return success(input.substring(0, s.length), input.slice(s.length));
     }
     return failure(`expected ${s}, got ${input.substring(0, s.length)}`, input);
   });
@@ -105,19 +121,21 @@ export const spaces: Parser<string> = many1WithJoin(space);
 /** A parser that matches one digit. */
 export const digit: Parser<string> = oneOf("0123456789");
 
-/** A parser that matches one letter, currently lowercase only. */
-export const letter: Parser<string> = oneOf("abcdefghijklmnopqrstuvwxyz");
-
-/** A parser that matches one digit or letter, currently lowercase only. */
-export const alphanum: Parser<string> = oneOf(
-  "abcdefghijklmnopqrstuvwxyz0123456789"
+/** A parser that matches one letter, case insensitive. */
+export const letter: Parser<string> = oneOf(
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 );
 
-/** A parser that matches one lowercase word. */
-export const word: Parser<string> = many1WithJoin(letter);
+/** A parser that matches one digit or letter, case insensitive. */
+export const alphanum: Parser<string> = oneOf(
+  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+);
+
+/** A parser that matches one word, case insensitive. */
+export const word: Parser<string> = regexParser("^[a-z]+", "ui");
 
 /** A parser that matches one or more digits. */
-export const num: Parser<string> = many1WithJoin(digit);
+export const num: Parser<string> = regexParser("^[0-9]+");
 
 /** A parser that matches one single or double quote. */
 export const quote: Parser<string> = oneOf(`'"`);
