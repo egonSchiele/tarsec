@@ -6,3 +6,6 @@ test:
 
 doc:
 	npm run doc
+
+publish:
+	npm publish
