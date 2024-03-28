@@ -98,6 +98,9 @@ export function count<T>(parser: Parser<T>): Parser<T[]> {
   return trace("count", (input: string) => {
     const result = many(parser)(input);
     if (result.success) {
+      if (result.result.length === 0) {
+        return failure("expected at least one match", input);
+      }
       return success(result.result.length, result.rest);
     }
     return result;

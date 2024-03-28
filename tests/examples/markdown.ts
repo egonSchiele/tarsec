@@ -7,8 +7,10 @@ import {
   manyTillStr,
   count,
   iManyTillStr,
+  sepBy,
+  seq,
 } from "@/lib/combinators";
-import { str, spaces, word, char, eof } from "@/lib/parsers";
+import { str, spaces, word, char, eof, space } from "@/lib/parsers";
 
 type InlineMarkdown =
   | InlineText
@@ -57,7 +59,7 @@ type Heading = {
 type CodeBlock = {
   type: "code-block";
   content: string;
-  language: string;
+  language: string | null;
 };
 
 type BlockQuote = {
@@ -77,36 +79,57 @@ type List = {
   items: string[];
 };
 
-const headingParser = seqC(
+export const headingParser = seqC(
   capture(count(char("#")), "level"),
   spaces,
   capture(many1Till(or(char("\n"), eof)), "content")
 );
 
-const codeBlockParser = seqC(
+export const codeBlockParser = seqC(
   str("```"),
+  capture(optional(word), "language"),
   optional(spaces),
-  capture(manyTillStr("```"), "content")
+  capture(manyTillStr("```"), "content"),
+  str("```")
 );
 
-const blockQuoteParser = seqC(
+export const blockQuoteParser = seqC(
   str(">"),
   spaces,
   capture(manyTillStr("\n"), "content")
 );
 
-const listParser = seqC(
+export const listParser = seqC(
   capture(char("-"), "char"),
   spaces,
   capture(manyTillStr("\n"), "content")
 );
 
-const paragraphParser = seqC(capture(manyTillStr("\n"), "content"));
+export const paragraphParser = seqC(capture(manyTillStr("\n"), "content"));
 
-const imageParser = seqC(
+export const imageParser = seqC(
   str("!["),
   capture(iManyTillStr("]("), "alt"),
   str("]("),
   capture(iManyTillStr(")"), "url"),
   str(")")
+);
+
+export const markdownParser = seq(
+  [
+    optional(spaces),
+    sepBy(
+      spaces,
+      or(
+        headingParser,
+        codeBlockParser,
+        blockQuoteParser,
+        listParser,
+        paragraphParser,
+        imageParser
+      )
+    ),
+    optional(spaces),
+  ],
+  (r, c) => r[1]
 );
