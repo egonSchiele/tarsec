@@ -46,3 +46,6 @@ parser("hello there"); // failure
 - Partial [backtracking](/tutorials/backtracking.md) support
 
 Read more about [use cases for tarsec](/tutorials/use-case.md).
+
+## Contributing
+PRs for documentation, tests, and bug fixes are welcome.

@@ -113,6 +113,17 @@
               ></a>
             </li>
             <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  <code>transform</code> is a parser combinator that takes a
+                  parser and a transformer function. If the parser succeeds, it
+                  transforms its result using the transformer function. You can
+                  think of transform as a general <code>map</code>, like for
+                  functors, applied to a parser. Since
+                  <code>transform</code> itself is a parser, you can use it in
+                  <code>seq</code> or other combinators.
+                </p>
+              </div>
               <section class="tsd-panel">
                 <h4>Type Parameters</h4>
                 <ul class="tsd-type-parameter-list">
@@ -164,6 +175,10 @@
                         >C</a
                       ><span class="tsd-signature-symbol">&gt;</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>parser to run</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                   <li>
                     <span
@@ -179,6 +194,10 @@
                         >X</a
                       ><span class="tsd-signature-symbol">)</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>function to transform the result of the parser</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                     <ul class="tsd-parameters">
                       <li class="tsd-parameter-signature">
                         <ul class="tsd-signatures">
@@ -242,6 +261,7 @@
                   >C</a
                 ><span class="tsd-signature-symbol">&gt;</span>
               </h4>
+              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>

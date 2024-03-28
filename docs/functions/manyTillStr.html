@@ -89,6 +89,18 @@
               ></a>
             </li>
             <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  <code>manyTillStr</code> is an optimized version of
+                  <code>manyTill</code>. The <code>manyTill</code> combinator is
+                  slow because it runs the given parser on every character of
+                  the string until it succeeds. However, if you just want to
+                  consume input until you get to a substring, use
+                  <code>manyTillStr</code>. It uses <code>indexOf</code>, which
+                  is significantly faster than running a parser over every
+                  character.
+                </p>
+              </div>
               <div class="tsd-parameters">
                 <h4 class="tsd-parameters-title">Parameters</h4>
                 <ul class="tsd-parameter-list">
@@ -97,6 +109,10 @@
                       ><span class="tsd-kind-parameter">str</span>:
                       <span class="tsd-signature-type">string</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>the string to stop at</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                 </ul>
               </div>
@@ -110,6 +126,11 @@
                 ><span class="tsd-signature-type">string</span
                 ><span class="tsd-signature-symbol">&gt;</span>
               </h4>
+              <p>
+                a parser that consumes the input string until the given string
+                is found.
+              </p>
+              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>

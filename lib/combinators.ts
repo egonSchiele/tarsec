@@ -277,6 +277,12 @@ export function between<O, C, P>(
   };
 }
 
+/**
+ * Parses many instances of the parser separated by separator.
+ * @param separator
+ * @param parser
+ * @returns a parser that runs the given parser zero to many times, separated by the separator parser.
+ */
 export function sepBy<S, P>(
   separator: Parser<S>,
   parser: Parser<P>
@@ -301,14 +307,36 @@ export function sepBy<S, P>(
   };
 }
 
+/**
+ * Convenience function to use as the second argument to `seq` to get all the results from `seq`
+ * @param results
+ * @param captures
+ * @returns `results`
+ */
 export function getResults<R, C>(results: R, captures: C): R {
   return results;
 }
 
+/**
+ * Convenience function to use as the second argument to seq to get all the captures.
+ * @param results
+ * @param captures
+ * @returns `captures`
+ */
 export function getCaptures<R, C>(results: R, captures: C): C {
   return captures;
 }
 
+/**
+ * `capture` is the only way to create a capture. Given a parser and a name,
+ * `capture` runs the parser and saves its result in a captures object
+ * with the given name as the key. It returns the result from the parser,
+ * and attaches the captures object along with it.
+ *
+ * @param parser - parser to run
+ * @param name - name of the capture
+ * @returns - the results of the parser, with the captures object attached.
+ */
 export function capture<T, const S extends string>(
   parser: Parser<T>,
   name: S
@@ -349,6 +377,11 @@ export function manyTill<T>(parser: Parser<T>): Parser<string> {
   };
 }
 
+/**
+ * Just like `manyTill`, but fails unless at least one character of input is consumed.
+ * @param parser - the stop parser
+ * @returns a parser that consumes the input string until the stop parser succeeds.
+ */
 export function many1Till<T>(parser: Parser<T>): Parser<string> {
   return (input: string) => {
     let current = 0;
@@ -376,6 +409,17 @@ export function many1Till<T>(parser: Parser<T>): Parser<string> {
   };
 }
 
+/**
+ * `manyTillStr` is an optimized version of `manyTill`.
+ * The `manyTill` combinator is slow because it runs the given parser
+ * on every character of the string until it succeeds. However, if you
+ * just want to consume input until you get to a substring,
+ * use `manyTillStr`. It uses `indexOf`, which is significantly faster
+ * than running a parser over every character.
+ *
+ * @param str - the string to stop at
+ * @returns a parser that consumes the input string until the given string is found.
+ */
 export function manyTillStr(str: string): Parser<string> {
   return trace(`manyTillStr(${str})`, (input: string) => {
     const index = input.indexOf(str);
@@ -386,6 +430,16 @@ export function manyTillStr(str: string): Parser<string> {
   });
 }
 
+/**
+ * `transform` is a parser combinator that takes a parser and a transformer function.
+ * If the parser succeeds, it transforms its result using the transformer function.
+ * You can think of transform as a general `map`, like for functors, applied to a parser.
+ * Since `transform` itself is a parser, you can use it in `seq` or other combinators.
+ *
+ * @param parser - parser to run
+ * @param transformerFunc - function to transform the result of the parser
+ * @returns
+ */
 export function transform<R, C extends PlainObject, X>(
   parser: GeneralParser<R, C>,
   transformerFunc: (x: R) => X
@@ -402,6 +456,17 @@ export function transform<R, C extends PlainObject, X>(
   });
 }
 
+/**
+ * Given a parser that returns a string, `search` looks for all substrings in a string that match that parser.
+ * For example, given a parser that matches quoted strings, `search` will return an array of all the quoted strings
+ * it finds in the input, as an array.
+ *
+ * The rest of the input that isn't part of the result is simply joined together and returned as a string.
+ * If you need a more structured result + rest, you can use `within` instead.
+ *
+ * @param parser - a parser that returns a string
+ * @returns - a parser that returns an array of strings
+ */
 export function search(parser: Parser<string>): Parser<string[]> {
   return trace("search", (input: string) => {
     let parsed = within(parser)(input);
@@ -563,18 +628,32 @@ export function seq<const T extends readonly GeneralParser<any, any>[], U>(
   });
 }
 
+/** Just like seq except it returns the results.
+ * It's like using `seq([parsers], getResults)`.
+ */
 export function seqR<const T extends readonly GeneralParser<any, any>[]>(
   ...parsers: T
 ): Parser<MergedResults<T>[]> {
   return seq<T, MergedResults<T>[]>(parsers, getResults);
 }
 
+/** Just like seq except it returns the captures.
+ * It's like using `seq([parsers], getCaptures)`.
+ */
 export function seqC<const T extends readonly GeneralParser<any, any>[]>(
   ...parsers: T
 ): Parser<MergedCaptures<T>> {
   return seq(parsers, getCaptures);
 }
 
+/**
+ * Match takes an input string and a parser. If the parser matches the input string
+ * and consumes the entire input string, `match` returns `true`. Otherwise it returns `false`.
+ *
+ * @param input - input string
+ * @param parser - parser to match input against
+ * @returns - true if the parser matches the input and consumes all input, false otherwise
+ */
 export function match(input: string, parser: GeneralParser<any, any>): boolean {
   const result = parser(input);
   return result.success && result.rest === "";

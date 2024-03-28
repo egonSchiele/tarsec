@@ -114,6 +114,15 @@
               ></a>
             </li>
             <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  <code>capture</code> is the only way to create a capture.
+                  Given a parser and a name, <code>capture</code> runs the
+                  parser and saves its result in a captures object with the
+                  given name as the key. It returns the result from the parser,
+                  and attaches the captures object along with it.
+                </p>
+              </div>
               <section class="tsd-panel">
                 <h4>Type Parameters</h4>
                 <ul class="tsd-type-parameter-list">
@@ -151,6 +160,10 @@
                         >T</a
                       ><span class="tsd-signature-symbol">&gt;</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>parser to run</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                   <li>
                     <span
@@ -161,6 +174,10 @@
                         >S</a
                       ></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>name of the capture</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                 </ul>
               </div>
@@ -190,6 +207,12 @@
                 ><span class="tsd-signature-symbol">&gt;</span
                 ><span class="tsd-signature-symbol">&gt;</span>
               </h4>
+              <ul>
+                <li>
+                  the results of the parser, with the captures object attached.
+                </li>
+              </ul>
+              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>
