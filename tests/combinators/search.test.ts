@@ -6,7 +6,7 @@ import {
   or,
   search,
   seq,
-  transform,
+  map,
 } from "../../lib/combinators";
 import {
   anyChar,
@@ -24,10 +24,10 @@ const _siteParser = seqR(
   optional(space),
   manyTill(or(str(" "), eof))
 );
-const siteParser = transform(_siteParser, (results) =>
+const siteParser = map(_siteParser, (results) =>
   results.filter(Boolean).join("")
 );
-const notParser = transform(
+const notParser = map(
   seqR(char("-"), manyTill(or(str(" "), eof))),
   (results: string[]) => results.join("")
 );

@@ -431,25 +431,25 @@ export function manyTillStr(str: string): Parser<string> {
 }
 
 /**
- * `transform` is a parser combinator that takes a parser and a transformer function.
- * If the parser succeeds, it transforms its result using the transformer function.
- * You can think of transform as a general `map`, like for functors, applied to a parser.
- * Since `transform` itself is a parser, you can use it in `seq` or other combinators.
+ * `map` is a parser combinator that takes a parser and a mapper function.
+ * If the parser succeeds, it maps its result using the mapper function.
+ * You can think of map as a general `map`, like for functors, applied to a parser.
+ * Since `map` itself is a parser, you can use it in `seq` or other combinators.
  *
  * @param parser - parser to run
- * @param transformerFunc - function to transform the result of the parser
+ * @param mapperFunc - function to map the result of the parser
  * @returns
  */
-export function transform<R, C extends PlainObject, X>(
+export function map<R, C extends PlainObject, X>(
   parser: GeneralParser<R, C>,
-  transformerFunc: (x: R) => X
+  mapperFunc: (x: R) => X
 ): GeneralParser<X, C> {
-  return trace(`transform(${transformerFunc})`, (input: string) => {
+  return trace(`map(${mapperFunc})`, (input: string) => {
     let parsed = parser(input);
     if (parsed.success) {
       return {
         ...parsed,
-        result: transformerFunc(parsed.result),
+        result: mapperFunc(parsed.result),
       };
     }
     return parsed;

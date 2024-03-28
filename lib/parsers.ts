@@ -1,11 +1,4 @@
-import {
-  getResults,
-  many,
-  many1WithJoin,
-  manyWithJoin,
-  seq,
-  transform,
-} from "./combinators";
+import { many1WithJoin, manyWithJoin, seq } from "./combinators";
 import { trace } from "./trace";
 import { failure, Parser, success } from "./types";
 import { escape } from "./utils";
