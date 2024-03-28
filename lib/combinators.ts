@@ -27,7 +27,6 @@ import { escape, findAncestorWithNextParser, popMany } from "./utils";
  * { captures: <array of captures> }
  * ```
  *
- * Fails on empty strings
  * @param parser - parser to run
  * @returns - parser that runs the given parser zero to many times,
  * and returns the result as an array
@@ -91,14 +90,30 @@ export function many1<const T extends GeneralParser<any, any>>(
 }
 
 /**
+ * Takes a parser, runs it, and returns the number of times it succeeded.
+ * @param parser - parser to run
+ * @returns - the number of times the parser succeeded.
+ */
+export function count<T>(parser: Parser<T>): Parser<T[]> {
+  return trace("count", (input: string) => {
+    const result = many(parser)(input);
+    console.log({ result });
+    if (result.success) {
+      return success(result.result.length, result.rest);
+    }
+    return result;
+  });
+}
+
+/**
  * Takes a parser, runs it n times, and returns the results as an array.
  * If it cannot run the parser n times, it fails without consuming input.
  * @param num - number of times to run the parser
  * @param parser - parser to run
  * @returns - parser that runs the given parser `num` times and returns an array of the results
  */
-export function count<T>(num: number, parser: Parser<T>): Parser<T[]> {
-  return trace("count", (input: string) => {
+export function exactly<T>(num: number, parser: Parser<T>): Parser<T[]> {
+  return trace("exactly", (input: string) => {
     let results: T[] = [];
     let rest = input;
     for (let i = 0; i < num; i++) {

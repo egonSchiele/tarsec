@@ -4,20 +4,20 @@ import { char, digit } from "../../lib/parsers";
 import { Parser, ParserFailure, success } from "../../lib/types";
 
 describe("count", () => {
-  test("count function returns failure when the number of expected matches exceeds input", () => {
-    const parser = count(3, char("a"));
-    const result = parser("aa");
-    expect(result.success).toBe(false);
-    expect((result as ParserFailure).message).toBe("expected 3 matches, got 2");
-  });
-  test("count function returns success when the exact number of matches is present in the input", () => {
-    const parser = count(3, char("a"));
+  test("count counts the number of matches", () => {
+    const parser = count(char("a"));
     const result = parser("aaaab");
-    expect(result).toEqual(success(["a", "a", "a"], "ab"));
+    expect(result).toEqual(success(4, "b"));
+  });
+
+  test("count function works on empty strings", () => {
+    const parser = count(char("a"));
+    const result = parser("");
+    expect(result).toEqual(success(0, ""));
   });
   test("count function works with a more complex parser", () => {
-    const parser = count(2, digit);
+    const parser = count(digit);
     const result = parser("1234");
-    expect(result).toEqual(success(["1", "2"], "34"));
+    expect(result).toEqual(success(4, ""));
   });
 });
