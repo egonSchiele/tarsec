@@ -6,6 +6,7 @@ import {
   or,
   manyTillStr,
   count,
+  iManyTillStr,
 } from "@/lib/combinators";
 import { str, spaces, word, char, eof } from "@/lib/parsers";
 
@@ -64,6 +65,12 @@ type BlockQuote = {
   content: string;
 };
 
+type Image = {
+  type: "image";
+  url: string;
+  alt: string;
+};
+
 type List = {
   type: "list";
   ordered: boolean;
@@ -80,4 +87,26 @@ const codeBlockParser = seqC(
   str("```"),
   optional(spaces),
   capture(manyTillStr("```"), "content")
+);
+
+const blockQuoteParser = seqC(
+  str(">"),
+  spaces,
+  capture(manyTillStr("\n"), "content")
+);
+
+const listParser = seqC(
+  capture(char("-"), "char"),
+  spaces,
+  capture(manyTillStr("\n"), "content")
+);
+
+const paragraphParser = seqC(capture(manyTillStr("\n"), "content"));
+
+const imageParser = seqC(
+  str("!["),
+  capture(iManyTillStr("]("), "alt"),
+  str("]("),
+  capture(iManyTillStr(")"), "url"),
+  str(")")
 );

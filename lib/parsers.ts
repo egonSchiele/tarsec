@@ -1,6 +1,13 @@
 import { many1WithJoin, manyWithJoin, seq } from "./combinators";
 import { trace } from "./trace";
-import { failure, Parser, success } from "./types";
+import {
+  CaptureParser,
+  captureSuccess,
+  failure,
+  Parser,
+  Prettify,
+  success,
+} from "./types";
 import { escape } from "./utils";
 export { within as betweenWithin } from "./parsers/within";
 /**
@@ -185,6 +192,53 @@ export function regexParser(
     const match = input.match(re);
     if (match) {
       return success(match[0], input.slice(match[0].length));
+    }
+    return failure(`expected ${str}, got ${input.slice(0, 10)}`, input);
+  });
+}
+
+/**
+ * Like `regexParser`, but you can name your capture groups
+ * and get them back as the result instead.
+ * Fails if it doesn't have the same number of names as capture groups.
+ *
+ * @param str - regex string or RegExp instance to match
+ * @param options - string of regex options (i = ignore case, g = global, m = multiline, u = unicode)
+ * @param captureNames - names of the captures
+ * @returns - parser that matches the given regex
+ */
+export function captureRegex<const T extends string[]>(
+  str: string | RegExp,
+  options = "",
+  ...captureNames: T
+): Parser<Prettify<Record<(typeof captureNames)[number], string>>> {
+  let re: RegExp;
+  if (typeof str === "string") {
+    re = new RegExp(str.startsWith("^") ? str : `^${str}`, options);
+  } else {
+    re = str;
+  }
+  return trace(`captureRegex(${str})`, (input: string) => {
+    const match = input.match(re);
+    if (match) {
+      if (match.slice(1).length > captureNames.length) {
+        return failure(
+          `more capture groups than names. ${match.slice(1).length} capture groups, ${captureNames.length} names`,
+          input
+        );
+      }
+      if (match.slice(1).length < captureNames.length) {
+        return failure(
+          `fewer capture groups than names. ${match.slice(1).length} capture groups, ${captureNames.length} names`,
+          input
+        );
+      }
+      const captures = {
+        ...Object.fromEntries(
+          match.slice(1).map((value, index) => [captureNames[index], value])
+        ),
+      };
+      return success(captures, input.slice(match[0].length));
     }
     return failure(`expected ${str}, got ${input.slice(0, 10)}`, input);
   });
