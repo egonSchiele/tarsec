@@ -69,7 +69,9 @@
               <a id="regexParser" class="tsd-anchor"></a
               ><span class="tsd-kind-call-signature">regex<wbr />Parser</span
               ><span class="tsd-signature-symbol">(</span
-              ><span class="tsd-kind-parameter">str</span
+              ><span class="tsd-kind-parameter">str</span>,
+              <span class="tsd-kind-parameter">options</span
+              ><span class="tsd-signature-symbol">?</span
               ><span class="tsd-signature-symbol">)</span
               ><span class="tsd-signature-symbol">: </span
               ><a
@@ -88,6 +90,14 @@
               ></a>
             </li>
             <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  Returns a parser that matches a regex. If you pass in a
+                  string, it will get converted to a regex. The regex should
+                  always match from the start of the input. If you pass in a
+                  string, a <code>^</code> will get prepended to it.
+                </p>
+              </div>
               <div class="tsd-parameters">
                 <h4 class="tsd-parameters-title">Parameters</h4>
                 <ul class="tsd-parameter-list">
@@ -98,6 +108,26 @@
                       ><span class="tsd-signature-symbol"> | </span
                       ><span class="tsd-signature-type">RegExp</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>regex string or RegExp instance to match</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
+                  </li>
+                  <li>
+                    <span
+                      ><span class="tsd-kind-parameter">options</span>:
+                      <span class="tsd-signature-type">string</span
+                      ><span class="tsd-signature-symbol">
+                        = &quot;&quot;</span
+                      ></span
+                    >
+                    <div class="tsd-comment tsd-typography">
+                      <p>
+                        regex options (i = ignore case, g = global, m =
+                        multiline, u = unicode)
+                      </p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                 </ul>
               </div>
@@ -111,6 +141,10 @@
                 ><span class="tsd-signature-type">string</span
                 ><span class="tsd-signature-symbol">&gt;</span>
               </h4>
+              <ul>
+                <li>parser that matches the given regex</li>
+              </ul>
+              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>
