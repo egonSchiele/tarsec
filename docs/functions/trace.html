@@ -80,6 +80,73 @@
               ></a>
             </li>
             <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  This function is used internally with debug mode. Given a
+                  parser and a debug name for it, when the parser is called,
+                  <code>trace</code> will:
+                </p>
+                <ol>
+                  <li>Print a line when the parser starts</li>
+                  <li>
+                    print a line when the parser ends, indicating success or
+                    failure.
+                  </li>
+                  <li>
+                    If the parser returns any captures, print the captures.
+                  </li>
+                  <li>Count the number of times this parser has been run.</li>
+                  <li>Track the total time this parser has taken.</li>
+                  <li>
+                    Track the total number of steps your parser has taken (a
+                    step equals one parser invocation). So, for example, you may
+                    find out that your parser to parse Markdown has taken 50
+                    steps to parse that file.
+                  </li>
+                </ol>
+                <p>
+                  All this happens only if debug mode is on, which you can turn
+                  on by using <code>parserDebug</code>, or setting the env var
+                  <code>DEBUG</code> to <code>1</code>.
+                </p>
+                <p>
+                  Caveat: If you have debug mode on through an environment
+                  variable, <code>trace</code> will capture counts and times for
+                  all parsers across your entire application. If you want to
+                  profile just a particular section of code, use
+                  <code>parserDebug</code> instead. If you <em>do</em> want to
+                  track constant times for all parsers, don&#39;t use
+                  <code>parserDebug</code> as it will reset those.
+                </p>
+                <p>
+                  <code>trace</code> works with tarsec&#39;s built-in parsers
+                  out of the box. You can easily set it up to work with your
+                  custom parser too.
+                </p>
+                <p>For example, if your parser looks like this:</p>
+                <pre><code class="language-ts"><span class="hl-8">const</span><span class="hl-0"> </span><span class="hl-9">myParser</span><span class="hl-0"> = (</span><span class="hl-1">input</span><span class="hl-0">:</span><span class="hl-11">string</span><span class="hl-0">) </span><span class="hl-8">=&gt;</span><span class="hl-0"> {</span><br/><span class="hl-0">  </span><span class="hl-7">if</span><span class="hl-0"> (</span><span class="hl-1">input</span><span class="hl-0"> === </span><span class="hl-3">&quot;hello&quot;</span><span class="hl-0">) {</span><br/><span class="hl-0">   </span><span class="hl-7">return</span><span class="hl-0"> { </span><span class="hl-1">success:</span><span class="hl-0"> </span><span class="hl-8">true</span><span class="hl-0">, </span><span class="hl-1">result:</span><span class="hl-0"> </span><span class="hl-3">&quot;hello&quot;</span><span class="hl-0">, </span><span class="hl-1">rest:</span><span class="hl-0"> </span><span class="hl-3">&quot;&quot;</span><span class="hl-0"> };</span><br/><span class="hl-0"> }</span><br/><span class="hl-7">return</span><span class="hl-0"> { </span><span class="hl-1">success:</span><span class="hl-0"> </span><span class="hl-8">false</span><span class="hl-0">, </span><span class="hl-1">message:</span><span class="hl-0"> </span><span class="hl-3">&quot;expected hello&quot;</span><span class="hl-0">, </span><span class="hl-1">rest:</span><span class="hl-0"> </span><span class="hl-1">input</span><span class="hl-0"> };</span><br/><span class="hl-0">}</span>
+</code><button>Copy</button></pre>
+                <p>You can wrap it in <code>trace</code> like this:</p>
+                <pre><code class="language-ts"><span class="hl-8">const</span><span class="hl-0"> </span><span class="hl-5">myParser</span><span class="hl-0"> = </span><span class="hl-9">trace</span><span class="hl-0">(</span><span class="hl-3">&quot;myParser&quot;</span><span class="hl-0">, (</span><span class="hl-1">input</span><span class="hl-0">:</span><span class="hl-11">string</span><span class="hl-0">) </span><span class="hl-8">=&gt;</span><span class="hl-0"> {</span><br/><span class="hl-0"> </span><span class="hl-7">if</span><span class="hl-0"> (</span><span class="hl-1">input</span><span class="hl-0"> === </span><span class="hl-3">&quot;hello&quot;</span><span class="hl-0">) {</span><br/><span class="hl-0">  </span><span class="hl-7">return</span><span class="hl-0"> { </span><span class="hl-1">success:</span><span class="hl-0"> </span><span class="hl-8">true</span><span class="hl-0">, </span><span class="hl-1">result:</span><span class="hl-0"> </span><span class="hl-3">&quot;hello&quot;</span><span class="hl-0">, </span><span class="hl-1">rest:</span><span class="hl-0"> </span><span class="hl-3">&quot;&quot;</span><span class="hl-0"> };</span><br/><span class="hl-0">}</span><br/><span class="hl-7">return</span><span class="hl-0"> { </span><span class="hl-1">success:</span><span class="hl-0"> </span><span class="hl-8">false</span><span class="hl-0">, </span><span class="hl-1">message:</span><span class="hl-0"> </span><span class="hl-3">&quot;expected hello&quot;</span><span class="hl-0">, </span><span class="hl-1">rest:</span><span class="hl-0"> </span><span class="hl-1">input</span><span class="hl-0"> };</span><br/><span class="hl-0">});</span>
+</code><button>Copy</button></pre>
+                <p>
+                  Now, when you run
+                  <code>myParser(&quot;hello&quot;)</code> with debug mode on,
+                  you will see the debug output.
+                </p>
+                <p>
+                  Some parsers, like <code>seq</code>, are very general. You
+                  might have a few parser that use <code>seq</code>. So when you
+                  see <code>seq</code> debug output, you might not know which
+                  <code>seq</code> parser that means. ou can pass
+                  <code>seq</code> a debug name as an optional third argument to
+                  be used in the debug output. This name is used to track count
+                  and time, so using this name will also mean this
+                  <code>seq</code> parser&#39;s count and time are tracked
+                  separately from the other <code>seq</code> parsers, which
+                  might be useful.
+                </p>
+              </div>
               <div class="tsd-parameters">
                 <h4 class="tsd-parameters-title">Parameters</h4>
                 <ul class="tsd-parameter-list">
@@ -88,18 +155,27 @@
                       ><span class="tsd-kind-parameter">name</span>:
                       <span class="tsd-signature-type">string</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>debug name for parser</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                   <li>
                     <span
                       ><span class="tsd-kind-parameter">parser</span>:
                       <span class="tsd-signature-type">any</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>parser to run</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                 </ul>
               </div>
               <h4 class="tsd-returns-title">
                 Returns <span class="tsd-signature-type">any</span>
               </h4>
+              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>

@@ -83,6 +83,17 @@
               ></a>
             </li>
             <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  This is the recommended way to run a parser in debug mode.
+                  Takes a callback and turns debug mode on just for the
+                  callback. This enables <code>trace</code> to capture all sorts
+                  of information about any executed parsers and print them to
+                  console.log. <code>trace</code> tracks counts and times but
+                  they don&#39;t actually get reset to zero unless you use this
+                  function to wrap your code.
+                </p>
+              </div>
               <div class="tsd-parameters">
                 <h4 class="tsd-parameters-title">Parameters</h4>
                 <ul class="tsd-parameter-list">
@@ -91,18 +102,27 @@
                       ><span class="tsd-kind-parameter">name</span>:
                       <span class="tsd-signature-type">string</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>debug name</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                   <li>
                     <span
                       ><span class="tsd-kind-parameter">callback</span>:
                       <span class="tsd-signature-type">Function</span></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>callback to run in debug mode</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                 </ul>
               </div>
               <h4 class="tsd-returns-title">
                 Returns <span class="tsd-signature-type">void</span>
               </h4>
+              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>
