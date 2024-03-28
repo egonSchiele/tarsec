@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="IE=edge" />
-    <title>tarsec</title>
+    <title>captureRegex | tarsec</title>
     <meta name="description" content="Documentation for tarsec" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="stylesheet" href="assets/style.css" />
-    <link rel="stylesheet" href="assets/highlight.css" />
-    <script defer src="assets/main.js"></script>
-    <script async src="assets/icons.js" id="tsd-icons-script"></script>
-    <script async src="assets/search.js" id="tsd-search-script"></script>
-    <script async src="assets/navigation.js" id="tsd-nav-script"></script>
+    <link rel="stylesheet" href="../assets/style.css" />
+    <link rel="stylesheet" href="../assets/highlight.css" />
+    <script defer src="../assets/main.js"></script>
+    <script async src="../assets/icons.js" id="tsd-icons-script"></script>
+    <script async src="../assets/search.js" id="tsd-search-script"></script>
+    <script async src="../assets/navigation.js" id="tsd-nav-script"></script>
   </head>
   <body>
     <script>
@@ -26,13 +26,13 @@
     </script>
     <header class="tsd-page-toolbar">
       <div class="tsd-toolbar-contents container">
-        <div class="table-cell" id="tsd-search" data-base=".">
+        <div class="table-cell" id="tsd-search" data-base="..">
           <div class="field">
             <label
               for="tsd-search-field"
               class="tsd-widget tsd-toolbar-icon search no-caption"
               ><svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <use href="assets/icons.svg#icon-search"></use></svg></label
+                <use href="../assets/icons.svg#icon-search"></use></svg></label
             ><input type="text" id="tsd-search-field" aria-label="Search" />
           </div>
           <div class="field"><div id="tsd-toolbar-links"></div></div>
@@ -40,7 +40,7 @@
             <li class="state loading">Preparing search index...</li>
             <li class="state failure">The search index is not available</li>
           </ul>
-          <a href="index.html" class="title">tarsec</a>
+          <a href="../index.html" class="title">tarsec</a>
         </div>
         <div class="table-cell" id="tsd-widgets">
           <a
@@ -49,75 +49,176 @@
             data-toggle="menu"
             aria-label="Menu"
             ><svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <use href="assets/icons.svg#icon-menu"></use></svg
+              <use href="../assets/icons.svg#icon-menu"></use></svg
           ></a>
         </div>
       </div>
     </header>
     <div class="container container-main">
       <div class="col-content">
-        <div class="tsd-page-title"><h2>tarsec</h2></div>
-        <div class="tsd-panel tsd-typography">
-          <pre><code><span class="hl-0"> </span><span class="hl-1">__</span><br/><span class="hl-0">/\ \</span><span class="hl-1">__</span><br/><span class="hl-0">\ \ ,</span><span class="hl-1">_</span><span class="hl-0">\    </span><span class="hl-1">__</span><span class="hl-0">     </span><span class="hl-1">_</span><span class="hl-0"> </span><span class="hl-1">__</span><span class="hl-0">   </span><span class="hl-1">____</span><span class="hl-0">     </span><span class="hl-1">__</span><span class="hl-0">    </span><span class="hl-1">___</span><br/><span class="hl-0"> \ \ \</span><span class="hl-2">/  /</span><span class="hl-3">&#39;__`</span><span class="hl-4">\ </span><span class="hl-3"> /</span><span class="hl-4">\`</span><span class="hl-3">&#39;</span><span class="hl-1">__</span><span class="hl-0">\</span><span class="hl-2">/&#39;,__</span><span class="hl-4">\ </span><span class="hl-2"> /</span><span class="hl-3">&#39;__`</span><span class="hl-4">\ </span><span class="hl-3">/&#39;</span><span class="hl-1">___</span><span class="hl-0">\</span><br/><span class="hl-0">  \ \ \</span><span class="hl-1">_</span><span class="hl-0">/\ \</span><span class="hl-5">L</span><span class="hl-0">\.\</span><span class="hl-1">_</span><span class="hl-0">\ \ \</span><span class="hl-6">//\__, `\/\  __//\ \__/</span><br/><span class="hl-0">   \ \</span><span class="hl-1">__</span><span class="hl-0">\ \</span><span class="hl-1">__</span><span class="hl-0">/.\</span><span class="hl-1">_</span><span class="hl-0">\\ \</span><span class="hl-1">_</span><span class="hl-0">\\</span><span class="hl-2">/</span><span class="hl-4">\_</span><span class="hl-2">___/</span><span class="hl-0">\ \</span><span class="hl-1">____</span><span class="hl-0">\ \</span><span class="hl-1">____</span><span class="hl-0">\</span><br/><span class="hl-0">    \</span><span class="hl-2">/__/</span><span class="hl-0">\</span><span class="hl-2">/__/</span><span class="hl-0">\</span><span class="hl-2">/_/</span><span class="hl-0"> \</span><span class="hl-2">/_/</span><span class="hl-0"> \</span><span class="hl-2">/___/</span><span class="hl-0">  \</span><span class="hl-2">/____/</span><span class="hl-0">\</span><span class="hl-2">/____/</span>
-</code><button>Copy</button></pre>
-          <p>A parser combinator library for TypeScript, inspired by Parsec.</p>
-          <a id="md:install" class="tsd-anchor"></a>
-          <h2><a href="#md:install">Install</a></h2>
-          <pre><code><span class="hl-1">npm</span><span class="hl-0"> </span><span class="hl-1">install</span><span class="hl-0"> </span><span class="hl-1">tarsec</span>
-</code><button>Copy</button></pre>
-          <a id="md:hello-world" class="tsd-anchor"></a>
-          <h2><a href="#md:hello-world">Hello world</a></h2>
-          <pre><code class="language-ts"><span class="hl-7">import</span><span class="hl-0"> { </span><span class="hl-1">getResults</span><span class="hl-0">, </span><span class="hl-1">str</span><span class="hl-0">, </span><span class="hl-1">seq</span><span class="hl-0">, </span><span class="hl-1">space</span><span class="hl-0"> } </span><span class="hl-7">from</span><span class="hl-0"> </span><span class="hl-3">&quot;tarsec&quot;</span><span class="hl-0">;</span><br/><br/><span class="hl-6">// define a parser</span><br/><span class="hl-8">const</span><span class="hl-0"> </span><span class="hl-5">parser</span><span class="hl-0"> = </span><span class="hl-9">seq</span><span class="hl-0">([</span><br/><span class="hl-0">    </span><span class="hl-9">str</span><span class="hl-0">(</span><span class="hl-3">&quot;hello&quot;</span><span class="hl-0">),</span><br/><span class="hl-0">    </span><span class="hl-1">space</span><span class="hl-0">,</span><br/><span class="hl-0">    </span><span class="hl-9">str</span><span class="hl-0">(</span><span class="hl-3">&quot;world&quot;</span><span class="hl-0">)</span><br/><span class="hl-0">], </span><span class="hl-1">getResults</span><span class="hl-0">);</span><br/><br/><span class="hl-6">// then use it</span><br/><span class="hl-9">parser</span><span class="hl-0">(</span><span class="hl-3">&quot;hello world&quot;</span><span class="hl-0">); </span><span class="hl-6">// success</span><br/><span class="hl-9">parser</span><span class="hl-0">(</span><span class="hl-3">&quot;hello there&quot;</span><span class="hl-0">); </span><span class="hl-6">// failure</span>
-</code><button>Copy</button></pre>
-          <a id="md:learning-tarsec" class="tsd-anchor"></a>
-          <h2><a href="#md:learning-tarsec">Learning tarsec</a></h2>
-          <ul>
-            <li>
-              <a href="/tutorials/5-minute-intro.md"
-                >A five minute introduction</a
-              >
-            </li>
-            <li>
-              <a href="/tutorials/three-building-blocks.md"
-                >The three building blocks in tarsec</a
-              >
-            </li>
-            <li>
-              <a href="https://egonschiele.github.io/tarsec/">API reference</a>
-            </li>
+        <div class="tsd-page-title">
+          <ul class="tsd-breadcrumb">
+            <li><a href="../modules.html">tarsec</a></li>
+            <li><a href="captureRegex.html">captureRegex</a></li>
           </ul>
-          <a id="md:features" class="tsd-anchor"></a>
-          <h2><a href="#md:features">Features</a></h2>
-          <ul>
-            <li>
-              tarsec is entirely TypeScript. There&#39;s nothing to compile.
-            </li>
-            <li>
-              Derived types: tarsec will generate TypeScript types for your
-              parser
-            </li>
-            <li>
-              <a href="/tutorials/debugging.md">Debug mode</a> that prints
-              what&#39;s happening step-by-step
-            </li>
-            <li>
-              Tools to debug your parser&#39;s
-              <a href="/tutorials/performance.md">performance</a>
-            </li>
-            <li>
-              Partial
-              <a href="/tutorials/backtracking.md">backtracking</a> support
-            </li>
-            <li><a href="/tutorials/security.md">Security</a> tools</li>
-          </ul>
-          <p>
-            Read more about
-            <a href="/tutorials/use-case.md">use cases for tarsec</a>.
-          </p>
-          <a id="md:contributing" class="tsd-anchor"></a>
-          <h2><a href="#md:contributing">Contributing</a></h2>
-          <p>PRs for documentation, tests, and bug fixes are welcome.</p>
+          <h1>Function captureRegex</h1>
         </div>
+        <section class="tsd-panel">
+          <ul class="tsd-signatures">
+            <li class="tsd-signature tsd-anchor-link">
+              <a id="captureRegex" class="tsd-anchor"></a
+              ><span class="tsd-kind-call-signature">capture<wbr />Regex</span
+              ><span class="tsd-signature-symbol">&lt;</span
+              ><span class="tsd-signature-keyword">const </span
+              ><a
+                class="tsd-signature-type tsd-kind-type-parameter"
+                href="captureRegex.html#captureRegex.T"
+                >T</a
+              ><span class="tsd-signature-symbol">&gt;</span
+              ><span class="tsd-signature-symbol">(</span
+              ><span class="tsd-kind-parameter">str</span>,
+              <span class="tsd-kind-parameter">options</span
+              ><span class="tsd-signature-symbol">?</span>,
+              <span class="tsd-signature-symbol">...</span
+              ><span class="tsd-kind-parameter">captureNames</span
+              ><span class="tsd-signature-symbol">)</span
+              ><span class="tsd-signature-symbol">: </span
+              ><a
+                href="../types/Parser.html"
+                class="tsd-signature-type tsd-kind-type-alias"
+                >Parser</a
+              ><span class="tsd-signature-symbol">&lt;</span
+              ><a
+                href="../types/Prettify.html"
+                class="tsd-signature-type tsd-kind-type-alias"
+                >Prettify</a
+              ><span class="tsd-signature-symbol">&lt;</span
+              ><span class="tsd-signature-type">Record</span
+              ><span class="tsd-signature-symbol">&lt;</span
+              ><span class="tsd-signature-keyword">typeof </span
+              ><a href="" class="tsd-signature-type tsd-kind-parameter"
+                >captureNames</a
+              ><span class="tsd-signature-symbol">[</span
+              ><span class="tsd-signature-type">number</span
+              ><span class="tsd-signature-symbol">]</span
+              ><span class="tsd-signature-symbol">, </span
+              ><span class="tsd-signature-type">string</span
+              ><span class="tsd-signature-symbol">&gt;</span
+              ><span class="tsd-signature-symbol">&gt;</span
+              ><span class="tsd-signature-symbol">&gt;</span
+              ><a
+                href="#captureRegex"
+                aria-label="Permalink"
+                class="tsd-anchor-icon"
+                ><svg viewBox="0 0 24 24">
+                  <use href="../assets/icons.svg#icon-anchor"></use></svg
+              ></a>
+            </li>
+            <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  Like <code>regexParser</code>, but you can name your capture
+                  groups and get them back as the result instead. Fails if it
+                  doesn&#39;t have the same number of names as capture groups.
+                </p>
+              </div>
+              <section class="tsd-panel">
+                <h4>Type Parameters</h4>
+                <ul class="tsd-type-parameter-list">
+                  <li>
+                    <span
+                      ><a id="captureRegex.T" class="tsd-anchor"></a
+                      ><span class="tsd-signature-keyword">const </span
+                      ><span class="tsd-kind-type-parameter">T</span
+                      ><span class="tsd-signature-keyword"> extends </span
+                      ><span class="tsd-signature-type">string</span
+                      ><span class="tsd-signature-symbol">[]</span></span
+                    >
+                  </li>
+                </ul>
+              </section>
+              <div class="tsd-parameters">
+                <h4 class="tsd-parameters-title">Parameters</h4>
+                <ul class="tsd-parameter-list">
+                  <li>
+                    <span
+                      ><span class="tsd-kind-parameter">str</span>:
+                      <span class="tsd-signature-type">string</span
+                      ><span class="tsd-signature-symbol"> | </span
+                      ><span class="tsd-signature-type">RegExp</span></span
+                    >
+                    <div class="tsd-comment tsd-typography">
+                      <p>regex string or RegExp instance to match</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
+                  </li>
+                  <li>
+                    <span
+                      ><span class="tsd-kind-parameter">options</span>:
+                      <span class="tsd-signature-type">string</span
+                      ><span class="tsd-signature-symbol">
+                        = &quot;&quot;</span
+                      ></span
+                    >
+                    <div class="tsd-comment tsd-typography">
+                      <p>
+                        string of regex options (i = ignore case, g = global, m
+                        = multiline, u = unicode)
+                      </p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
+                  </li>
+                  <li>
+                    <span
+                      ><code class="tsd-tag ts-flagRest">Rest</code>
+                      <span class="tsd-signature-symbol">...</span
+                      ><span class="tsd-kind-parameter">captureNames</span>:
+                      <a
+                        class="tsd-signature-type tsd-kind-type-parameter"
+                        href="captureRegex.html#captureRegex.T"
+                        >T</a
+                      ></span
+                    >
+                    <div class="tsd-comment tsd-typography">
+                      <p>names of the captures</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
+                  </li>
+                </ul>
+              </div>
+              <h4 class="tsd-returns-title">
+                Returns
+                <a
+                  href="../types/Parser.html"
+                  class="tsd-signature-type tsd-kind-type-alias"
+                  >Parser</a
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><a
+                  href="../types/Prettify.html"
+                  class="tsd-signature-type tsd-kind-type-alias"
+                  >Prettify</a
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><span class="tsd-signature-type">Record</span
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><span class="tsd-signature-keyword">typeof </span
+                ><a href="" class="tsd-signature-type tsd-kind-parameter"
+                  >captureNames</a
+                ><span class="tsd-signature-symbol">[</span
+                ><span class="tsd-signature-type">number</span
+                ><span class="tsd-signature-symbol">]</span
+                ><span class="tsd-signature-symbol">, </span
+                ><span class="tsd-signature-type">string</span
+                ><span class="tsd-signature-symbol">&gt;</span
+                ><span class="tsd-signature-symbol">&gt;</span
+                ><span class="tsd-signature-symbol">&gt;</span>
+              </h4>
+              <ul>
+                <li>parser that matches the given regex</li>
+              </ul>
+              <div class="tsd-comment tsd-typography"></div>
+            </li>
+          </ul>
+        </section>
       </div>
       <div class="col-sidebar">
         <div class="page-menu">
@@ -126,7 +227,7 @@
               <summary class="tsd-accordion-summary">
                 <h3>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <use href="assets/icons.svg#icon-chevronDown"></use></svg
+                    <use href="../assets/icons.svg#icon-chevronDown"></use></svg
                   >Settings
                 </h3>
               </summary>
@@ -278,34 +379,18 @@
               </div>
             </details>
           </div>
-          <details open class="tsd-index-accordion tsd-page-navigation">
-            <summary class="tsd-accordion-summary">
-              <h3>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                  <use href="assets/icons.svg#icon-chevronDown"></use></svg
-                >On This Page
-              </h3>
-            </summary>
-            <div class="tsd-accordion-details">
-              <a href="#md:install"><span>Install</span></a
-              ><a href="#md:hello-world"><span>Hello world</span></a
-              ><a href="#md:learning-tarsec"><span>Learning tarsec</span></a
-              ><a href="#md:features"><span>Features</span></a
-              ><a href="#md:contributing"><span>Contributing</span></a>
-            </div>
-          </details>
         </div>
         <div class="site-menu">
           <nav class="tsd-navigation">
-            <a href="modules.html" class="current"
+            <a href="../modules.html"
               ><svg class="tsd-kind-icon" viewBox="0 0 24 24">
-                <use href="assets/icons.svg#icon-1"></use></svg
+                <use href="../assets/icons.svg#icon-1"></use></svg
               ><span>tarsec</span></a
             >
             <ul
               class="tsd-small-nested-navigation"
               id="tsd-nav-container"
-              data-base="."
+              data-base=".."
             >
               <li>Loading...</li>
             </ul>
