@@ -1,5 +1,13 @@
-import { seqC, capture, optional } from "@/lib/combinators";
-import { str, spaces, word, char } from "@/lib/parsers";
+import {
+  seqC,
+  capture,
+  optional,
+  many1Till,
+  or,
+  manyTillStr,
+  count,
+} from "@/lib/combinators";
+import { str, spaces, word, char, eof } from "@/lib/parsers";
 
 type InlineMarkdown =
   | InlineText
@@ -42,7 +50,7 @@ type Paragraph = {
 type Heading = {
   type: "heading";
   level: number;
-  content: InlineMarkdown[];
+  content: string;
 };
 
 type CodeBlock = {
@@ -53,28 +61,23 @@ type CodeBlock = {
 
 type BlockQuote = {
   type: "block-quote";
-  content: (Paragraph | Heading | BlockQuote)[];
+  content: string;
 };
 
 type List = {
   type: "list";
   ordered: boolean;
-  items: ListItem[];
-};
-
-type ListItem = {
-  type: "list-item";
-  content: (Paragraph | Heading | BlockQuote | CodeBlock)[];
-};
-
-type Document = {
-  type: "document";
-  content: (Paragraph | Heading)[];
+  items: string[];
 };
 
 const headingParser = seqC(
-  str("hello"),
+  capture(count(char("#")), "level"),
   spaces,
-  capture(word, "name"),
-  optional(char("!"))
+  capture(many1Till(or(char("\n"), eof)), "content")
+);
+
+const codeBlockParser = seqC(
+  str("```"),
+  optional(spaces),
+  capture(manyTillStr("```"), "content")
 );
