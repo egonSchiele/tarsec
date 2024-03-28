@@ -21,7 +21,8 @@
       "require": "./dist/index.js"
     }
   },
-  "keywords": [],
+  "types": "./dist/index.d.ts",
+  "keywords": ["parser", "parser combinator", "parsec"],
   "author": "",
   "license": "ISC",
   "devDependencies": {

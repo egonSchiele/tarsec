@@ -1,3 +1,4 @@
 - better perf - many1TillStr, any others that go character-by-character?
-- jsdocs for combinators and trace functions
 - tests for inferred types
+- what should the regex parser return?
+- replace any builtin many1 parsers with regex?
