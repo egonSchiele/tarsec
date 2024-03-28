@@ -86,6 +86,11 @@ let stepLimit = -1;
  * @returns
  */
 export function trace(name: string, parser: any): any {
+  if (stepLimit > 0 && stepCount > stepLimit) {
+    throw new Error(
+      `parser step limit of ${stepLimit} exceeded, parser may be in an infinite loop`
+    );
+  }
   return (input: string) => {
     if (debugFlag) {
       console.log(" ".repeat(level) + `🔍 ${name} -- input: ${escape(input)}`);
@@ -187,4 +192,16 @@ export function parserDebug(name: string, callback: Function) {
   stepCount = 0;
   counts = {};
   times = {};
+}
+
+/**
+ * Utility function to limit the number of steps a parser can take.
+ * This is useful for avoiding infinite loops in your parser.
+ * @param limit - number of steps to limit the parser to
+ * @param callback - callback to run
+ */
+export function limitSteps(limit: number, callback: Function) {
+  stepLimit = limit;
+  callback();
+  stepLimit = -1;
 }
