@@ -97,7 +97,6 @@ export function many1<const T extends GeneralParser<any, any>>(
 export function count<T>(parser: Parser<T>): Parser<T[]> {
   return trace("count", (input: string) => {
     const result = many(parser)(input);
-    console.log({ result });
     if (result.success) {
       return success(result.result.length, result.rest);
     }

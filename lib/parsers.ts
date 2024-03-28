@@ -144,8 +144,25 @@ export const quotedString = seq(
   (results: string[]) => results.join("")
 );
 
-export function regexParser(str: string | RegExp): Parser<string> {
-  const re = typeof str === "string" ? new RegExp(`^(${str})`) : str;
+/**
+ * Returns a parser that matches a regex. If you pass in a string,
+ * it will get converted to a regex. The regex should always match from the start of the input.
+ * If you pass in a string, a `^` will get prepended to it.
+ *
+ * @param str - regex string or RegExp instance to match
+ * @param options - regex options (i = ignore case, g = global, m = multiline, u = unicode)
+ * @returns - parser that matches the given regex
+ */
+export function regexParser(
+  str: string | RegExp,
+  options = ""
+): Parser<string> {
+  let re: RegExp;
+  if (typeof str === "string") {
+    re = new RegExp(str.startsWith("^") ? str : `^${str}`, options);
+  } else {
+    re = str;
+  }
   return trace(`regex(${str})`, (input: string) => {
     const match = input.match(re);
     if (match) {
