@@ -46,6 +46,9 @@ parser("hello there"); // failure
 - Partial [backtracking](/tutorials/backtracking.md) support
 - A way to make your parser more [secure](/tutorials/security.md).
 
+## Examples
+- [A markdown parser](/tests/examples/markdown.ts)
+
 Read more about [use cases for tarsec](/tutorials/use-case.md).
 
 ## Contributing

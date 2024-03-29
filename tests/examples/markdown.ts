@@ -13,6 +13,9 @@ import {
 import { str, spaces, word, char, eof, space, set } from "@/lib/parsers";
 import { Parser } from "@/lib/types";
 
+/* Still a work in progress */
+
+/* Types */
 type InlineMarkdown =
   | InlineText
   | InlineBold
@@ -80,6 +83,7 @@ type List = {
   items: string[];
 };
 
+/* Parsers */
 export const headingParser: Parser<Heading> = seqC(
   set("type", "heading"),
   capture(count(char("#")), "level"),
@@ -117,6 +121,7 @@ export const imageParser = seqC(
   str(")")
 );
 
+/* Markdown Parser */
 export const markdownParser = seq(
   [
     optional(spaces),
