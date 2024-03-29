@@ -14,6 +14,7 @@ describe("markdownParser", () => {
   it("should parse simple input", () => {
     const expected = [
       {
+        type: "heading",
         content: "Install",
         level: 2,
       },

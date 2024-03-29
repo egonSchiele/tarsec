@@ -243,3 +243,63 @@ export function captureRegex<const T extends string[]>(
     return failure(`expected ${str}, got ${input.slice(0, 10)}`, input);
   });
 }
+
+/**
+ * Return a parser that takes a key and a value.
+ * The parser consumes no input and always succeeds,
+ * and returns `null` as the result. It also returns a captures object
+ * with that key-value pair set. This is useful when you need to inject
+ * a key-value pair into captures for a `seq`. 
+ * 
+ * For example, here is a Markdown heading parser.
+
+ * ```ts
+ * export const headingParser: Parser<Heading> = seqC(
+ *   capture(count(char("#")), "level"),
+ *   spaces,
+ *   capture(many1Till(or(char("\n"), eof)), "content")
+ * );
+```
+ *
+ * This parser returns
+ * 
+ * ```ts
+ * {
+ *   level: number,
+ *   content: string
+ * }
+ * ```
+ * but the type of heading is actually
+ * 
+ * ```ts
+ * type Heading = {
+ *   type: "heading";
+ *   level: number;
+ *   content: string;
+ * };
+ * ```
+ * 
+ * The `type` key is missing. You can use `set` to inject the `type`
+ * key-value pair into captures:
+ * 
+ * ```ts
+ * export const headingParser: Parser<Heading> = seqC(
+ *   set("type", "heading"),
+ *   capture(count(char("#")), "level"),
+ *   spaces,
+ *   capture(many1Till(or(char("\n"), eof)), "content")
+ * );
+ * ```
+ * 
+ * @param key - key to set on captures object
+ * @param value - value to set on captures object
+ * @returns 
+ */
+export function set<const K extends string, const V>(
+  key: K,
+  value: V
+): CaptureParser<null, Record<K, V>> {
+  return trace(`set(${key}, ${value})`, (input: string) => {
+    return captureSuccess(null, input, { [key]: value });
+  });
+}

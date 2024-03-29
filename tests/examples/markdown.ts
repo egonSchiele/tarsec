@@ -10,7 +10,8 @@ import {
   sepBy,
   seq,
 } from "@/lib/combinators";
-import { str, spaces, word, char, eof, space } from "@/lib/parsers";
+import { str, spaces, word, char, eof, space, set } from "@/lib/parsers";
+import { Parser } from "@/lib/types";
 
 type InlineMarkdown =
   | InlineText
@@ -79,7 +80,8 @@ type List = {
   items: string[];
 };
 
-export const headingParser = seqC(
+export const headingParser: Parser<Heading> = seqC(
+  set("type", "heading"),
   capture(count(char("#")), "level"),
   spaces,
   capture(many1Till(or(char("\n"), eof)), "content")

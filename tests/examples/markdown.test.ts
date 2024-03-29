@@ -13,6 +13,7 @@ describe("headingParser", () => {
   it("should parse heading level 1", () => {
     const input = "# Heading 1";
     const expected = {
+      type: "heading",
       level: 1,
       content: "Heading 1",
     };
@@ -22,6 +23,7 @@ describe("headingParser", () => {
   it("should parse heading level 2", () => {
     const input = "## Heading 2";
     const expected = {
+      type: "heading",
       level: 2,
       content: "Heading 2",
     };
