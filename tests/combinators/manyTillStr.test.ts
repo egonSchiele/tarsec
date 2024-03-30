@@ -32,7 +32,7 @@ describe("manyTillStr combinator", () => {
   });
 
   test("manyTillStr can be case insensitive", () => {
-    const parser2 = manyTillStr("bc", { caseInsensitive: true });
+    const parser2 = manyTillStr("bc", { insensitive: true });
     const result = parser2("AABBCC");
 
     expect(result).toEqual(success("AAB", "BCC"));

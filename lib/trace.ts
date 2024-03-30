@@ -1,5 +1,5 @@
 import { ParserResult, Parser, PlainObject } from "./types";
-import { escape, round } from "./utils";
+import { escape, round, shorten } from "./utils";
 const STEP = 2;
 
 /**
@@ -93,7 +93,9 @@ export function trace(name: string, parser: any): any {
   }
   return (input: string) => {
     if (debugFlag) {
-      console.log(" ".repeat(level) + `🔍 ${name} -- input: ${escape(input)}`);
+      console.log(
+        " ".repeat(level) + `🔍 ${name} -- input: ${shorten(escape(input))}`
+      );
 
       let result: any;
       const time = parserTime(() => {

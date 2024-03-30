@@ -19,6 +19,7 @@ describe("markdownParser", () => {
         level: 2,
       },
       {
+        type: "code-block",
         content: "npm install tarsec\n",
         language: null,
       },

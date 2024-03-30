@@ -427,6 +427,43 @@ export function many1Till<T>(parser: Parser<T>): Parser<string> {
 }
 
 /**
+ * `manyTillOneOf` is an optimized version of `manyTill`.
+ * The `manyTill` combinator is slow because it runs the given parser
+ * on every character of the string until it succeeds. However, if you
+ * just want to consume input until you get to a substring,
+ * use `manyTillOneOf`. It uses `indexOf`, which is significantly faster
+ * than running a parser over every character.
+ *
+ * Given an array of strings, this parser consumes input until it hits one of those strings.
+ * If none of the strings is found, the parser will consume all input and return success.
+ *
+ * @param str - the string to stop at
+ * @param options - object of optional parameters. { insensitive: boolean }
+ * @returns a parser that consumes the input string until one of the given strings is found.
+ */
+export function manyTillOneOf(
+  stops: string[],
+  { insensitive = false }: { insensitive?: boolean } = {}
+): Parser<string> {
+  return trace(`manyTillOneOf(${escape(stops.join(","))})`, (input: string) => {
+    const indexes: number[] = [];
+    stops.forEach((stop) => {
+      const index = insensitive
+        ? input.toLocaleLowerCase().indexOf(stop.toLocaleLowerCase())
+        : input.indexOf(stop);
+      if (index !== -1) {
+        indexes.push(index);
+      }
+    });
+    if (indexes.length === 0) {
+      return success(input, "");
+    }
+    const min = Math.min(...indexes);
+    return success(input.slice(0, min), input.slice(min));
+  });
+}
+
+/**
  * `manyTillStr` is an optimized version of `manyTill`.
  * The `manyTill` combinator is slow because it runs the given parser
  * on every character of the string until it succeeds. However, if you
@@ -435,21 +472,15 @@ export function many1Till<T>(parser: Parser<T>): Parser<string> {
  * than running a parser over every character.
  *
  * @param str - the string to stop at
- * @param options - object of optional parameters. { caseInsensitive: boolean }
+ * @param options - object of optional parameters. { insensitive: boolean }
  * @returns a parser that consumes the input string until the given string is found.
  */
 export function manyTillStr(
   str: string,
-  { caseInsensitive = false }: { caseInsensitive?: boolean } = {}
+  { insensitive = false }: { insensitive?: boolean } = {}
 ): Parser<string> {
-  return trace(`manyTillStr(${str})`, (input: string) => {
-    const index = caseInsensitive
-      ? input.toLocaleLowerCase().indexOf(str.toLocaleLowerCase())
-      : input.indexOf(str);
-    if (index === -1) {
-      return success(input, "");
-    }
-    return success(input.slice(0, index), input.slice(index));
+  return trace(`manyTillStr(${escape(str)})`, (input: string) => {
+    return manyTillOneOf([str], { insensitive })(input);
   });
 }
 
@@ -459,7 +490,7 @@ export function manyTillStr(
  * @returns a parser that consumes the input string until the given string is found.
  */
 export function iManyTillStr(str: string): Parser<string> {
-  return manyTillStr(str, { caseInsensitive: true });
+  return manyTillStr(str, { insensitive: true });
 }
 
 /**

@@ -134,7 +134,9 @@ export type PickParserType<T extends readonly GeneralParser<any, any>[]> =
 export type InferManyReturnType<T extends GeneralParser<any, any>> =
   T extends CaptureParser<infer R, infer C>
     ? CaptureParser<R[], { captures: C[] }>
-    : Parser<T[]>;
+    : T extends Parser<infer R>
+      ? Parser<R[]>
+      : never;
 /* const arr = [str("hello"), space, str("world")] */
 
 /*

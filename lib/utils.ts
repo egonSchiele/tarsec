@@ -57,3 +57,10 @@ export function popMany(arr: any[], count: number) {
 export function round(num: number, places = 2) {
   return Math.round(num * 10 ** places) / 10 ** places;
 }
+
+export function shorten(str: string, length = 250) {
+  if (str.length > length) {
+    return str.substring(0, length) + "...";
+  }
+  return str;
+}
