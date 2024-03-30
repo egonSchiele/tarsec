@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="IE=edge" />
-    <title>manyTillStr | tarsec</title>
+    <title>manyTillOneOf | tarsec</title>
     <meta name="description" content="Documentation for tarsec" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="../assets/style.css" />
@@ -59,18 +59,18 @@
         <div class="tsd-page-title">
           <ul class="tsd-breadcrumb">
             <li><a href="../modules.html">tarsec</a></li>
-            <li><a href="manyTillStr.html">manyTillStr</a></li>
+            <li><a href="manyTillOneOf.html">manyTillOneOf</a></li>
           </ul>
-          <h1>Function manyTillStr</h1>
+          <h1>Function manyTillOneOf</h1>
         </div>
         <section class="tsd-panel">
           <ul class="tsd-signatures">
             <li class="tsd-signature tsd-anchor-link">
-              <a id="manyTillStr" class="tsd-anchor"></a
+              <a id="manyTillOneOf" class="tsd-anchor"></a
               ><span class="tsd-kind-call-signature"
-                >many<wbr />Till<wbr />Str</span
+                >many<wbr />Till<wbr />One<wbr />Of</span
               ><span class="tsd-signature-symbol">(</span
-              ><span class="tsd-kind-parameter">str</span>,
+              ><span class="tsd-kind-parameter">stops</span>,
               <span class="tsd-kind-parameter">options</span
               ><span class="tsd-signature-symbol">?</span
               ><span class="tsd-signature-symbol">)</span
@@ -83,7 +83,7 @@
               ><span class="tsd-signature-type">string</span
               ><span class="tsd-signature-symbol">&gt;</span
               ><a
-                href="#manyTillStr"
+                href="#manyTillOneOf"
                 aria-label="Permalink"
                 class="tsd-anchor-icon"
                 ><svg viewBox="0 0 24 24">
@@ -93,14 +93,19 @@
             <li class="tsd-description">
               <div class="tsd-comment tsd-typography">
                 <p>
-                  <code>manyTillStr</code> is an optimized version of
+                  <code>manyTillOneOf</code> is an optimized version of
                   <code>manyTill</code>. The <code>manyTill</code> combinator is
                   slow because it runs the given parser on every character of
                   the string until it succeeds. However, if you just want to
                   consume input until you get to a substring, use
-                  <code>manyTillStr</code>. It uses <code>indexOf</code>, which
-                  is significantly faster than running a parser over every
+                  <code>manyTillOneOf</code>. It uses <code>indexOf</code>,
+                  which is significantly faster than running a parser over every
                   character.
+                </p>
+                <p>
+                  Given an array of strings, this parser consumes input until it
+                  hits one of those strings. If none of the strings is found,
+                  the parser will consume all input and return success.
                 </p>
               </div>
               <div class="tsd-parameters">
@@ -108,13 +113,10 @@
                 <ul class="tsd-parameter-list">
                   <li>
                     <span
-                      ><span class="tsd-kind-parameter">str</span>:
-                      <span class="tsd-signature-type">string</span></span
+                      ><span class="tsd-kind-parameter">stops</span>:
+                      <span class="tsd-signature-type">string</span
+                      ><span class="tsd-signature-symbol">[]</span></span
                     >
-                    <div class="tsd-comment tsd-typography">
-                      <p>the string to stop at</p>
-                    </div>
-                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                   <li>
                     <span
@@ -159,8 +161,8 @@
                 ><span class="tsd-signature-symbol">&gt;</span>
               </h4>
               <p>
-                a parser that consumes the input string until the given string
-                is found.
+                a parser that consumes the input string until one of the given
+                strings is found.
               </p>
               <div class="tsd-comment tsd-typography"></div>
             </li>
