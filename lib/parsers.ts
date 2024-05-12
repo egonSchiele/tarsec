@@ -1,5 +1,5 @@
-import { many1WithJoin, manyWithJoin, seq } from "./combinators";
-import { trace } from "./trace";
+import { many1WithJoin, manyWithJoin, seq } from "./combinators.js";
+import { trace } from "./trace.js";
 import {
   CaptureParser,
   captureSuccess,
@@ -7,9 +7,9 @@ import {
   Parser,
   Prettify,
   success,
-} from "./types";
-import { escape } from "./utils";
-export { within as betweenWithin } from "./parsers/within";
+} from "./types.js";
+import { escape } from "./utils.js";
+export { within as betweenWithin } from "./parsers/within.js";
 /**
  * Takes a character. Returns a parser that parses that character.
  *

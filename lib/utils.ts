@@ -1,4 +1,4 @@
-import { Node } from "./types";
+import { Node } from "./types.js";
 
 export function escape(str: any) {
   return JSON.stringify(str);

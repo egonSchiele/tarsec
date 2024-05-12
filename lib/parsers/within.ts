@@ -1,5 +1,5 @@
-import { trace } from "../trace";
-import { WithinResult, Parser, failure, success } from "../types";
+import { trace } from "../trace.js";
+import { WithinResult, Parser, failure, success } from "../types.js";
 
 export function within(parser: Parser<string>): Parser<WithinResult[]> {
   return trace("within", (input: string) => {

@@ -1,4 +1,4 @@
-import { trace } from "@/lib/trace";
+import { trace } from "@/lib/trace.js";
 import {
   GeneralParser,
   MergedResults,
@@ -7,6 +7,6 @@ import {
   createTree,
   isCaptureResult,
   success,
-} from "@/lib/types";
-import { findAncestorWithNextParser, popMany } from "@/lib/utils";
-import { getCaptures, getResults } from "../combinators";
+} from "@/lib/types.js";
+import { findAncestorWithNextParser, popMany } from "@/lib/utils.js";
+import { getCaptures, getResults } from "../combinators.js";

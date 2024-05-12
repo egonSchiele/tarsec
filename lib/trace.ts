@@ -1,5 +1,7 @@
-import { ParserResult, Parser, PlainObject } from "./types";
-import { escape, round, shorten } from "./utils";
+import { ParserResult, Parser, PlainObject } from "./types.js";
+import { escape, round, shorten } from "./utils.js";
+import process from "process";
+
 const STEP = 2;
 
 /**

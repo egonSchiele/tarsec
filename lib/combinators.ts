@@ -1,5 +1,5 @@
-import { within } from "./parsers/within";
-import { trace } from "./trace";
+import { within } from "./parsers/within.js";
+import { trace } from "./trace.js";
 import {
   CaptureParser,
   captureSuccess,
@@ -16,8 +16,8 @@ import {
   Prettify,
   success,
   UnionOfCaptures,
-} from "./types";
-import { escape, findAncestorWithNextParser, popMany } from "./utils";
+} from "./types.js";
+import { escape, findAncestorWithNextParser, popMany } from "./utils.js";
 
 /**
  * Takes a parser and runs it zero or more times, returning the results as an array.
