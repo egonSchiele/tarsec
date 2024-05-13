@@ -721,3 +721,16 @@ export function match(input: string, parser: GeneralParser<any, any>): boolean {
   const result = parser(input);
   return result.success && result.rest === "";
 }
+
+export function ifElse<
+  const IF extends GeneralParser<any, any, I>,
+  const ELSE extends GeneralParser<any, any, I>,
+  I = string,
+>(condition: boolean, ifParser: IF, elseParser: ELSE): IF | ELSE {
+  return trace(`ifElse(${escape(condition)})`, (input: I) => {
+    if (condition) {
+      return ifParser(input);
+    }
+    return elseParser(input);
+  });
+}
