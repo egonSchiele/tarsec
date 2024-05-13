@@ -303,3 +303,62 @@ export function set<const K extends string, const V>(
     return captureSuccess(null, input, { [key]: value });
   });
 }
+
+/**
+ * A parser that always succeeds with the given value.
+ * @param value - value to succeed with
+ * @returns value
+ */
+export function succeed<T, I = string>(value: T): Parser<T> {
+  return trace(`succeed(${value})`, (input: I) => {
+    return success(value, input);
+  });
+}
+
+/**
+ * A parser that always fails with the given message.
+ * @param message - message to fail with
+ * @returns failure
+ */
+export function fail<I = string>(message: string): Parser<never> {
+  return trace(`fail(${message})`, (input: I) => {
+    return failure(message, input);
+  });
+}
+
+/**
+ * Takes a string. Succeeds if the given input contains that string.
+ * Consumes no input.
+ *
+ * @param substr - substring to find
+ * @returns - parser that succeeds if the given input contains that string
+ */
+export function includes<const S extends string>(substr: S): Parser<S> {
+  return trace(`includes(${substr})`, (input: string) => {
+    if (input.includes(substr)) {
+      return success(substr, input);
+    }
+    return failure(
+      `expected ${escape(input)} to include ${escape(substr)}`,
+      input
+    );
+  });
+}
+
+/**
+ * Like `includes`, but case-insensitive.
+ *
+ * @param substr - substring to find
+ * @returns - parser that succeeds if the given input contains that string
+ */
+export function iIncludes<const S extends string>(substr: S): Parser<S> {
+  return trace(`iIncludes(${substr})`, (input: string) => {
+    if (input.toLowerCase().includes(substr.toLowerCase())) {
+      return success(substr, input);
+    }
+    return failure(
+      `expected "${input}" to include "${substr}" (case-insensitive)`,
+      input
+    );
+  });
+}
