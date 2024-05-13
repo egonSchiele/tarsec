@@ -189,7 +189,7 @@ export type PickParserTypeArray<
 > =
   HasCaptureParsers<T> extends true
     ? CaptureParser<MergedResults<T>, UnionOfCaptures<T>, I>
-    : Parser<ParserResult<MergedResults<T>>[], I>;
+    : Parser<MergedResults<T>[], I>;
 
 /** This is used to generate a return type for the `many` and `many1` combinators.
  * Given a parser we want to apply `many` to. Suppose its type is `Parser<string>`.

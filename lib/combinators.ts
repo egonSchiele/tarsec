@@ -8,10 +8,14 @@ import {
   GeneralParser,
   InferManyReturnType,
   isCaptureResult,
+  isSuccess,
   MergedCaptures,
   MergedResults,
   Parser,
+  ParserResult,
+  ParserSuccess,
   PickParserType,
+  PickParserTypeArray,
   PlainObject,
   Prettify,
   success,
@@ -732,5 +736,54 @@ export function ifElse<
       return ifParser(input);
     }
     return elseParser(input);
+  });
+}
+
+/**
+ * Apply multiple parsers to the same input and collect all the results.
+ * Consumes no input.
+ *
+ * @param parsers - parsers to try
+ * @returns
+ */
+export function manyParsers<const T extends readonly GeneralParser<any, any>[]>(
+  ...parsers: T
+): Parser<ParserResult<MergedResults<T>>[]> {
+  return trace(`manyParsers()`, (input: string) => {
+    const results: ParserResult<any>[] = [];
+    for (let i = 0; i < parsers.length; i++) {
+      let result = parsers[i](input);
+      results.push(result);
+    }
+    if (results.some(isSuccess)) {
+      return success(results, input);
+    }
+    return failure("no parsers succeeded", input);
+  });
+}
+
+/**
+ * Runs all the given parsers. If they all succeed, returns their results as an array.
+ * Otherwise fails. Consumes no input.
+ * @param parsers - parsers to try
+ * @returns - An array of results, or a failure.
+ */
+export function and<
+  const I,
+  const T extends readonly GeneralParser<any, any>[],
+>(...parsers: T): PickParserTypeArray<T, I> {
+  return trace(`and()`, (input: any) => {
+    const results = manyParsers(...parsers)(input);
+    if (results.success) {
+      const successes = results.result.filter(isSuccess);
+      if (successes.length === results.result.length) {
+        return success(
+          (results.result as ParserSuccess<T>[]).map((r) => r.result),
+          input
+        );
+      }
+      return failure("not all parsers succeeded", input);
+    }
+    return results;
   });
 }
