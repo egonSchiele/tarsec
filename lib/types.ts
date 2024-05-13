@@ -19,30 +19,45 @@ export type CaptureParserSuccess<T, C extends PlainObject> = {
 };
 
 /** Represents a parse failure. */
-export type ParserFailure = {
+export type ParserFailure<R = string> = {
   success: false;
-  rest: string;
+  rest: R;
   message: string;
 };
 
-export type ParserResult<T, R = string> = ParserSuccess<T, R> | ParserFailure;
-export type CaptureParserResult<T, C extends PlainObject> =
-  | CaptureParserSuccess<T, C>
-  | ParserFailure;
+export type ParserResult<T, R = string> =
+  | ParserSuccess<T, R>
+  | ParserFailure<R>;
 
-/** A parser is any function that takes a string and returns a ParserResult. */
+export type CaptureParserResult<T, C extends PlainObject, R = string> =
+  | CaptureParserSuccess<T, C>
+  | ParserFailure<R>;
+
+/** A parser is any function that takes an arg and returns a ParserResult. */
 export type Parser<T, I = string> = (input: I) => ParserResult<T>;
 
-/** A capture parser is any function that takes a string and returns a CaptureParserResult.
+/** A string parser is any function that takes a string and returns a ParserResult. */
+export type StringParser<T> = (input: string) => ParserResult<T>;
+
+/** A capture parser is any function that takes an arg and returns a CaptureParserResult.
  * A CaptureParserResult is the same as a ParserResult, except it also includes captures,
  * i.e. matches selected using `capture`. */
 export type CaptureParser<T, C extends PlainObject, I = string> = (
   input: I
 ) => CaptureParserResult<T, C>;
 
+/** A string capture parser is any function that takes a string and returns a CaptureParserResult. */
+export type StringCaptureParser<T, C extends PlainObject> = (
+  input: string
+) => CaptureParserResult<T, C>;
+
 export type GeneralParser<T, C extends PlainObject, I = string> =
   | Parser<T, I>
   | CaptureParser<T, C, I>;
+
+export type GeneralStringParser<T, C extends PlainObject> =
+  | Parser<T, string>
+  | CaptureParser<T, C, string>;
 
 export function isCaptureResult<T, C extends PlainObject>(
   result: ParserResult<T>
@@ -50,6 +65,20 @@ export function isCaptureResult<T, C extends PlainObject>(
   return "captures" in result;
 }
 
+/**
+ * This typed function is helpful in filtering out the successes
+ * from an array of results while preserving type information. For example:
+ *
+ * ```
+ * // type is ParserSuccess[]
+ * results.filter(isSuccess);
+ *
+ * // type is ParserResult[]
+ * results.filter(r => r.success);
+ * ```
+ * @param result - a parser result
+ * @returns - true if the result is a success, otherwise false
+ */
 export function isSuccess<T, R = string>(
   result: ParserResult<T, R>
 ): result is ParserSuccess<T, R> {
@@ -74,7 +103,10 @@ export function captureSuccess<T, C extends PlainObject>(
 }
 
 /** Convenience function to return a ParserFailure */
-export function failure(message: string, rest: string): ParserFailure {
+export function failure<R = string>(
+  message: string,
+  rest: R
+): ParserFailure<R> {
   return { success: false, message, rest };
 }
 
@@ -131,10 +163,33 @@ export type HasCaptureParsers<T extends readonly GeneralParser<any, any>[]> =
 export type PickParserType<
   T extends readonly GeneralParser<any, any>[],
   I = string,
+> = I extends string ? PickParserTypeString<T> : PickParserTypeGeneral<T, I>;
+
+/** split out to make types more readable */
+export type PickParserTypeGeneral<
+  T extends readonly GeneralParser<any, any>[],
+  I = string,
 > =
   HasCaptureParsers<T> extends true
     ? CaptureParser<MergedResults<T>, UnionOfCaptures<T>, I>
     : Parser<MergedResults<T>, I>;
+
+export type PickParserTypeString<T extends readonly GeneralParser<any, any>[]> =
+  HasCaptureParsers<T> extends true
+    ? StringCaptureParser<MergedResults<T>, UnionOfCaptures<T>>
+    : StringParser<MergedResults<T>>;
+
+/**
+ * Like `PickParserType`, but the result is an array of the result types,
+ * instead of just a union.
+ */
+export type PickParserTypeArray<
+  T extends readonly GeneralParser<any, any>[],
+  I = string,
+> =
+  HasCaptureParsers<T> extends true
+    ? CaptureParser<MergedResults<T>, UnionOfCaptures<T>, I>
+    : Parser<ParserResult<MergedResults<T>>[], I>;
 
 /** This is used to generate a return type for the `many` and `many1` combinators.
  * Given a parser we want to apply `many` to. Suppose its type is `Parser<string>`.
