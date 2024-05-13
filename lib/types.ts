@@ -128,10 +128,13 @@ export type HasCaptureParsers<T extends readonly GeneralParser<any, any>[]> =
  * the result and capture types. This is useful for a combinator like `or`
  * which is not able to infer its return type correctly.
  */
-export type PickParserType<T extends readonly GeneralParser<any, any>[]> =
+export type PickParserType<
+  T extends readonly GeneralParser<any, any>[],
+  I = string,
+> =
   HasCaptureParsers<T> extends true
-    ? CaptureParser<MergedResults<T>, UnionOfCaptures<T>>
-    : Parser<MergedResults<T>>;
+    ? CaptureParser<MergedResults<T>, UnionOfCaptures<T>, I>
+    : Parser<MergedResults<T>, I>;
 
 /** This is used to generate a return type for the `many` and `many1` combinators.
  * Given a parser we want to apply `many` to. Suppose its type is `Parser<string>`.
