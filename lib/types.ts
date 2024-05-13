@@ -2,10 +2,10 @@
 export type PlainObject = Record<string, unknown>;
 
 /** Represents a parse success with no captures. */
-export type ParserSuccess<T> = {
+export type ParserSuccess<T, R = string> = {
   success: true;
   result: T;
-  rest: string;
+  rest: R;
   nextParser?: Parser<any>;
 };
 
@@ -25,24 +25,24 @@ export type ParserFailure = {
   message: string;
 };
 
-export type ParserResult<T> = ParserSuccess<T> | ParserFailure;
+export type ParserResult<T, R = string> = ParserSuccess<T, R> | ParserFailure;
 export type CaptureParserResult<T, C extends PlainObject> =
   | CaptureParserSuccess<T, C>
   | ParserFailure;
 
 /** A parser is any function that takes a string and returns a ParserResult. */
-export type Parser<T> = (input: string) => ParserResult<T>;
+export type Parser<T, I = string> = (input: I) => ParserResult<T>;
 
 /** A capture parser is any function that takes a string and returns a CaptureParserResult.
  * A CaptureParserResult is the same as a ParserResult, except it also includes captures,
  * i.e. matches selected using `capture`. */
-export type CaptureParser<T, C extends PlainObject> = (
-  input: string
+export type CaptureParser<T, C extends PlainObject, I = string> = (
+  input: I
 ) => CaptureParserResult<T, C>;
 
-export type GeneralParser<T, C extends PlainObject> =
-  | Parser<T>
-  | CaptureParser<T, C>;
+export type GeneralParser<T, C extends PlainObject, I = string> =
+  | Parser<T, I>
+  | CaptureParser<T, C, I>;
 
 export function isCaptureResult<T, C extends PlainObject>(
   result: ParserResult<T>
@@ -50,8 +50,17 @@ export function isCaptureResult<T, C extends PlainObject>(
   return "captures" in result;
 }
 
+export function isSuccess<T, R = string>(
+  result: ParserResult<T, R>
+): result is ParserSuccess<T, R> {
+  return result.success;
+}
+
 /** Convenience function to return a ParserSuccess */
-export function success<T>(result: T, rest: string): ParserSuccess<T> {
+export function success<T, R = string>(
+  result: T,
+  rest: R
+): ParserSuccess<T, R> {
   return { success: true, result, rest };
 }
 
