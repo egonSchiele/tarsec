@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="IE=edge" />
-    <title>isCaptureResult | tarsec</title>
+    <title>PickParserTypeGeneral | tarsec</title>
     <meta name="description" content="Documentation for tarsec" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="../assets/style.css" />
@@ -59,124 +59,127 @@
         <div class="tsd-page-title">
           <ul class="tsd-breadcrumb">
             <li><a href="../modules.html">tarsec</a></li>
-            <li><a href="isCaptureResult.html">isCaptureResult</a></li>
+            <li>
+              <a href="PickParserTypeGeneral.html">PickParserTypeGeneral</a>
+            </li>
           </ul>
-          <h1>Function isCaptureResult</h1>
+          <h1>Type alias PickParserTypeGeneral&lt;T, I&gt;</h1>
+        </div>
+        <div class="tsd-signature">
+          <span class="tsd-kind-type-alias"
+            >Pick<wbr />Parser<wbr />Type<wbr />General</span
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><a
+            class="tsd-signature-type tsd-kind-type-parameter"
+            href="PickParserTypeGeneral.html#T"
+            >T</a
+          ><span class="tsd-signature-symbol">, </span
+          ><a
+            class="tsd-signature-type tsd-kind-type-parameter"
+            href="PickParserTypeGeneral.html#I"
+            >I</a
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">:</span>
+          <a
+            href="HasCaptureParsers.html"
+            class="tsd-signature-type tsd-kind-type-alias"
+            >HasCaptureParsers</a
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><a
+            class="tsd-signature-type tsd-kind-type-parameter"
+            href="PickParserTypeGeneral.html#T"
+            >T</a
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-keyword"> extends </span
+          ><span class="tsd-signature-type">true</span><br /><span>    </span
+          ><span class="tsd-signature-symbol">? </span
+          ><a
+            href="CaptureParser.html"
+            class="tsd-signature-type tsd-kind-type-alias"
+            >CaptureParser</a
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><a
+            href="MergedResults.html"
+            class="tsd-signature-type tsd-kind-type-alias"
+            >MergedResults</a
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><a
+            class="tsd-signature-type tsd-kind-type-parameter"
+            href="PickParserTypeGeneral.html#T"
+            >T</a
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">, </span
+          ><a
+            href="UnionOfCaptures.html"
+            class="tsd-signature-type tsd-kind-type-alias"
+            >UnionOfCaptures</a
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><a
+            class="tsd-signature-type tsd-kind-type-parameter"
+            href="PickParserTypeGeneral.html#T"
+            >T</a
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">, </span
+          ><a
+            class="tsd-signature-type tsd-kind-type-parameter"
+            href="PickParserTypeGeneral.html#I"
+            >I</a
+          ><span class="tsd-signature-symbol">&gt;</span><br /><span>    </span
+          ><span class="tsd-signature-symbol">: </span
+          ><a href="Parser.html" class="tsd-signature-type tsd-kind-type-alias"
+            >Parser</a
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><a
+            href="MergedResults.html"
+            class="tsd-signature-type tsd-kind-type-alias"
+            >MergedResults</a
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><a
+            class="tsd-signature-type tsd-kind-type-parameter"
+            href="PickParserTypeGeneral.html#T"
+            >T</a
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">, </span
+          ><a
+            class="tsd-signature-type tsd-kind-type-parameter"
+            href="PickParserTypeGeneral.html#I"
+            >I</a
+          ><span class="tsd-signature-symbol">&gt;</span>
+        </div>
+        <div class="tsd-comment tsd-typography">
+          <p>split out to make types more readable</p>
         </div>
         <section class="tsd-panel">
-          <ul class="tsd-signatures">
-            <li class="tsd-signature tsd-anchor-link">
-              <a id="isCaptureResult" class="tsd-anchor"></a
-              ><span class="tsd-kind-call-signature"
-                >is<wbr />Capture<wbr />Result</span
-              ><span class="tsd-signature-symbol">&lt;</span
-              ><a
-                class="tsd-signature-type tsd-kind-type-parameter"
-                href="isCaptureResult.html#isCaptureResult.T"
-                >T</a
-              ><span class="tsd-signature-symbol">, </span
-              ><a
-                class="tsd-signature-type tsd-kind-type-parameter"
-                href="isCaptureResult.html#isCaptureResult.C"
-                >C</a
-              ><span class="tsd-signature-symbol">&gt;</span
-              ><span class="tsd-signature-symbol">(</span
-              ><span class="tsd-kind-parameter">result</span
-              ><span class="tsd-signature-symbol">)</span
-              ><span class="tsd-signature-symbol">: </span
-              ><span class="tsd-kind-parameter">result</span
-              ><span class="tsd-signature-keyword"> is </span
-              ><a
-                href="../types/CaptureParserSuccess.html"
-                class="tsd-signature-type tsd-kind-type-alias"
-                >CaptureParserSuccess</a
-              ><span class="tsd-signature-symbol">&lt;</span
-              ><a
-                class="tsd-signature-type tsd-kind-type-parameter"
-                href="isCaptureResult.html#isCaptureResult.T"
-                >T</a
-              ><span class="tsd-signature-symbol">, </span
-              ><a
-                class="tsd-signature-type tsd-kind-type-parameter"
-                href="isCaptureResult.html#isCaptureResult.C"
-                >C</a
-              ><span class="tsd-signature-symbol">&gt;</span
-              ><a
-                href="#isCaptureResult"
-                aria-label="Permalink"
-                class="tsd-anchor-icon"
-                ><svg viewBox="0 0 24 24">
-                  <use href="../assets/icons.svg#icon-anchor"></use></svg
-              ></a>
-            </li>
-            <li class="tsd-description">
-              <section class="tsd-panel">
-                <h4>Type Parameters</h4>
-                <ul class="tsd-type-parameter-list">
-                  <li>
-                    <span
-                      ><a id="isCaptureResult.T" class="tsd-anchor"></a
-                      ><span class="tsd-kind-type-parameter">T</span></span
-                    >
-                  </li>
-                  <li>
-                    <span
-                      ><a id="isCaptureResult.C" class="tsd-anchor"></a
-                      ><span class="tsd-kind-type-parameter">C</span
-                      ><span class="tsd-signature-keyword"> extends </span
-                      ><a
-                        href="../types/PlainObject.html"
-                        class="tsd-signature-type tsd-kind-type-alias"
-                        >PlainObject</a
-                      ></span
-                    >
-                  </li>
-                </ul>
-              </section>
-              <div class="tsd-parameters">
-                <h4 class="tsd-parameters-title">Parameters</h4>
-                <ul class="tsd-parameter-list">
-                  <li>
-                    <span
-                      ><span class="tsd-kind-parameter">result</span>:
-                      <a
-                        href="../types/ParserResult.html"
-                        class="tsd-signature-type tsd-kind-type-alias"
-                        >ParserResult</a
-                      ><span class="tsd-signature-symbol">&lt;</span
-                      ><a
-                        class="tsd-signature-type tsd-kind-type-parameter"
-                        href="isCaptureResult.html#isCaptureResult.T"
-                        >T</a
-                      ><span class="tsd-signature-symbol">, </span
-                      ><span class="tsd-signature-type">string</span
-                      ><span class="tsd-signature-symbol">&gt;</span></span
-                    >
-                  </li>
-                </ul>
-              </div>
-              <h4 class="tsd-returns-title">
-                Returns <span class="tsd-kind-parameter">result</span
-                ><span class="tsd-signature-keyword"> is </span
+          <h4>Type Parameters</h4>
+          <ul class="tsd-type-parameter-list">
+            <li>
+              <span
+                ><a id="T" class="tsd-anchor"></a
+                ><span class="tsd-kind-type-parameter">T</span
+                ><span class="tsd-signature-keyword"> extends </span
+                ><span class="tsd-signature-keyword">readonly </span
                 ><a
-                  href="../types/CaptureParserSuccess.html"
+                  href="GeneralParser.html"
                   class="tsd-signature-type tsd-kind-type-alias"
-                  >CaptureParserSuccess</a
+                  >GeneralParser</a
                 ><span class="tsd-signature-symbol">&lt;</span
-                ><a
-                  class="tsd-signature-type tsd-kind-type-parameter"
-                  href="isCaptureResult.html#isCaptureResult.T"
-                  >T</a
+                ><span class="tsd-signature-type">any</span
                 ><span class="tsd-signature-symbol">, </span
-                ><a
-                  class="tsd-signature-type tsd-kind-type-parameter"
-                  href="isCaptureResult.html#isCaptureResult.C"
-                  >C</a
-                ><span class="tsd-signature-symbol">&gt;</span>
-              </h4>
+                ><span class="tsd-signature-type">any</span
+                ><span class="tsd-signature-symbol">&gt;</span
+                ><span class="tsd-signature-symbol">[]</span></span
+              >
+            </li>
+            <li>
+              <span
+                ><a id="I" class="tsd-anchor"></a
+                ><span class="tsd-kind-type-parameter">I</span> =
+                <span class="tsd-signature-type">string</span></span
+              >
             </li>
           </ul>
         </section>
+        <div class="tsd-comment tsd-typography"></div>
       </div>
       <div class="col-sidebar">
         <div class="page-menu">

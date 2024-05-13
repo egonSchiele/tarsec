@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="IE=edge" />
-    <title>isCaptureResult | tarsec</title>
+    <title>iIncludes | tarsec</title>
     <meta name="description" content="Documentation for tarsec" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="../assets/style.css" />
@@ -59,50 +59,38 @@
         <div class="tsd-page-title">
           <ul class="tsd-breadcrumb">
             <li><a href="../modules.html">tarsec</a></li>
-            <li><a href="isCaptureResult.html">isCaptureResult</a></li>
+            <li><a href="iIncludes.html">iIncludes</a></li>
           </ul>
-          <h1>Function isCaptureResult</h1>
+          <h1>Function iIncludes</h1>
         </div>
         <section class="tsd-panel">
           <ul class="tsd-signatures">
             <li class="tsd-signature tsd-anchor-link">
-              <a id="isCaptureResult" class="tsd-anchor"></a
-              ><span class="tsd-kind-call-signature"
-                >is<wbr />Capture<wbr />Result</span
+              <a id="iIncludes" class="tsd-anchor"></a
+              ><span class="tsd-kind-call-signature">i<wbr />Includes</span
               ><span class="tsd-signature-symbol">&lt;</span
+              ><span class="tsd-signature-keyword">const </span
               ><a
                 class="tsd-signature-type tsd-kind-type-parameter"
-                href="isCaptureResult.html#isCaptureResult.T"
-                >T</a
-              ><span class="tsd-signature-symbol">, </span
-              ><a
-                class="tsd-signature-type tsd-kind-type-parameter"
-                href="isCaptureResult.html#isCaptureResult.C"
-                >C</a
+                href="iIncludes.html#iIncludes.S"
+                >S</a
               ><span class="tsd-signature-symbol">&gt;</span
               ><span class="tsd-signature-symbol">(</span
-              ><span class="tsd-kind-parameter">result</span
+              ><span class="tsd-kind-parameter">substr</span
               ><span class="tsd-signature-symbol">)</span
               ><span class="tsd-signature-symbol">: </span
-              ><span class="tsd-kind-parameter">result</span
-              ><span class="tsd-signature-keyword"> is </span
               ><a
-                href="../types/CaptureParserSuccess.html"
+                href="../types/Parser.html"
                 class="tsd-signature-type tsd-kind-type-alias"
-                >CaptureParserSuccess</a
+                >Parser</a
               ><span class="tsd-signature-symbol">&lt;</span
               ><a
                 class="tsd-signature-type tsd-kind-type-parameter"
-                href="isCaptureResult.html#isCaptureResult.T"
-                >T</a
-              ><span class="tsd-signature-symbol">, </span
-              ><a
-                class="tsd-signature-type tsd-kind-type-parameter"
-                href="isCaptureResult.html#isCaptureResult.C"
-                >C</a
+                href="iIncludes.html#iIncludes.S"
+                >S</a
               ><span class="tsd-signature-symbol">&gt;</span
               ><a
-                href="#isCaptureResult"
+                href="#iIncludes"
                 aria-label="Permalink"
                 class="tsd-anchor-icon"
                 ><svg viewBox="0 0 24 24">
@@ -110,25 +98,19 @@
               ></a>
             </li>
             <li class="tsd-description">
+              <div class="tsd-comment tsd-typography">
+                <p>Like <code>includes</code>, but case-insensitive.</p>
+              </div>
               <section class="tsd-panel">
                 <h4>Type Parameters</h4>
                 <ul class="tsd-type-parameter-list">
                   <li>
                     <span
-                      ><a id="isCaptureResult.T" class="tsd-anchor"></a
-                      ><span class="tsd-kind-type-parameter">T</span></span
-                    >
-                  </li>
-                  <li>
-                    <span
-                      ><a id="isCaptureResult.C" class="tsd-anchor"></a
-                      ><span class="tsd-kind-type-parameter">C</span
+                      ><a id="iIncludes.S" class="tsd-anchor"></a
+                      ><span class="tsd-signature-keyword">const </span
+                      ><span class="tsd-kind-type-parameter">S</span
                       ><span class="tsd-signature-keyword"> extends </span
-                      ><a
-                        href="../types/PlainObject.html"
-                        class="tsd-signature-type tsd-kind-type-alias"
-                        >PlainObject</a
-                      ></span
+                      ><span class="tsd-signature-type">string</span></span
                     >
                   </li>
                 </ul>
@@ -138,42 +120,39 @@
                 <ul class="tsd-parameter-list">
                   <li>
                     <span
-                      ><span class="tsd-kind-parameter">result</span>:
+                      ><span class="tsd-kind-parameter">substr</span>:
                       <a
-                        href="../types/ParserResult.html"
-                        class="tsd-signature-type tsd-kind-type-alias"
-                        >ParserResult</a
-                      ><span class="tsd-signature-symbol">&lt;</span
-                      ><a
                         class="tsd-signature-type tsd-kind-type-parameter"
-                        href="isCaptureResult.html#isCaptureResult.T"
-                        >T</a
-                      ><span class="tsd-signature-symbol">, </span
-                      ><span class="tsd-signature-type">string</span
-                      ><span class="tsd-signature-symbol">&gt;</span></span
+                        href="iIncludes.html#iIncludes.S"
+                        >S</a
+                      ></span
                     >
+                    <div class="tsd-comment tsd-typography">
+                      <p>substring to find</p>
+                    </div>
+                    <div class="tsd-comment tsd-typography"></div>
                   </li>
                 </ul>
               </div>
               <h4 class="tsd-returns-title">
-                Returns <span class="tsd-kind-parameter">result</span
-                ><span class="tsd-signature-keyword"> is </span
-                ><a
-                  href="../types/CaptureParserSuccess.html"
+                Returns
+                <a
+                  href="../types/Parser.html"
                   class="tsd-signature-type tsd-kind-type-alias"
-                  >CaptureParserSuccess</a
+                  >Parser</a
                 ><span class="tsd-signature-symbol">&lt;</span
                 ><a
                   class="tsd-signature-type tsd-kind-type-parameter"
-                  href="isCaptureResult.html#isCaptureResult.T"
-                  >T</a
-                ><span class="tsd-signature-symbol">, </span
-                ><a
-                  class="tsd-signature-type tsd-kind-type-parameter"
-                  href="isCaptureResult.html#isCaptureResult.C"
-                  >C</a
+                  href="iIncludes.html#iIncludes.S"
+                  >S</a
                 ><span class="tsd-signature-symbol">&gt;</span>
               </h4>
+              <ul>
+                <li>
+                  parser that succeeds if the given input contains that string
+                </li>
+              </ul>
+              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>
