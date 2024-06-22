@@ -15,7 +15,6 @@ import {
   ParserResult,
   ParserSuccess,
   PickParserType,
-  PickParserTypeArray,
   PlainObject,
   Prettify,
   success,
@@ -727,11 +726,11 @@ export function match(input: string, parser: GeneralParser<any, any>): boolean {
 }
 
 export function ifElse<
-  const IF extends GeneralParser<any, any, I>,
-  const ELSE extends GeneralParser<any, any, I>,
+  const IF extends GeneralParser<any, any>,
+  const ELSE extends GeneralParser<any, any>,
   I = string,
 >(condition: boolean, ifParser: IF, elseParser: ELSE): IF | ELSE {
-  return trace(`ifElse(${escape(condition)})`, (input: I) => {
+  return trace(`ifElse(${escape(condition)})`, (input: string) => {
     if (condition) {
       return ifParser(input);
     }
@@ -769,9 +768,8 @@ export function manyParsers<const T extends readonly GeneralParser<any, any>[]>(
  * @returns - An array of results, or a failure.
  */
 export function and<
-  const I,
   const T extends readonly GeneralParser<any, any>[],
->(...parsers: T): PickParserTypeArray<T, I> {
+>(...parsers: T): PickParserType<T> {
   return trace(`and()`, (input: any) => {
     const results = manyParsers(...parsers)(input);
     if (results.success) {

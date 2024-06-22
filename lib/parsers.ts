@@ -309,8 +309,8 @@ export function set<const K extends string, const V>(
  * @param value - value to succeed with
  * @returns value
  */
-export function succeed<T, I = string>(value: T): Parser<T> {
-  return trace(`succeed(${value})`, (input: I) => {
+export function succeed<T>(value: T): Parser<T> {
+  return trace(`succeed(${value})`, (input: string) => {
     return success(value, input);
   });
 }
@@ -320,8 +320,8 @@ export function succeed<T, I = string>(value: T): Parser<T> {
  * @param message - message to fail with
  * @returns failure
  */
-export function fail<I = string>(message: string): Parser<never> {
-  return trace(`fail(${message})`, (input: I) => {
+export function fail(message: string): Parser<never> {
+  return trace(`fail(${message})`, (input: string) => {
     return failure(message, input);
   });
 }
@@ -360,52 +360,5 @@ export function iIncludes<const S extends string>(substr: S): Parser<S> {
       `expected "${input}" to include "${substr}" (case-insensitive)`,
       input
     );
-  });
-}
-
-/**
- * Returns a parser that takes some input, runs the transformer function over it,
- * and returns the result as `rest`, so it can be chained to another parser.
- * It always returns null as its result. Always succeeds.
- *
- * `shape` is useful for modifying the user's input before running parsers over it.
- * For example, here is a parser that takes in a chapter
- * and checks that its title starts with "Once upon a time"
- *
- * ```ts
- * const parser = seqR(
- * shape((c: Chapter) => c.title),
- *   istr("Once upon a time"),
- *   )
- * );
- * ```
- *
- * Now you might be thinking, why not just use the chapter's title as input?
- * `shape` is most useful when you want to parse multiple properties.
- *
- * ```ts
- * const titleParser = seqR(
- *   shape((c: Chapter) => c.title),
- *   istr("Once upon a time"),
- * );
- *
- * const textParser = seqR(
- *   shape((c: Chapter) => c.text),
- *   istr("There was a princess"),
- * );
- *
- * const parser = and(titleParser, textParser);
- * ```
- *
- * `parser` now takes a chapter as input and parses its title and text correctly.
- *
- * @param transformer - function to transform the input
- * @returns a parser that takes some input and runs the transformer function over it
- */
-export function shape<const X, const I>(
-  transformer: (item: X) => I
-): Parser<null> {
-  return trace(`shape()`, (_input: X) => {
-    return success(null, transformer(_input));
   });
 }
