@@ -377,6 +377,101 @@ export function capture<T, const S extends string>(
 }
 
 /**
+ * `captureCaptures` lifts your captures up a level. Suppose you have a parser like this:
+ *
+ * ```ts
+ * const greeting = seqC(
+ *   str("hello"),
+ *   spaces,
+ *   capture(word, "name"),
+ *   str("!"),
+ *   spaces,
+ *   capture(manynTillStr("?"), "secondPart")
+ * )
+ *
+ * This parses a greeting like "hello Adit! How was your day?" into:
+ *
+ * ```ts
+ * {
+ *   name: "Adit",
+ *   secondPart: "How was your day?"
+ * }
+ * ```
+ *
+ * Now, suppose you decide to refactor this parser into two parsers:
+ *
+ * ```ts
+ * const firstPart = seqC(
+ *   str("hello"),
+ *   spaces,
+ *   capture(word, "name"),
+ *   str("!")
+ * )
+ *
+ * const secondPart = seqC(
+ *   spaces,
+ *   capture(manyTillStr("?"), "secondPart")
+ * )
+ * ```
+ *
+ * And put them together:
+ *
+ * ```ts
+ * const greeting = seqC(
+ *   firstPart,
+ *   secondPart
+ * )
+ * ```
+ *
+ * Unfortunately, this will no longer return an object in that shape,
+ * because it's not actually capturing anything. Captures in `firstPart`
+ * and `secondPart` won't get propagated up. Suppose you try to use `capture` like this:
+ * ```ts
+ * const greeting = seqC(
+ *   capture(firstPart, "firstPart"),
+ *   capture(secondPart, "secondPart")
+ * )
+ * ```
+ * Now you'll get an object that looks like this instead:
+ *
+ * ```ts
+ * {
+ *   firstPart: {
+ *     name: "Adit"
+ *   },
+ *   secondPart: {
+ *     secondPart: "How was your day?"
+ *   }
+ * }
+ * ```
+ *
+ * What you want is for the captures in the child parsers to get merged up to the parent parser. For that, use `captureCaptures`:
+ *
+ * ```ts
+ * const greeting = seqC(
+ *   captureCaptures(firstPart),
+ *   captureCaptures(secondPart)
+ * )
+ * ```
+ * @param parser - parser to capture captures from
+ * @returns - the parser's result set as the captures object
+ */
+export function captureCaptures<T extends PlainObject>(
+  parser: Parser<T>
+): CaptureParser<T, T> {
+  return trace(`captureCaptures()`, (input: string) => {
+    let result = parser(input);
+    if (result.success) {
+      return {
+        ...result,
+        captures: result.result,
+      };
+    }
+    return result;
+  });
+}
+
+/**
  * Returns a parser that consumes input till the given parser succeeds.
  * @param parser - the stop parser
  * @returns a parser that consumes the input string until the stop parser succeeds.
@@ -767,9 +862,9 @@ export function manyParsers<const T extends readonly GeneralParser<any, any>[]>(
  * @param parsers - parsers to try
  * @returns - An array of results, or a failure.
  */
-export function and<
-  const T extends readonly GeneralParser<any, any>[],
->(...parsers: T): PickParserType<T> {
+export function and<const T extends readonly GeneralParser<any, any>[]>(
+  ...parsers: T
+): PickParserType<T> {
   return trace(`and()`, (input: any) => {
     const results = manyParsers(...parsers)(input);
     if (results.success) {
