@@ -57,7 +57,7 @@ function char(someChar: string) {
 
 `char` isn't a parser. It's a function that *makes* parsers. You give it any character, and it will return a parser for that character.
 
-For example, here is a person for the character `"b"`.
+For example, here is a parser for the character `"b"`.
 
 ```ts
 const charB = char("b");
