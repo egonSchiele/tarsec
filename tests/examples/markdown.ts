@@ -23,7 +23,8 @@ type InlineMarkdown =
   | InlineBold
   | InlineItalic
   | InlineLink
-  | InlineCode;
+  | InlineCode
+  | InlineStrikethrough;
 
 type InlineText = {
   type: "inline-text";
@@ -48,6 +49,11 @@ type InlineLink = {
 
 type InlineCode = {
   type: "inline-code";
+  content: string;
+};
+
+type InlineStrikethrough = {
+  type: "inline-strikethrough";
   content: string;
 };
 
@@ -79,10 +85,18 @@ type Image = {
   alt: string;
 };
 
+type HorizontalRule = {
+  type: "horizontal-rule";
+};
+
 type List = {
   type: "list";
   ordered: boolean;
-  items: string[];
+  items: ListItem[];
+};
+
+type ListItem = {
+  content: InlineMarkdown[];
 };
 
 /* Parsers */
@@ -109,11 +123,42 @@ export const blockQuoteParser: Parser<BlockQuote> = seqC(
   capture(manyTillStr("\n"), "content")
 );
 
-/* export const listParser: Parser<List> = many1(
-  seqC(oneOf("-*"), spaces, capture(manyTillStr("\n"), "item"))
+export const unorderedListItemParser = seq(
+  [
+    oneOf(["-", "*", "+"]),
+    spaces,
+    many1(inlineMarkdownParser),
+  ],
+  (r, c) => ({
+    content: r[2],
+  })
 );
 
- */
+export const orderedListItemParser = seq(
+  [
+    count(char("1234567890")),
+    char("."),
+    spaces,
+    many1(inlineMarkdownParser),
+  ],
+  (r, c) => ({
+    content: r[3],
+  })
+);
+
+export const unorderedListParser: Parser<List> = seqC(
+  set("type", "list"),
+  set("ordered", false),
+  capture(many1(unorderedListItemParser), "items")
+);
+
+export const orderedListParser: Parser<List> = seqC(
+  set("type", "list"),
+  set("ordered", true),
+  capture(many1(orderedListItemParser), "items")
+);
+
+export const listParser: Parser<List> = or(unorderedListParser, orderedListParser);
 
 export const imageParser: Parser<Image> = seqC(
   set("type", "image"),
@@ -128,7 +173,7 @@ export const imageParser: Parser<Image> = seqC(
 
 export const inlineTextParser: Parser<InlineText> = seqC(
   set("type", "inline-text"),
-  capture(manyTillOneOf(["*", "`", "[", "\n"]), "content")
+  capture(manyTillOneOf(["*", "`", "[", "\n", "~"]), "content")
 );
 
 export const inlineBoldParser: Parser<InlineBold> = seqC(
@@ -161,11 +206,19 @@ export const inlineCodeParser: Parser<InlineCode> = seqC(
   str("`")
 );
 
+export const inlineStrikethroughParser: Parser<InlineStrikethrough> = seqC(
+  set("type", "inline-strikethrough"),
+  str("~~"),
+  capture(manyTillStr("~~"), "content"),
+  str("~~")
+);
+
 export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineBoldParser,
   inlineItalicParser,
   inlineLinkParser,
   inlineCodeParser,
+  inlineStrikethroughParser,
   inlineTextParser
 );
 
@@ -184,6 +237,18 @@ export function paragraphParser(input: string): ParserResult<Paragraph> {
 }
 
 /* Markdown Parser */
+export const horizontalRuleParser: Parser<HorizontalRule> = seq(
+  [
+    or(
+      count(3, char("-")),
+      count(3, char("*")),
+      count(3, char("_"))
+    ),
+    optional(spaces),
+  ],
+  () => ({ type: "horizontal-rule" })
+);
+
 export const markdownParser = seq(
   [
     optional(spaces),
@@ -193,8 +258,9 @@ export const markdownParser = seq(
         headingParser,
         codeBlockParser,
         blockQuoteParser,
-        /*         listParser,
-         */ paragraphParser,
+        listParser,
+        horizontalRuleParser,
+        paragraphParser,
         imageParser
       )
     ),

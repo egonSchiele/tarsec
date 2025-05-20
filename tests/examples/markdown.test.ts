@@ -11,6 +11,12 @@ import {
   inlineLinkParser,
   inlineTextParser,
   inlineMarkdownParser,
+  inlineStrikethroughParser,
+  horizontalRuleParser,
+  listParser,
+  unorderedListParser,
+  orderedListParser,
+  markdownParser,
 } from "./markdown";
 import { success } from "@/lib/types";
 import { compareSuccess } from "vitest.globals";
@@ -70,16 +76,45 @@ describe("blockQuoteParser", () => {
   });
 });
 
-/* describe("listParser", () => {
+describe("listParser", () => {
   it("should parse unordered list item", () => {
     const input = "- Item 1";
     const expected = {
-      char: "-",
-      content: "Item 1",
+      type: "list",
+      ordered: false,
+      items: [
+        {
+          content: [
+            {
+              type: "inline-text",
+              content: "Item 1"
+            }
+          ]
+        }
+      ]
     };
-    expect(listParser(input)).toEqual(success(expected, ""));
+    expect(unorderedListParser(input)).toEqual(success(expected, ""));
   });
-}); */
+  
+  it("should parse ordered list item", () => {
+    const input = "1. Item 1";
+    const expected = {
+      type: "list",
+      ordered: true,
+      items: [
+        {
+          content: [
+            {
+              type: "inline-text",
+              content: "Item 1"
+            }
+          ]
+        }
+      ]
+    };
+    expect(orderedListParser(input)).toEqual(success(expected, ""));
+  });
+});
 
 describe("paragraphParser", () => {
   it("should parse paragraph", () => {
