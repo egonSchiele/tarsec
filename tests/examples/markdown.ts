@@ -11,6 +11,7 @@ import {
   seq,
   many1,
   manyTillOneOf,
+  exactly,
 } from "@/lib/combinators";
 import { str, spaces, word, char, eof, space, set, oneOf } from "@/lib/parsers";
 import { Parser, ParserResult, success } from "@/lib/types";
@@ -123,27 +124,22 @@ export const blockQuoteParser: Parser<BlockQuote> = seqC(
   capture(manyTillStr("\n"), "content")
 );
 
-export const unorderedListItemParser = seq(
-  [
-    oneOf(["-", "*", "+"]),
-    spaces,
-    many1(inlineMarkdownParser),
-  ],
-  (r, c) => ({
-    content: r[2],
-  })
+export const inlineTextParser: Parser<InlineText> = seqC(
+  set("type", "inline-text"),
+  capture(manyTillOneOf(["*", "`", "[", "\n", "~"]), "content")
 );
 
-export const orderedListItemParser = seq(
-  [
-    count(char("1234567890")),
-    char("."),
-    spaces,
-    many1(inlineMarkdownParser),
-  ],
-  (r, c) => ({
-    content: r[3],
-  })
+export const unorderedListItemParser = seqC(
+  oneOf("-*+"),
+  spaces,
+  capture(many1(inlineTextParser), "content")
+);
+
+export const orderedListItemParser = seqC(
+  count(char("1234567890")),
+  char("."),
+  spaces,
+  capture(many1(inlineTextParser), "content")
 );
 
 export const unorderedListParser: Parser<List> = seqC(
@@ -158,7 +154,10 @@ export const orderedListParser: Parser<List> = seqC(
   capture(many1(orderedListItemParser), "items")
 );
 
-export const listParser: Parser<List> = or(unorderedListParser, orderedListParser);
+export const listParser: Parser<List> = or(
+  unorderedListParser,
+  orderedListParser
+);
 
 export const imageParser: Parser<Image> = seqC(
   set("type", "image"),
@@ -170,11 +169,6 @@ export const imageParser: Parser<Image> = seqC(
 );
 
 /* Inline Parsers */
-
-export const inlineTextParser: Parser<InlineText> = seqC(
-  set("type", "inline-text"),
-  capture(manyTillOneOf(["*", "`", "[", "\n", "~"]), "content")
-);
 
 export const inlineBoldParser: Parser<InlineBold> = seqC(
   set("type", "inline-bold"),
@@ -239,11 +233,7 @@ export function paragraphParser(input: string): ParserResult<Paragraph> {
 /* Markdown Parser */
 export const horizontalRuleParser: Parser<HorizontalRule> = seq(
   [
-    or(
-      count(3, char("-")),
-      count(3, char("*")),
-      count(3, char("_"))
-    ),
+    or(exactly(3, char("-")), exactly(3, char("*")), exactly(3, char("_"))),
     optional(spaces),
   ],
   () => ({ type: "horizontal-rule" })
