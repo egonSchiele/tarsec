@@ -4,7 +4,7 @@
   "description": "A parser combinator library for TypeScript, inspired by Parsec.",
   "homepage": "https://github.com/egonSchiele/tarsec",
   "scripts": {
-    "test": "vitest list",
+    "test": "vitest --logHeapUsage",
     "test:tsc": "tsc -p tests/tsconfig.json",
     "coverage": "vitest --coverage",
     "build": "rm -rf dist && tsc",
