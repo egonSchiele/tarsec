@@ -30,7 +30,7 @@ let times: Record<string, number> = {};
 let debugFlag = !!process.env.DEBUG;
 
 let stepCount = 0;
-let stepLimit = 100000;
+let stepLimit = -1;
 
 /**
  * This function is used internally with debug mode. Given a parser and a debug name for it,
