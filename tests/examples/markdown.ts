@@ -126,7 +126,8 @@ export const blockQuoteParser: Parser<BlockQuote> = seqC(
 
 export const inlineTextParser: Parser<InlineText> = seqC(
   set("type", "inline-text"),
-  capture(manyTillOneOf(["*", "`", "[", "\n", "~"]), "content")
+  capture(manyTillOneOf(["*", "`", "[", "\n", "~"]), "content"),
+  oneOf("*`[\n~")
 );
 
 export const unorderedListItemParser = seqC(

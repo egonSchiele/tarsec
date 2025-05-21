@@ -2,7 +2,7 @@ import { success } from "@/lib/types";
 import { describe, it, expect, test } from "vitest";
 import { markdownParser } from "../markdown";
 
-test.skip("markdownParser - Complex Examples", () => {
+describe("markdownParser - Complex Examples", () => {
   it("should parse a Markdown document with nested formatting", () => {
     const input = `# Advanced Markdown
 

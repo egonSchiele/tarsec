@@ -2,7 +2,7 @@ import { success } from "@/lib/types";
 import { describe, it, expect, test } from "vitest";
 import { markdownParser } from "../markdown";
 
-test.skip("markdownParser - Full Document", () => {
+describe("markdownParser - Full Document", () => {
   it("should parse a complete Markdown document", () => {
     const input = `# Tarsec: TypeScript Parser Combinator Library
 

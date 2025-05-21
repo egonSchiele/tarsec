@@ -46,7 +46,7 @@ describe("horizontalRuleParser", () => {
   });
 });
 
-test.skip("unorderedListParser", () => {
+describe("unorderedListParser", () => {
   it("should parse unordered list with dash", () => {
     const input = "- List item 1\n- List item 2";
     const expected = {
@@ -145,7 +145,7 @@ test.skip("unorderedListParser", () => {
   });
 });
 
-test.skip("orderedListParser", () => {
+describe("orderedListParser", () => {
   it("should parse ordered list with numbers", () => {
     const input = "1. List item 1\n2. List item 2";
     const expected = {
@@ -174,7 +174,7 @@ test.skip("orderedListParser", () => {
   });
 });
 
-test.skip("markdownParser - Complete", () => {
+describe("markdownParser - Complete", () => {
   it("should parse markdown with multiple elements", () => {
     const input = `# Tarsec
     

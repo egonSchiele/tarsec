@@ -96,7 +96,7 @@ describe("listParser", () => {
     expect(unorderedListParser(input)).toEqual(success(expected, ""));
   });
 
-  it.skip("should parse ordered list item", () => {
+  it("should parse ordered list item", () => {
     const input = "1. Item 1";
     const expected = {
       type: "list",
