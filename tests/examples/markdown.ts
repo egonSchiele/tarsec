@@ -13,7 +13,17 @@ import {
   manyTillOneOf,
   exactly,
 } from "@/lib/combinators";
-import { str, spaces, word, char, eof, space, set, oneOf } from "@/lib/parsers";
+import {
+  str,
+  spaces,
+  word,
+  char,
+  eof,
+  space,
+  set,
+  oneOf,
+  noneOf,
+} from "@/lib/parsers";
 import { Parser, ParserResult, success } from "@/lib/types";
 
 /* Still a work in progress */
@@ -213,8 +223,8 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineItalicParser,
   inlineLinkParser,
   inlineCodeParser,
-  inlineStrikethroughParser,
-  inlineTextParser
+  inlineStrikethroughParser
+  //inlineTextParser
 );
 
 export function paragraphParser(input: string): ParserResult<Paragraph> {
@@ -252,6 +262,7 @@ export const markdownParser = seq(
         listParser,
         horizontalRuleParser,
         paragraphParser,
+        inlineTextParser,
         imageParser
       )
     ),

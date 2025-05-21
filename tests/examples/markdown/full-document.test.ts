@@ -43,10 +43,10 @@ console.log(greeting("hello world"));  // Success: "hello world"
 
 Tarsec provides:
 
-- **Type safety**: TypeScript types flow through parsers to ensure type correctness
-- **Composition**: Combine simple parsers to create complex ones
-- **Performance**: Optimized for speed and memory efficiency
-- **Error handling**: Detailed error reporting
+**Type safety**: TypeScript types flow through parsers to ensure type correctness
+**Composition**: Combine simple parsers to create complex ones
+**Performance**: Optimized for speed and memory efficiency
+**Error handling**: Detailed error reporting
 
 ## Examples
 
@@ -95,6 +95,7 @@ MIT © Tarsec Team`;
 
     if (result.success) {
       const parsedResult = result.result;
+      console.log(JSON.stringify(parsedResult, null, 2));
 
       // Count the elements by type to verify structure
       const elementCounts = parsedResult.reduce((counts, element) => {
@@ -104,7 +105,7 @@ MIT © Tarsec Team`;
 
       // Check for expected counts (approximate)
       expect(elementCounts["heading"]).toBeGreaterThanOrEqual(3);
-      expect(elementCounts["paragraph"]).toBeGreaterThanOrEqual(5);
+      expect(elementCounts["inline-text"]).toBeGreaterThanOrEqual(5);
       expect(elementCounts["code-block"]).toBeGreaterThanOrEqual(3);
       expect(elementCounts["block-quote"]).toBeGreaterThanOrEqual(1);
       expect(elementCounts["horizontal-rule"]).toBeGreaterThanOrEqual(1);
