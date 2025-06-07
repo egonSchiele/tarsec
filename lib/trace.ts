@@ -2,6 +2,11 @@ import { ParserResult, Parser, PlainObject } from "./types.js";
 import { escape, round, shorten } from "./utils.js";
 import process from "process";
 
+const isNode =
+  typeof process !== "undefined" &&
+  process.versions != null &&
+  process.versions.node != null;
+
 const STEP = 2;
 
 /**
@@ -27,7 +32,7 @@ export function resultToString<T>(
 let level = 0;
 let counts: Record<string, number> = {};
 let times: Record<string, number> = {};
-let debugFlag = !!process.env.DEBUG;
+let debugFlag = isNode ? !!process.env.DEBUG : false;
 
 let stepCount = 0;
 let stepLimit = -1;
