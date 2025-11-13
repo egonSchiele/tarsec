@@ -112,7 +112,7 @@ export function noneOf(chars: string): Parser<string> {
  * @param input - input string
  * @returns - ParserResult
  */
-export const anyChar = trace("anyChar", (input: string) => {
+export const anyChar: Parser<string> = trace("anyChar", (input: string) => {
   if (input.length === 0) {
     return failure("unexpected end of input", input);
   }
