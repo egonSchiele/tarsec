@@ -5,6 +5,7 @@ import {
   captureSuccess,
   failure,
   Parser,
+  ParserResult,
   Prettify,
   success,
 } from "./types.js";
@@ -53,11 +54,11 @@ export function str<const S extends string>(s: S): Parser<S> {
  * @returns - parser that matches the given string, case insensitive
  */
 export function istr<const S extends string>(s: S): Parser<S> {
-  return trace(`istr(${escape(s)})`, (input: string) => {
+  return trace(`istr(${escape(s)})`, (input: string): ParserResult<S> => {
     if (
       input.substring(0, s.length).toLocaleLowerCase() === s.toLocaleLowerCase()
     ) {
-      return success(input.substring(0, s.length), input.slice(s.length));
+      return success(input.substring(0, s.length) as S, input.slice(s.length));
     }
     return failure(`expected ${s}, got ${input.substring(0, s.length)}`, input);
   });
@@ -218,7 +219,8 @@ export function captureRegex<const T extends string[]>(
   } else {
     re = str;
   }
-  return trace(`captureRegex(${str})`, (input: string) => {
+
+  const _parser: Parser<Prettify<Record<(typeof captureNames)[number], string>>> = (input: string) => {
     const match = input.match(re);
     if (match) {
       if (match.slice(1).length > captureNames.length) {
@@ -237,11 +239,13 @@ export function captureRegex<const T extends string[]>(
         ...Object.fromEntries(
           match.slice(1).map((value, index) => [captureNames[index], value])
         ),
-      };
+      } as Record<(typeof captureNames)[number], string>;
       return success(captures, input.slice(match[0].length));
     }
     return failure(`expected ${str}, got ${input.slice(0, 10)}`, input);
-  });
+  }
+
+  return trace(`captureRegex(${str})`, _parser);
 }
 
 /**
@@ -300,7 +304,7 @@ export function set<const K extends string, const V>(
   value: V
 ): CaptureParser<null, Record<K, V>> {
   return trace(`set(${key}, ${value})`, (input: string) => {
-    return captureSuccess(null, input, { [key]: value });
+    return captureSuccess(null, input, { [key]: value } as Record<K, V>);
   });
 }
 

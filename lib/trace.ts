@@ -1,4 +1,4 @@
-import { ParserResult, Parser, PlainObject } from "./types.js";
+import { ParserResult, Parser, PlainObject, GeneralParser, CaptureParser } from "./types.js";
 import { escape, round, shorten } from "./utils.js";
 import process from "process";
 
@@ -92,7 +92,9 @@ let stepLimit = -1;
  * @param parser - parser to run
  * @returns
  */
-export function trace(name: string, parser: any): any {
+export function trace<T, C extends PlainObject>(name: string, parser: CaptureParser<T, C>): CaptureParser<T, C>;
+export function trace<T>(name: string, parser: Parser<T>): Parser<T>;
+export function trace<T, C extends PlainObject>(name: string, parser: GeneralParser<T, C>): GeneralParser<T, C> {
   if (stepLimit > 0 && stepCount > stepLimit) {
     throw new Error(
       `parser step limit of ${stepLimit} exceeded, parser may be in an infinite loop`
@@ -121,7 +123,7 @@ export function trace(name: string, parser: any): any {
       if (result.success && result.captures) {
         console.log(
           " ".repeat(level) +
-            `⭐ ${name} -- captures: ${JSON.stringify(result.captures)}`
+          `⭐ ${name} -- captures: ${JSON.stringify(result.captures)}`
         );
       }
       return result;

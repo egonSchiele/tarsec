@@ -2,6 +2,8 @@ import { within } from "./parsers/within.js";
 import { trace } from "./trace.js";
 import {
   CaptureParser,
+  CaptureParserResult,
+  CaptureParserSuccess,
   captureSuccess,
   createTree,
   failure,
@@ -37,7 +39,7 @@ import { escape, findAncestorWithNextParser, popMany } from "./utils.js";
 export function many<const T extends GeneralParser<any, any>>(
   parser: T
 ): InferManyReturnType<T> {
-  return trace("many", (input: string) => {
+  const _parser = (input: string) => {
     let results: T[] = [];
     let captures: any[] = [];
     let rest = input;
@@ -66,7 +68,8 @@ export function many<const T extends GeneralParser<any, any>>(
         }
       }
     }
-  });
+  }
+  return trace("many", _parser) as InferManyReturnType<T>;
 }
 
 /**
@@ -89,7 +92,7 @@ export function many1<const T extends GeneralParser<any, any>>(
       rest: input,
       message: "expected at least one match",
     };
-  });
+  }) as InferManyReturnType<T>;
 }
 
 /**
@@ -219,7 +222,7 @@ export function or<const T extends readonly GeneralParser<any, any>[]>(
     }
 
     return failure(`all parsers failed`, input);
-  });
+  }) as PickParserType<T>;
 }
 
 /**
@@ -361,7 +364,7 @@ export function capture<T, const S extends string>(
   parser: Parser<T>,
   name: S
 ): CaptureParser<T, Record<S, T>> {
-  return trace(`capture(${escape(name)})`, (input: string) => {
+  return trace(`capture(${escape(name)})`, (input: string): CaptureParserResult<T, Record<S, T>> => {
     let result = parser(input);
     if (result.success) {
       const captures: Record<S, T> | any = {
@@ -370,7 +373,7 @@ export function capture<T, const S extends string>(
       return {
         ...result,
         captures,
-      };
+      } as CaptureParserSuccess<T, Record<S, T>>;
     }
     return result;
   });
@@ -459,16 +462,17 @@ export function capture<T, const S extends string>(
 export function captureCaptures<T extends PlainObject>(
   parser: Parser<T>
 ): CaptureParser<T, T> {
-  return trace(`captureCaptures()`, (input: string) => {
+  const _parser: CaptureParser<T, T> = (input: string): CaptureParserResult<T, T> => {
     let result = parser(input);
     if (result.success) {
       return {
         ...result,
         captures: result.result,
-      };
+      } as CaptureParserSuccess<T, T>;
     }
     return result;
-  });
+  }
+  return trace(`captureCaptures()`, _parser);
 }
 
 /**
@@ -641,7 +645,7 @@ export function search(parser: Parser<string>): Parser<string[]> {
         .join(" ");
       return success(result, rest);
     }
-    return success("", input);
+    return success([], input);
   });
 }
 
@@ -830,7 +834,7 @@ export function ifElse<
       return ifParser(input);
     }
     return elseParser(input);
-  });
+  }) as IF | ELSE;
 }
 
 /**
@@ -878,5 +882,5 @@ export function and<const T extends readonly GeneralParser<any, any>[]>(
       return failure("not all parsers succeeded", input);
     }
     return results;
-  });
+  }) as PickParserType<T>;
 }
