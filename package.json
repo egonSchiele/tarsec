@@ -1,6 +1,6 @@
 {
   "name": "tarsec",
-  "version": "0.0.21",
+  "version": "0.0.22",
   "description": "A parser combinator library for TypeScript, inspired by Parsec.",
   "homepage": "https://github.com/egonSchiele/tarsec",
   "scripts": {

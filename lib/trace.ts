@@ -9,12 +9,21 @@ const isNode =
 
 const STEP = 2;
 
+let level = 0;
+let counts: Record<string, number> = {};
+let times: Record<string, number> = {};
+let debugFlag = isNode ? !!process.env.DEBUG : false;
+
+let stepCount = 0;
+let stepLimit = -1;
+let debugMessages: string[] = [];
+
 /**
  * This function is used internally by the `trace` function to create the string for each step.
  * @param name - debug name for parser
  * @param result - parser result
  * @returns - A formatted string that describes the parser's result
- */
+*/
 export function resultToString<T>(
   name: string,
   result: ParserResult<T>
@@ -29,13 +38,7 @@ export function resultToString<T>(
   )}`;
 }
 
-let level = 0;
-let counts: Record<string, number> = {};
-let times: Record<string, number> = {};
-let debugFlag = isNode ? !!process.env.DEBUG : false;
 
-let stepCount = 0;
-let stepLimit = -1;
 
 /**
  * This function is used internally with debug mode. Given a parser and a debug name for it,
@@ -131,6 +134,37 @@ export function trace<T, C extends PlainObject>(name: string, parser: GeneralPar
       return parser(input);
     }
   };
+}
+
+/**
+ * Useful for adding debugging messages to your parsers.
+ * Use `getDebugMessages` to get all the messages,
+ * or `getDebugMessage` to get the last message,
+ * if your parser fails.
+ * 
+ * @param parser - a parser
+ * @param message - the message to show if the parser fails
+ */
+export function debug<T, C extends PlainObject>(parser: CaptureParser<T, C>, message: string): CaptureParser<T, C>;
+export function debug<T>(parser: Parser<T>, message: string): Parser<T>;
+export function debug<T, C extends PlainObject>(parser: GeneralParser<T, C>, message: string): GeneralParser<T, C> {
+  return (input: string) => {
+    const result = parser(input);
+    if (result.success) {
+      return result;
+    } else {
+      debugMessages.push(`${message} -- ${resultToString("", result)}`);
+      return result;
+    }
+  };
+}
+
+export function getDebugMessages(): string[] {
+  return debugMessages;
+}
+
+export function getDebugMessage(): string {
+  return debugMessages[debugMessages.length - 1];
 }
 
 /**
