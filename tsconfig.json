@@ -30,9 +30,8 @@
     // "rootDir": "./",                                  /* Specify the root folder within your source files. */
     // should stay commented out since I'm not using any 3rd party modules in dist
     // "moduleResolution": "node",                       /* Specify how TypeScript looks up a file from a given module specifier. */
-    "baseUrl": "./" /* Specify the base directory to resolve non-relative module names. */,
     "paths": {
-      "@/lib/*": ["lib/*"]
+      "@/lib/*": ["./lib/*"]
     } /* Specify a set of entries that re-map imports to additional lookup locations. */,
     // "rootDirs": [],                                   /* Allow multiple folders to be treated as one when resolving modules. */
     // "typeRoots": [],                                  /* Specify multiple folders that act like './node_modules/@types'. */
@@ -105,8 +104,8 @@
     "skipLibCheck": true /* Skip type checking all .d.ts files. */
   },
   "include": [
-    "lib/**/*.ts"
-    //"index.ts"
+    "lib/**/*.ts",
+    "index.ts"
   ] /* Specify an array of glob patterns that match files to include. */,
   "exclude": [
     "node_modules",

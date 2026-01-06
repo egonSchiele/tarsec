@@ -12,7 +12,7 @@ describe("sepBy", () => {
     expect(result).toEqual(success(["a", "b", "c"], ""));
   });
 
-  test.skip("sepBy parser - invalid input", () => {
+  test("sepBy parser - invalid input", () => {
     const separator = quote;
     const parser = anyChar;
     const input = '"a"bc';

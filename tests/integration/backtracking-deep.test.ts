@@ -42,7 +42,7 @@ describe("backtracking - 1 level", () => {
   });
 });
 
-test.skip("backtracking - see comment", () => {
+test("backtracking - see comment", () => {
   describe("backtracking - 2 levels", () => {
     const parser = seq(
       [
