@@ -68,7 +68,7 @@ export function many<const T extends GeneralParser<any, any>>(
         }
       }
     }
-  }
+  };
   return trace("many", _parser) as InferManyReturnType<T>;
 }
 
@@ -433,19 +433,22 @@ export function capture<T, const S extends string>(
   parser: Parser<T>,
   name: S
 ): CaptureParser<T, Record<S, T>> {
-  return trace(`capture(${escape(name)})`, (input: string): CaptureParserResult<T, Record<S, T>> => {
-    let result = parser(input);
-    if (result.success) {
-      const captures: Record<S, T> | any = {
-        [name]: result.result,
-      };
-      return {
-        ...result,
-        captures,
-      } as CaptureParserSuccess<T, Record<S, T>>;
+  return trace(
+    `capture(${escape(name)})`,
+    (input: string): CaptureParserResult<T, Record<S, T>> => {
+      let result = parser(input);
+      if (result.success) {
+        const captures: Record<S, T> | any = {
+          [name]: result.result,
+        };
+        return {
+          ...result,
+          captures,
+        } as CaptureParserSuccess<T, Record<S, T>>;
+      }
+      return result;
     }
-    return result;
-  });
+  );
 }
 
 /**
@@ -531,7 +534,9 @@ export function capture<T, const S extends string>(
 export function captureCaptures<T extends PlainObject>(
   parser: Parser<T>
 ): CaptureParser<T, T> {
-  const _parser: CaptureParser<T, T> = (input: string): CaptureParserResult<T, T> => {
+  const _parser: CaptureParser<T, T> = (
+    input: string
+  ): CaptureParserResult<T, T> => {
     let result = parser(input);
     if (result.success) {
       return {
@@ -540,7 +545,7 @@ export function captureCaptures<T extends PlainObject>(
       } as CaptureParserSuccess<T, T>;
     }
     return result;
-  }
+  };
   return trace(`captureCaptures()`, _parser);
 }
 
@@ -712,9 +717,10 @@ export function search<T>(parser: Parser<T>): Parser<T[]> {
         .filter((x) => x.type === "unmatched")
         .map((x) => x.value)
         .join(" ");
-      return success(result, rest);
+      // @ts-ignore
+      return success<T[]>(result, rest);
     }
-    return success([], input);
+    return success<T[]>([], input);
   });
 }
 
