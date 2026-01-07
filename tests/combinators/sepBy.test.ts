@@ -1,5 +1,5 @@
 import { describe, test, expect } from "vitest";
-import { sepBy } from "../../lib/combinators";
+import { sepBy, sepBy1 } from "../../lib/combinators";
 import { anyChar, char, letter, quote } from "../../lib/parsers";
 import { failure, success } from "../../lib/types";
 
@@ -36,16 +36,20 @@ describe("sepBy", () => {
     expect(result).toEqual(success(["a", "b"], "!"));
   });
 
-  test("sepBy parser - invalid input, no match", () => {
+  test("sepBy parser - no match, still succeeds", () => {
     const separator = char(",");
     const parser = letter;
     const input = "1,2";
     const result = sepBy(separator, parser)(input);
-    expect(result).toEqual(
-      failure(
-        'expected one of "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ", got 1',
-        "1,2"
-      )
-    );
+    expect(result).toEqual(success<string[]>([], "1,2"));
+  });
+});
+describe("sepBy1", () => {
+  test("sepBy parser - invalid input, no match", () => {
+    const separator = char(",");
+    const parser = letter;
+    const input = "1,2";
+    const result = sepBy1(separator, parser)(input);
+    expect(result).toEqual(failure("expected at least one match", "1,2"));
   });
 });
