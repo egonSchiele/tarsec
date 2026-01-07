@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="IE=edge" />
-    <title>sepBy | tarsec</title>
+    <title>sepBy1 | tarsec</title>
     <meta name="description" content="Documentation for tarsec" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="../assets/style.css" />
@@ -59,24 +59,24 @@
         <div class="tsd-page-title">
           <ul class="tsd-breadcrumb">
             <li><a href="../modules.html">tarsec</a></li>
-            <li><a href="sepBy.html">sepBy</a></li>
+            <li><a href="sepBy1.html">sepBy1</a></li>
           </ul>
-          <h1>Function sepBy</h1>
+          <h1>Function sepBy1</h1>
         </div>
         <section class="tsd-panel">
           <ul class="tsd-signatures">
             <li class="tsd-signature tsd-anchor-link">
-              <a id="sepBy" class="tsd-anchor"></a
-              ><span class="tsd-kind-call-signature">sep<wbr />By</span
+              <a id="sepBy1" class="tsd-anchor"></a
+              ><span class="tsd-kind-call-signature">sep<wbr />By1</span
               ><span class="tsd-signature-symbol">&lt;</span
               ><a
                 class="tsd-signature-type tsd-kind-type-parameter"
-                href="sepBy.html#sepBy.S"
+                href="sepBy1.html#sepBy1.S"
                 >S</a
               ><span class="tsd-signature-symbol">, </span
               ><a
                 class="tsd-signature-type tsd-kind-type-parameter"
-                href="sepBy.html#sepBy.P"
+                href="sepBy1.html#sepBy1.P"
                 >P</a
               ><span class="tsd-signature-symbol">&gt;</span
               ><span class="tsd-signature-symbol">(</span
@@ -91,11 +91,11 @@
               ><span class="tsd-signature-symbol">&lt;</span
               ><a
                 class="tsd-signature-type tsd-kind-type-parameter"
-                href="sepBy.html#sepBy.P"
+                href="sepBy1.html#sepBy1.P"
                 >P</a
               ><span class="tsd-signature-symbol">[]</span
               ><span class="tsd-signature-symbol">&gt;</span
-              ><a href="#sepBy" aria-label="Permalink" class="tsd-anchor-icon"
+              ><a href="#sepBy1" aria-label="Permalink" class="tsd-anchor-icon"
                 ><svg viewBox="0 0 24 24">
                   <use href="../assets/icons.svg#icon-anchor"></use></svg
               ></a>
@@ -104,8 +104,9 @@
               <div class="tsd-comment tsd-typography">
                 <p>
                   Parses many instances of the parser separated by separator.
-                  The parser will succeed even if it consumes zero instances. To
-                  require at least one instance, use <code>sepBy1</code>.
+                  The parser needs to succeed at least once, otherwise sepBy
+                  fails. To not require at least one instance, use
+                  <code>sepBy</code>.
                 </p>
               </div>
               <section class="tsd-panel">
@@ -113,13 +114,13 @@
                 <ul class="tsd-type-parameter-list">
                   <li>
                     <span
-                      ><a id="sepBy.S" class="tsd-anchor"></a
+                      ><a id="sepBy1.S" class="tsd-anchor"></a
                       ><span class="tsd-kind-type-parameter">S</span></span
                     >
                   </li>
                   <li>
                     <span
-                      ><a id="sepBy.P" class="tsd-anchor"></a
+                      ><a id="sepBy1.P" class="tsd-anchor"></a
                       ><span class="tsd-kind-type-parameter">P</span></span
                     >
                   </li>
@@ -138,7 +139,7 @@
                       ><span class="tsd-signature-symbol">&lt;</span
                       ><a
                         class="tsd-signature-type tsd-kind-type-parameter"
-                        href="sepBy.html#sepBy.S"
+                        href="sepBy1.html#sepBy1.S"
                         >S</a
                       ><span class="tsd-signature-symbol">&gt;</span></span
                     >
@@ -154,7 +155,7 @@
                       ><span class="tsd-signature-symbol">&lt;</span
                       ><a
                         class="tsd-signature-type tsd-kind-type-parameter"
-                        href="sepBy.html#sepBy.P"
+                        href="sepBy1.html#sepBy1.P"
                         >P</a
                       ><span class="tsd-signature-symbol">&gt;</span></span
                     >
@@ -171,14 +172,14 @@
                 ><span class="tsd-signature-symbol">&lt;</span
                 ><a
                   class="tsd-signature-type tsd-kind-type-parameter"
-                  href="sepBy.html#sepBy.P"
+                  href="sepBy1.html#sepBy1.P"
                   >P</a
                 ><span class="tsd-signature-symbol">[]</span
                 ><span class="tsd-signature-symbol">&gt;</span>
               </h4>
               <p>
-                a parser that runs the given parser zero to many times,
-                separated by the separator parser.
+                a parser that runs the given parser one to many times, separated
+                by the separator parser.
               </p>
               <div class="tsd-comment tsd-typography"></div>
             </li>

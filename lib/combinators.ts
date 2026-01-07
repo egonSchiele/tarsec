@@ -362,7 +362,8 @@ export function between1<O, C, P>(
 
 /**
  * Parses many instances of the parser separated by separator.
- * The parser needs to succeed at least once, otherwise sepBy fails.
+ * The parser will succeed even if it consumes zero instances.
+ * To require at least one instance, use `sepBy1`.
  * @param separator
  * @param parser
  * @returns a parser that runs the given parser zero to many times, separated by the separator parser.
@@ -377,25 +378,40 @@ export function sepBy<S, P>(
     while (true) {
       const result = parser(rest);
       if (!result.success) {
-        if (results.length === 0) {
-          return failure(result.message, input);
-        } else {
-          return success(results, rest);
-        }
+        return success(results, rest);
       }
       results.push(result.result);
       rest = result.rest;
 
       const sepResult = separator(rest);
       if (!sepResult.success) {
-        if (results.length === 0) {
-          return failure(sepResult.message, input);
-        } else {
-          return success(results, rest);
-        }
+        return success(results, rest);
       }
       rest = sepResult.rest;
     }
+  };
+}
+
+/**
+ * Parses many instances of the parser separated by separator.
+ * The parser needs to succeed at least once, otherwise sepBy fails.
+ * To not require at least one instance, use `sepBy`.
+ * @param separator
+ * @param parser
+ * @returns a parser that runs the given parser one to many times, separated by the separator parser.
+ */
+export function sepBy1<S, P>(
+  separator: Parser<S>,
+  parser: Parser<P>
+): Parser<P[]> {
+  return (input: string) => {
+    const result = sepBy(separator, parser)(input);
+    if (result.success) {
+      if (result.result.length === 0) {
+        return failure("expected at least one match", input);
+      }
+    }
+    return result;
   };
 }
 
