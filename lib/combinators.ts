@@ -269,39 +269,100 @@ export function not(parser: Parser<any>): Parser<null> {
 
 /**
  * Takes three parsers, `open`, `close`, and `parser`.
- * `between` matches something that matches `parser`,
+ * `between` matches multiple instances of `parser`,
  * surrounded by `open` and `close`. It returns the result of `parser`.
- * If any of the parsers fail, `between` fails.
+ *
+ * This is a look-ahead combinator. It keeps trying the `close` parser until it succeeds.
+ * That means you can use it like this, and `parser` won't consume the ending quote:
+ *
+ * ```ts
+ * const quotedString = between(quote, quote, anyChar);
+ * ```
+ *
+ * This combinator succeeds even if it parses zero instances of `parser`.
+ * So for the above parser, this input would succeed: `""`.
+ *
+ * If you want it to consume at least one instance of `parser`, use `between1`.
+ *
+ * Even though this is a look-ahead combinator, it won't work if you supply a greedy parser.
+ * You can make the above parser fail simply by adding `many1`:
+ *
+ * ```ts
+ * const quotedString = between(quote, quote, many1(anyChar));
+ * ```
+ *
+ * `many1(anyChar)` will consume all input until the end of the string,
+ *  not giving the `close` parser a chance to succeed.
+ *
+ * This combinator is obviously expensive, as it applies the `close` parser at every step.
+ * This combinator can also get into an infinite loop if `parser` succeeds without consuming any input.
  *
  * @param open - parser for the opening delimiter
  * @param close - parser for the closing delimiter
  * @param parser - parser for the content
- * @returns a parser that returns the result of `parser`.
+ * @returns the result of `parser`.
  */
 export function between<O, C, P>(
   open: Parser<O>,
   close: Parser<C>,
   parser: Parser<P>
-): Parser<P> {
+): Parser<P[]> {
   return (input: string) => {
     const result1 = open(input);
     if (!result1.success) {
       return result1;
     }
-    const parserResult = parser(result1.rest);
-    if (!parserResult.success) {
-      return parserResult;
+    let rest = result1.rest;
+
+    // keep looking for close
+    let result2 = close(rest);
+
+    let successResult: P[] = [];
+
+    // while we don't succeed, keep trying to parse with parser
+    while (!result2.success) {
+      const parserResult = parser(rest);
+      // the parser should keep succeeding until we find the closer
+      // if it doesn't, we fail
+      if (!parserResult.success) {
+        return failure(parserResult.message, input);
+      }
+      successResult.push(parserResult.result);
+      rest = parserResult.rest;
+      result2 = close(rest);
     }
-    const result2 = close(parserResult.rest);
-    if (!result2.success) {
-      return result2;
+
+    // we found the closer. Note we consume the closer and return the rest
+    return success(successResult, result2.rest);
+  };
+}
+
+/**
+ * Like `between`, but fails unless it consumes at least one instance of the `parser`.
+ * @param open - parser for the opening delimiter
+ * @param close - parser for the closing delimiter
+ * @param parser - parser for the content
+ * @returns the result of `parser`.
+ */
+export function between1<O, C, P>(
+  open: Parser<O>,
+  close: Parser<C>,
+  parser: Parser<P>
+): Parser<P[]> {
+  return (input: string) => {
+    const result = between(open, close, parser)(input);
+    if (result.success) {
+      if (result.result.length === 0) {
+        return failure("expected at least one match", input);
+      }
     }
-    return success(parserResult.result, result2.rest);
+    return result;
   };
 }
 
 /**
  * Parses many instances of the parser separated by separator.
+ * The parser needs to succeed at least once, otherwise sepBy fails.
  * @param separator
  * @param parser
  * @returns a parser that runs the given parser zero to many times, separated by the separator parser.
@@ -316,14 +377,22 @@ export function sepBy<S, P>(
     while (true) {
       const result = parser(rest);
       if (!result.success) {
-        return success(results, rest);
+        if (results.length === 0) {
+          return failure(result.message, input);
+        } else {
+          return success(results, rest);
+        }
       }
       results.push(result.result);
       rest = result.rest;
 
       const sepResult = separator(rest);
       if (!sepResult.success) {
-        return success(results, rest);
+        if (results.length === 0) {
+          return failure(sepResult.message, input);
+        } else {
+          return success(results, rest);
+        }
       }
       rest = sepResult.rest;
     }
@@ -629,10 +698,10 @@ export function map<R, C extends PlainObject, X>(
  * The rest of the input that isn't part of the result is simply joined together and returned as a string.
  * If you need a more structured result + rest, you can use `within` instead.
  *
- * @param parser - a parser that returns a string
+ * @param parser - the parser to search for
  * @returns - a parser that returns an array of strings
  */
-export function search(parser: Parser<string>): Parser<string[]> {
+export function search<T>(parser: Parser<T>): Parser<T[]> {
   return trace("search", (input: string) => {
     let parsed = within(parser)(input);
     if (parsed.success) {

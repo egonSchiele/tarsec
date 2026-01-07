@@ -1,20 +1,10 @@
 import { describe, expect, test } from "vitest";
-import {
-  anyChar,
-  char,
-  noneOf,
-  oneOf,
-  quote,
-  quotedString,
-  str,
-} from "../../lib/parsers";
-import { success, failure, Parser } from "../../lib/types";
-import { trace } from "../../lib/trace";
-import { betweenWithin } from "../../lib/parsers";
-import { seq, manyWithJoin, manyTill, transform } from "../../lib/combinators";
+import { manyTill, manyWithJoin, seq, seqR } from "../../lib/combinators";
+import { within, char, noneOf, quotedString, str } from "../../lib/parsers";
+import { success } from "../../lib/types";
 
-describe("betweenWithin", () => {
-  const quotesParser = betweenWithin(quotedString);
+describe("within", () => {
+  const quotesParser = within(quotedString);
   test("parses a single double quoted string inside a longer line", () => {
     const input = `this is a "quoted string" so what`;
     const result = quotesParser(input);
@@ -266,7 +256,7 @@ describe("brackets/braces", () => {
     (results: string[]) => results.join("")
   );
 
-  const parser = betweenWithin(bracketedString);
+  const parser = within(bracketedString);
   test("parses a single bracketed string inside a longer line", () => {
     const input = `this is a [bracketed string] so what`;
     const result = parser(input);
@@ -306,7 +296,7 @@ describe("markdown", () => {
   );
 
   test("parses a single bold string inside a longer line", () => {
-    const parser = betweenWithin(boldedString);
+    const parser = within(boldedString);
     const input = `this is a ***bold string*** so what`;
     const result = parser(input);
     const expectedResult = [
@@ -330,7 +320,7 @@ describe("markdown", () => {
       [str("```"), manyTill(str("```")), str("```")],
       (results: string[]) => results.join("")
     );
-    const parser = betweenWithin(boldedString);
+    const parser = within(boldedString);
     const input = `this is a code block
 \`\`\`
 code block
@@ -345,6 +335,33 @@ so what`;
       {
         type: "matched",
         value: "```\ncode block\n```",
+      },
+      {
+        type: "unmatched",
+        value: "\nso what",
+      },
+    ];
+    expect(result).toEqual(success(expectedResult, ""));
+  });
+});
+describe("parsing objects", () => {
+  test("successfully uses a parser that returns an object instead of a string", () => {
+    const boldedString = seqR(str("```"), manyTill(str("```")), str("```"));
+    const parser = within(boldedString);
+    const input = `this is a code block
+\`\`\`
+code block
+\`\`\`
+so what`;
+    const result = parser(input);
+    const expectedResult = [
+      {
+        type: "unmatched",
+        value: "this is a code block\n",
+      },
+      {
+        type: "matched",
+        value: ["```", "\ncode block\n", "```"],
       },
       {
         type: "unmatched",

@@ -10,7 +10,7 @@ import {
   success,
 } from "./types.js";
 import { escape } from "./utils.js";
-export { within as betweenWithin } from "./parsers/within.js";
+export { within } from "./parsers/within.js";
 /**
  * Takes a character. Returns a parser that parses that character.
  *

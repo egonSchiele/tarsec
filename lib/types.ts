@@ -25,9 +25,7 @@ export type ParserFailure = {
   message: string;
 };
 
-export type ParserResult<T> =
-  | ParserSuccess<T>
-  | ParserFailure;
+export type ParserResult<T> = ParserSuccess<T> | ParserFailure;
 
 export type CaptureParserResult<T, C extends PlainObject> =
   | CaptureParserSuccess<T, C>
@@ -74,10 +72,7 @@ export function isSuccess<T>(
 }
 
 /** Convenience function to return a ParserSuccess */
-export function success<T>(
-  result: T,
-  rest: string
-): ParserSuccess<T> {
+export function success<T>(result: T, rest: string): ParserSuccess<T> {
   return { success: true, result, rest };
 }
 
@@ -91,10 +86,7 @@ export function captureSuccess<T, C extends PlainObject>(
 }
 
 /** Convenience function to return a ParserFailure */
-export function failure(
-  message: string,
-  rest: string
-): ParserFailure {
+export function failure(message: string, rest: string): ParserFailure {
   return { success: false, message, rest };
 }
 
@@ -148,9 +140,8 @@ export type HasCaptureParsers<T extends readonly GeneralParser<any, any>[]> =
  * the result and capture types. This is useful for a combinator like `or`
  * which is not able to infer its return type correctly.
  */
-export type PickParserType<
-  T extends readonly GeneralParser<any, any>[]
-> =   HasCaptureParsers<T> extends true
+export type PickParserType<T extends readonly GeneralParser<any, any>[]> =
+  HasCaptureParsers<T> extends true
     ? CaptureParser<MergedResults<T>, UnionOfCaptures<T>>
     : Parser<MergedResults<T>>;
 
@@ -222,6 +213,6 @@ export function createTree(parsers: readonly GeneralParser<any, any>[]): Node {
 }
 
 /** Used by `within`. */
-export type Matched = { type: "matched"; value: string };
+export type Matched<T> = { type: "matched"; value: T };
 export type Unmatched = { type: "unmatched"; value: string };
-export type WithinResult = Matched | Unmatched;
+export type WithinResult<T> = Matched<T> | Unmatched;
