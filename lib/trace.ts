@@ -1,4 +1,10 @@
-import { ParserResult, Parser, PlainObject, GeneralParser, CaptureParser } from "./types.js";
+import {
+  ParserResult,
+  Parser,
+  PlainObject,
+  GeneralParser,
+  CaptureParser,
+} from "./types.js";
 import { escape, round, shorten } from "./utils.js";
 import process from "process";
 
@@ -23,22 +29,20 @@ let debugMessages: string[] = [];
  * @param name - debug name for parser
  * @param result - parser result
  * @returns - A formatted string that describes the parser's result
-*/
+ */
 export function resultToString<T>(
   name: string,
-  result: ParserResult<T>
+  result: ParserResult<T>,
 ): string {
   if (result.success) {
     return `✅ ${name} -- match: ${escape(result.result)}, rest: ${escape(
-      result.rest
+      result.rest,
     )}`;
   }
   return `❌ ${name} -- message: ${escape(result.message)}, rest: ${escape(
-    result.rest
+    result.rest,
   )}`;
 }
-
-
 
 /**
  * This function is used internally with debug mode. Given a parser and a debug name for it,
@@ -95,18 +99,24 @@ export function resultToString<T>(
  * @param parser - parser to run
  * @returns
  */
-export function trace<T, C extends PlainObject>(name: string, parser: CaptureParser<T, C>): CaptureParser<T, C>;
+export function trace<T, C extends PlainObject>(
+  name: string,
+  parser: CaptureParser<T, C>,
+): CaptureParser<T, C>;
 export function trace<T>(name: string, parser: Parser<T>): Parser<T>;
-export function trace<T, C extends PlainObject>(name: string, parser: GeneralParser<T, C>): GeneralParser<T, C> {
+export function trace<T, C extends PlainObject>(
+  name: string,
+  parser: GeneralParser<T, C>,
+): GeneralParser<T, C> {
   if (stepLimit > 0 && stepCount > stepLimit) {
     throw new Error(
-      `parser step limit of ${stepLimit} exceeded, parser may be in an infinite loop`
+      `parser step limit of ${stepLimit} exceeded, parser may be in an infinite loop`,
     );
   }
   return (input: string) => {
     if (debugFlag) {
       console.log(
-        " ".repeat(level) + `🔍 ${name} -- input: ${shorten(escape(input))}`
+        " ".repeat(level) + `🔍 ${name} -- input: ${shorten(escape(input))}`,
       );
 
       let result: any;
@@ -126,7 +136,7 @@ export function trace<T, C extends PlainObject>(name: string, parser: GeneralPar
       if (result.success && result.captures) {
         console.log(
           " ".repeat(level) +
-          `⭐ ${name} -- captures: ${JSON.stringify(result.captures)}`
+            `⭐ ${name} -- captures: ${JSON.stringify(result.captures)}`,
         );
       }
       return result;
@@ -141,13 +151,19 @@ export function trace<T, C extends PlainObject>(name: string, parser: GeneralPar
  * Use `getDebugMessages` to get all the messages,
  * or `getDebugMessage` to get the last message,
  * if your parser fails.
- * 
+ *
  * @param parser - a parser
  * @param message - the message to show if the parser fails
  */
-export function debug<T, C extends PlainObject>(parser: CaptureParser<T, C>, message: string): CaptureParser<T, C>;
+export function debug<T, C extends PlainObject>(
+  parser: CaptureParser<T, C>,
+  message: string,
+): CaptureParser<T, C>;
 export function debug<T>(parser: Parser<T>, message: string): Parser<T>;
-export function debug<T, C extends PlainObject>(parser: GeneralParser<T, C>, message: string): GeneralParser<T, C> {
+export function debug<T, C extends PlainObject>(
+  parser: GeneralParser<T, C>,
+  message: string,
+): GeneralParser<T, C> {
   return (input: string) => {
     const result = parser(input);
     if (result.success) {
@@ -249,4 +265,20 @@ export function limitSteps(limit: number, callback: Function) {
   stepLimit = limit;
   callback();
   stepLimit = -1;
+}
+
+let inputStr = "";
+
+/**
+ * Use this function in conjunction with the parseError combinator. Before running your parser,
+ * call this function, giving it the entire input. Then, if the parseError combinator throws an error,
+ * it will print out a nice message showing exactly what part of the string triggered the error.
+ * @param s full string to parse
+ */
+export function setInputStr(s: string) {
+  inputStr = s;
+}
+
+export function getInputStr(): string {
+  return inputStr;
 }

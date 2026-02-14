@@ -1,5 +1,6 @@
 import { within } from "./parsers/within.js";
-import { trace } from "./trace.js";
+import { TarsecError } from "./tarsecError.js";
+import { getInputStr, trace } from "./trace.js";
 import {
   CaptureParser,
   CaptureParserResult,
@@ -37,7 +38,7 @@ import { escape, findAncestorWithNextParser, popMany } from "./utils.js";
  * and returns the result as an array
  */
 export function many<const T extends GeneralParser<any, any>>(
-  parser: T
+  parser: T,
 ): InferManyReturnType<T> {
   const _parser = (input: string) => {
     let results: T[] = [];
@@ -79,7 +80,7 @@ export function many<const T extends GeneralParser<any, any>>(
  * @returns a parser that runs the given parser one to many times,
  */
 export function many1<const T extends GeneralParser<any, any>>(
-  parser: T
+  parser: T,
 ): InferManyReturnType<T> {
   return trace(`many1`, (input: string) => {
     let result = many(parser)(input);
@@ -144,7 +145,7 @@ export function exactly<T>(num: number, parser: Parser<T>): Parser<T[]> {
  * and returns the result as a single string
  */
 export function manyWithJoin<const T extends GeneralParser<string, any>>(
-  parser: T
+  parser: T,
 ): GeneralParser<string, any> {
   return trace("manyWithJoin", (input: string) => {
     const result = many(parser)(input);
@@ -305,7 +306,7 @@ export function not(parser: Parser<any>): Parser<null> {
 export function between<O, C, P>(
   open: Parser<O>,
   close: Parser<C>,
-  parser: Parser<P>
+  parser: Parser<P>,
 ): Parser<P[]> {
   return (input: string) => {
     const result1 = open(input);
@@ -347,7 +348,7 @@ export function between<O, C, P>(
 export function between1<O, C, P>(
   open: Parser<O>,
   close: Parser<C>,
-  parser: Parser<P>
+  parser: Parser<P>,
 ): Parser<P[]> {
   return (input: string) => {
     const result = between(open, close, parser)(input);
@@ -370,7 +371,7 @@ export function between1<O, C, P>(
  */
 export function sepBy<S, P>(
   separator: Parser<S>,
-  parser: Parser<P>
+  parser: Parser<P>,
 ): Parser<P[]> {
   return (input: string) => {
     let results: P[] = [];
@@ -402,7 +403,7 @@ export function sepBy<S, P>(
  */
 export function sepBy1<S, P>(
   separator: Parser<S>,
-  parser: Parser<P>
+  parser: Parser<P>,
 ): Parser<P[]> {
   return (input: string) => {
     const result = sepBy(separator, parser)(input);
@@ -447,7 +448,7 @@ export function getCaptures<R, C>(results: R, captures: C): C {
  */
 export function capture<T, const S extends string>(
   parser: Parser<T>,
-  name: S
+  name: S,
 ): CaptureParser<T, Record<S, T>> {
   return trace(
     `capture(${escape(name)})`,
@@ -463,7 +464,7 @@ export function capture<T, const S extends string>(
         } as CaptureParserSuccess<T, Record<S, T>>;
       }
       return result;
-    }
+    },
   );
 }
 
@@ -548,10 +549,10 @@ export function capture<T, const S extends string>(
  * @returns - the parser's result set as the captures object
  */
 export function captureCaptures<T extends PlainObject>(
-  parser: Parser<T>
+  parser: Parser<T>,
 ): CaptureParser<T, T> {
   const _parser: CaptureParser<T, T> = (
-    input: string
+    input: string,
   ): CaptureParserResult<T, T> => {
     let result = parser(input);
     if (result.success) {
@@ -600,7 +601,7 @@ export function many1Till<T>(parser: Parser<T>): Parser<string> {
         if (current === 0) {
           return failure(
             "expected to consume at least one character of input",
-            input
+            input,
           );
         }
 
@@ -611,7 +612,7 @@ export function many1Till<T>(parser: Parser<T>): Parser<string> {
     if (current === 0) {
       return failure(
         "expected to consume at least one character of input",
-        input
+        input,
       );
     }
     return success(input, "");
@@ -635,7 +636,7 @@ export function many1Till<T>(parser: Parser<T>): Parser<string> {
  */
 export function manyTillOneOf(
   stops: string[],
-  { insensitive = false }: { insensitive?: boolean } = {}
+  { insensitive = false }: { insensitive?: boolean } = {},
 ): Parser<string> {
   return trace(`manyTillOneOf(${escape(stops.join(","))})`, (input: string) => {
     const indexes: number[] = [];
@@ -669,7 +670,7 @@ export function manyTillOneOf(
  */
 export function manyTillStr(
   str: string,
-  { insensitive = false }: { insensitive?: boolean } = {}
+  { insensitive = false }: { insensitive?: boolean } = {},
 ): Parser<string> {
   return trace(`manyTillStr(${escape(str)})`, (input: string) => {
     return manyTillOneOf([str], { insensitive })(input);
@@ -697,7 +698,7 @@ export function iManyTillStr(str: string): Parser<string> {
  */
 export function map<R, C extends PlainObject, X>(
   parser: GeneralParser<R, C>,
-  mapperFunc: (x: R) => X
+  mapperFunc: (x: R) => X,
 ): GeneralParser<X, C> {
   return trace(`map(${mapperFunc})`, (input: string) => {
     let parsed = parser(input);
@@ -828,7 +829,7 @@ The code is also complex and it would be easy to have bugs in this logic. I wish
 export function seq<const T extends readonly GeneralParser<any, any>[], U>(
   parsers: T,
   transform: (results: MergedResults<T>[], captures: MergedCaptures<T>) => U,
-  debugName: string = ""
+  debugName: string = "",
 ): Parser<U> {
   return trace(`seq(${debugName})`, (input: string) => {
     const results: any[] = [];
@@ -967,11 +968,78 @@ export function and<const T extends readonly GeneralParser<any, any>[]>(
       if (successes.length === results.result.length) {
         return success(
           (results.result as ParserSuccess<T>[]).map((r) => r.result),
-          input
+          input,
         );
       }
       return failure("not all parsers succeeded", input);
     }
     return results;
   }) as PickParserType<T>;
+}
+
+/**
+ * If any of the parsers fail, this parser throws an error. This can be handy for showing
+ * more specific error messages to users. For example, if you have a parser that parses these two statements:
+ *
+ * ```
+ * import "foo";
+ * greet "name"
+ * ```
+ *
+ * And the user gives this input:
+ *
+ * ```
+ * import;
+ * ```
+ *
+ * You don't want the parser to fail with a generic message, such as 'all parsers have failed'.
+ * You want a more specific error, such as 'expected string after `import` keyword'.
+ *
+ * You could accomplish that with `throwErrorUnless`:
+ * 
+ * ```ts
+ * const parser = seqC(
+ *   str("import"),
+ *   captureCaptures(
+ *     throwErrorUnless(
+ *       "expected string after `import` keyword",
+ *       spaces,
+ *       capture(quotedString, "moduleName")
+ *     )
+ *   )
+ * )
+ *```
+
+ * @param _message message to fail with
+ * @param parsers parsers to run
+ * @returns
+ */
+export function parseError<const T extends readonly GeneralParser<any, any>[]>(
+  _message: string,
+  ...parsers: T
+): Parser<MergedCaptures<T>> {
+  return (input) => {
+    const result = seqC(...parsers)(input);
+    if (result.success) {
+      return result;
+    } else {
+      const inputStr = getInputStr();
+      const messages: string[] = [];
+      const prefix = "Near: ";
+      if (input.length > 0) {
+        const index = inputStr.length - input.length;
+        const start = Math.max(0, input.length - 20);
+        const end = Math.min(inputStr.length, input.length + 20);
+
+        messages.push(`${prefix}${inputStr.substring(start, end)}`);
+        messages.push(`${" ".repeat(index + prefix.length)}^`);
+      } else {
+        messages.push(`${prefix}${input.substring(1, 100)}`);
+      }
+      messages.push(_message);
+
+      const message = messages.join("\n");
+      throw new TarsecError(message);
+    }
+  };
 }
