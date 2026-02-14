@@ -1028,10 +1028,10 @@ export function parseError<const T extends readonly GeneralParser<any, any>[]>(
       const prefix = "Near: ";
       if (input.length > 0) {
         const index = inputStr.length - input.length;
-        const start = Math.max(0, input.length - 20);
-        const end = Math.min(inputStr.length, input.length + 20);
-
-        messages.push(`${prefix}${inputStr.substring(start, end)}`);
+        const start = Math.max(0, index - 20);
+        const end = Math.min(inputStr.length, index + 20);
+        const previewStr = inputStr.substring(start, end).split("\n")[0];
+        messages.push(`${prefix}${previewStr}`);
         messages.push(`${" ".repeat(index + prefix.length)}^`);
         messages.push(_message);
         const message = messages.join("\n");
@@ -1042,9 +1042,9 @@ export function parseError<const T extends readonly GeneralParser<any, any>[]>(
           acc += lines[i].length;
           i++;
         }
-        const column = acc - index;
+        const column = lines[i - 1].length - (acc - index);
         throw new TarsecError({
-          line: i,
+          line: i - 1,
           column,
           length: 1,
           prettyMessage: message,
