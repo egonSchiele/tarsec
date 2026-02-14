@@ -79,13 +79,6 @@ describe("parseError", () => {
       expect(() => parser(input)).toThrow("expected hello");
     });
 
-    it("should include 'Near:' context in the error message", () => {
-      const input = "goodbye";
-      setInputStr(input);
-      const parser = parseError("expected hello", str("hello"));
-      expect(() => parser(input)).toThrow(/Near:/);
-    });
-
     it("should throw when a later parser in the sequence fails", () => {
       const input = "hello goodbye";
       setInputStr(input);

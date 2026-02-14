@@ -37,7 +37,8 @@ try {
   console.log(result);
 } catch (error) {
   if (error instanceof TarsecError) {
-    console.log(error.message);
+    console.log(error.data.prettyMessage);
+    console.log(error);
   } else {
     throw error;
   }

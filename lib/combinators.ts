@@ -1033,13 +1033,35 @@ export function parseError<const T extends readonly GeneralParser<any, any>[]>(
 
         messages.push(`${prefix}${inputStr.substring(start, end)}`);
         messages.push(`${" ".repeat(index + prefix.length)}^`);
+        messages.push(_message);
+        const message = messages.join("\n");
+        const lines = inputStr.split("\n");
+        let acc = 0;
+        let i = 0;
+        while (index > acc) {
+          acc += lines[i].length;
+          i++;
+        }
+        const column = acc - index;
+        throw new TarsecError({
+          line: i,
+          column,
+          length: 1,
+          prettyMessage: message,
+          message: _message,
+        });
       } else {
         messages.push(`${prefix}${input.substring(1, 100)}`);
+        messages.push(_message);
+        const message = messages.join("\n");
+        throw new TarsecError({
+          line: 0,
+          column: 0,
+          length: 0,
+          prettyMessage: message,
+          message: _message,
+        });
       }
-      messages.push(_message);
-
-      const message = messages.join("\n");
-      throw new TarsecError(message);
     }
   };
 }

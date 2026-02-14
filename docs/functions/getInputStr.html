@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="x-ua-compatible" content="IE=edge" />
-    <title>manyParsers | tarsec</title>
+    <title>getInputStr | tarsec</title>
     <meta name="description" content="Documentation for tarsec" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="../assets/style.css" />
@@ -59,52 +59,22 @@
         <div class="tsd-page-title">
           <ul class="tsd-breadcrumb">
             <li><a href="../modules.html">tarsec</a></li>
-            <li><a href="manyParsers.html">manyParsers</a></li>
+            <li><a href="getInputStr.html">getInputStr</a></li>
           </ul>
-          <h1>Function manyParsers</h1>
+          <h1>Function getInputStr</h1>
         </div>
         <section class="tsd-panel">
           <ul class="tsd-signatures">
             <li class="tsd-signature tsd-anchor-link">
-              <a id="manyParsers" class="tsd-anchor"></a
-              ><span class="tsd-kind-call-signature">many<wbr />Parsers</span
-              ><span class="tsd-signature-symbol">&lt;</span
-              ><span class="tsd-signature-keyword">const </span
-              ><a
-                class="tsd-signature-type tsd-kind-type-parameter"
-                href="manyParsers.html#manyParsers.T"
-                >T</a
-              ><span class="tsd-signature-symbol">&gt;</span
+              <a id="getInputStr" class="tsd-anchor"></a
+              ><span class="tsd-kind-call-signature"
+                >get<wbr />Input<wbr />Str</span
               ><span class="tsd-signature-symbol">(</span
-              ><span class="tsd-signature-symbol">...</span
-              ><span class="tsd-kind-parameter">parsers</span
               ><span class="tsd-signature-symbol">)</span
               ><span class="tsd-signature-symbol">: </span
+              ><span class="tsd-signature-type">string</span
               ><a
-                href="../types/Parser.html"
-                class="tsd-signature-type tsd-kind-type-alias"
-                >Parser</a
-              ><span class="tsd-signature-symbol">&lt;</span
-              ><a
-                href="../types/ParserResult.html"
-                class="tsd-signature-type tsd-kind-type-alias"
-                >ParserResult</a
-              ><span class="tsd-signature-symbol">&lt;</span
-              ><a
-                href="../types/MergedResults.html"
-                class="tsd-signature-type tsd-kind-type-alias"
-                >MergedResults</a
-              ><span class="tsd-signature-symbol">&lt;</span
-              ><a
-                class="tsd-signature-type tsd-kind-type-parameter"
-                href="manyParsers.html#manyParsers.T"
-                >T</a
-              ><span class="tsd-signature-symbol">&gt;</span
-              ><span class="tsd-signature-symbol">&gt;</span
-              ><span class="tsd-signature-symbol">[]</span
-              ><span class="tsd-signature-symbol">&gt;</span
-              ><a
-                href="#manyParsers"
+                href="#getInputStr"
                 aria-label="Permalink"
                 class="tsd-anchor-icon"
                 ><svg viewBox="0 0 24 24">
@@ -112,84 +82,9 @@
               ></a>
             </li>
             <li class="tsd-description">
-              <div class="tsd-comment tsd-typography">
-                <p>
-                  Apply multiple parsers to the same input and collect all the
-                  results. Consumes no input.
-                </p>
-              </div>
-              <section class="tsd-panel">
-                <h4>Type Parameters</h4>
-                <ul class="tsd-type-parameter-list">
-                  <li>
-                    <span
-                      ><a id="manyParsers.T" class="tsd-anchor"></a
-                      ><span class="tsd-signature-keyword">const </span
-                      ><span class="tsd-kind-type-parameter">T</span
-                      ><span class="tsd-signature-keyword"> extends </span
-                      ><span class="tsd-signature-keyword">readonly </span
-                      ><a
-                        href="../types/GeneralParser.html"
-                        class="tsd-signature-type tsd-kind-type-alias"
-                        >GeneralParser</a
-                      ><span class="tsd-signature-symbol">&lt;</span
-                      ><span class="tsd-signature-type">any</span
-                      ><span class="tsd-signature-symbol">, </span
-                      ><span class="tsd-signature-type">any</span
-                      ><span class="tsd-signature-symbol">&gt;</span
-                      ><span class="tsd-signature-symbol">[]</span></span
-                    >
-                  </li>
-                </ul>
-              </section>
-              <div class="tsd-parameters">
-                <h4 class="tsd-parameters-title">Parameters</h4>
-                <ul class="tsd-parameter-list">
-                  <li>
-                    <span
-                      ><code class="tsd-tag ts-flagRest">Rest</code>
-                      <span class="tsd-signature-symbol">...</span
-                      ><span class="tsd-kind-parameter">parsers</span>:
-                      <a
-                        class="tsd-signature-type tsd-kind-type-parameter"
-                        href="manyParsers.html#manyParsers.T"
-                        >T</a
-                      ></span
-                    >
-                    <div class="tsd-comment tsd-typography">
-                      <p>parsers to try</p>
-                    </div>
-                    <div class="tsd-comment tsd-typography"></div>
-                  </li>
-                </ul>
-              </div>
               <h4 class="tsd-returns-title">
-                Returns
-                <a
-                  href="../types/Parser.html"
-                  class="tsd-signature-type tsd-kind-type-alias"
-                  >Parser</a
-                ><span class="tsd-signature-symbol">&lt;</span
-                ><a
-                  href="../types/ParserResult.html"
-                  class="tsd-signature-type tsd-kind-type-alias"
-                  >ParserResult</a
-                ><span class="tsd-signature-symbol">&lt;</span
-                ><a
-                  href="../types/MergedResults.html"
-                  class="tsd-signature-type tsd-kind-type-alias"
-                  >MergedResults</a
-                ><span class="tsd-signature-symbol">&lt;</span
-                ><a
-                  class="tsd-signature-type tsd-kind-type-parameter"
-                  href="manyParsers.html#manyParsers.T"
-                  >T</a
-                ><span class="tsd-signature-symbol">&gt;</span
-                ><span class="tsd-signature-symbol">&gt;</span
-                ><span class="tsd-signature-symbol">[]</span
-                ><span class="tsd-signature-symbol">&gt;</span>
+                Returns <span class="tsd-signature-type">string</span>
               </h4>
-              <div class="tsd-comment tsd-typography"></div>
             </li>
           </ul>
         </section>
