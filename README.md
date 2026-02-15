@@ -45,6 +45,7 @@ parser("hello there"); // failure
 - Tools to debug your parser's [performance](/tutorials/performance.md)
 - Partial [backtracking](/tutorials/backtracking.md) support
 - A way to make your parser more [secure](/tutorials/security.md).
+- [Pretty error messages](/tutorials/pretty-errors.md)
 
 ## Examples
 - [A markdown parser](/tests/examples/markdown.ts)
