@@ -346,7 +346,7 @@ export function getDiagnostics(
     const lines = inputStr.split("\n");
     let acc = 0;
     let i = 0;
-    while (index >= acc) {
+    while (index >= acc && i < lines.length) {
       acc += lines[i].length;
       i++;
     }
