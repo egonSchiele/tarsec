@@ -24,6 +24,16 @@ let stepCount = 0;
 let stepLimit = -1;
 let debugMessages: string[] = [];
 
+let traceHost = "";
+
+export function setTraceHost(host: string) {
+  traceHost = host;
+}
+
+export function getTraceHost(): string {
+  return traceHost;
+}
+
 /**
  * This function is used internally by the `trace` function to create the string for each step.
  * @param name - debug name for parser
@@ -118,6 +128,22 @@ export function trace<T, C extends PlainObject>(
       console.log(
         " ".repeat(level) + `🔍 ${name} -- input: ${shorten(escape(input))}`,
       );
+      if (traceHost && traceHost.length > 0) {
+        fetch(`${traceHost}/api/logs`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name,
+            type: "start",
+            level,
+            timestamp: Date.now(),
+          }),
+        }).catch((err) => {
+          console.error("Failed to send logs to server:", err);
+        });
+      }
 
       let result: any;
       const time = parserTime(() => {
@@ -138,6 +164,24 @@ export function trace<T, C extends PlainObject>(
           " ".repeat(level) +
             `⭐ ${name} -- captures: ${JSON.stringify(result.captures)}`,
         );
+      }
+
+      if (traceHost && traceHost.length > 0) {
+        fetch(`${traceHost}/api/logs`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name,
+            type: "end",
+            level,
+            timestamp: Date.now(),
+            result,
+          }),
+        }).catch((err) => {
+          console.error("Failed to send logs to server:", err);
+        });
       }
       return result;
     } else {

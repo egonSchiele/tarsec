@@ -1,3 +1,5 @@
+.PHONY: all test doc publish
+
 all:
 	npm run build && npm run start
 
