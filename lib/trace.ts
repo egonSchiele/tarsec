@@ -7,6 +7,7 @@ import {
 } from "./types.js";
 import { escape, round, shorten } from "./utils.js";
 import process from "process";
+import { execSync } from "child_process";
 
 const isNode =
   typeof process !== "undefined" &&
@@ -25,13 +26,17 @@ let stepLimit = -1;
 let debugMessages: string[] = [];
 
 let traceHost = "";
-
+let traceId = "1";
 export function setTraceHost(host: string) {
   traceHost = host;
 }
 
 export function getTraceHost(): string {
   return traceHost;
+}
+
+export function setTraceId(id: string) {
+  traceId = id;
 }
 
 /**
@@ -129,20 +134,16 @@ export function trace<T, C extends PlainObject>(
         " ".repeat(level) + `🔍 ${name} -- input: ${shorten(escape(input))}`,
       );
       if (traceHost && traceHost.length > 0) {
-        fetch(`${traceHost}/api/logs`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name,
-            type: "start",
-            level,
-            timestamp: Date.now(),
-          }),
-        }).catch((err) => {
-          console.error("Failed to send logs to server:", err);
+        const json = JSON.stringify({
+          traceId,
+          name,
+          type: "start",
+          level,
+          timestamp: Date.now(),
         });
+        execSync(
+          `curl -s -X POST -H "Content-Type: application/json" -d '${json}' ${traceHost}/api/logs`,
+        );
       }
 
       let result: any;
@@ -167,21 +168,17 @@ export function trace<T, C extends PlainObject>(
       }
 
       if (traceHost && traceHost.length > 0) {
-        fetch(`${traceHost}/api/logs`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name,
-            type: "end",
-            level,
-            timestamp: Date.now(),
-            result,
-          }),
-        }).catch((err) => {
-          console.error("Failed to send logs to server:", err);
+        const json = JSON.stringify({
+          traceId,
+          name,
+          type: "end",
+          level,
+          timestamp: Date.now(),
+          result,
         });
+        execSync(
+          `curl -s -X POST -H "Content-Type: application/json" -d '${json}' ${traceHost}/api/logs`,
+        );
       }
       return result;
     } else {
