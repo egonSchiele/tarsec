@@ -1,6 +1,6 @@
 import { within } from "./parsers/within.js";
 import { TarsecError } from "./tarsecError.js";
-import { getInputStr, trace } from "./trace.js";
+import { getDiagnostics, trace } from "./trace.js";
 import {
   CaptureParser,
   CaptureParserResult,
@@ -19,9 +19,7 @@ import {
   ParserSuccess,
   PickParserType,
   PlainObject,
-  Prettify,
   success,
-  UnionOfCaptures,
 } from "./types.js";
 import { escape, findAncestorWithNextParser, popMany } from "./utils.js";
 
@@ -1023,46 +1021,8 @@ export function parseError<const T extends readonly GeneralParser<any, any>[]>(
     if (result.success) {
       return result;
     } else {
-      const inputStr = getInputStr();
-      const messages: string[] = [];
-      const prefix = "Near: ";
-      if (inputStr.length > 0) {
-        const index = inputStr.length - input.length;
-        const start = Math.max(0, index - 20);
-        const end = Math.min(inputStr.length, index + 20);
-        const previewStr = inputStr.substring(start, end).split("\n")[0];
-        messages.push(`${prefix}${previewStr}`);
-        messages.push(`${" ".repeat(index + prefix.length)}^`);
-        messages.push(_message);
-        const message = messages.join("\n");
-        const lines = inputStr.split("\n");
-        let acc = 0;
-        let i = 0;
-        while (index >= acc) {
-          acc += lines[i].length;
-          i++;
-        }
-        const linesIndex = Math.max(0, i - 1);
-        const column = lines[linesIndex].length - (acc - index);
-        throw new TarsecError({
-          line: i - 1,
-          column,
-          length: 1,
-          prettyMessage: message,
-          message: _message,
-        });
-      } else {
-        messages.push(`${prefix}${input.substring(1, 100)}`);
-        messages.push(_message);
-        const message = messages.join("\n");
-        throw new TarsecError({
-          line: 0,
-          column: 0,
-          length: 0,
-          prettyMessage: message,
-          message: _message,
-        });
-      }
+      const error = getDiagnostics(result, input, _message);
+      throw new TarsecError(error);
     }
   };
 }

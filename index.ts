@@ -9,16 +9,14 @@ import {
 } from "./lib/combinators.js";
 import { digit, letter, str } from "./lib/parsers.js";
 import { TarsecError } from "./lib/tarsecError.js";
-import { setInputStr, trace } from "./lib/trace.js";
+import { getDiagnostics, setInputStr, trace } from "./lib/trace.js";
 
 const input = "hello adam";
 setInputStr(input);
 
-const parser = seqC(
-  str("hello"),
-  parseError("expected name", capture(many1WithJoin(letter), "name")),
-);
-const parser2 = trace(
+const parser = seqC(str("hello"), capture(many1WithJoin(letter), "name"));
+
+/* const parser2 = trace(
   "foo",
   seqC(
     str("age"),
@@ -31,10 +29,15 @@ const parser2 = trace(
     ),
   ),
 );
-const parser3 = or(parser, parser2);
+const parser3 = or(parser, parser2); */
 try {
-  const result = parser3(input);
+  const result = parser(input);
   console.log(result);
+  if (!result.success) {
+    const diagnostics = getDiagnostics(result, input, "Parsing failed");
+    console.log(diagnostics);
+    console.log(diagnostics.prettyMessage);
+  }
 } catch (error) {
   if (error instanceof TarsecError) {
     console.log(error.data.prettyMessage);

@@ -1,4 +1,4 @@
-type TarsecErrorData = {
+export type TarsecErrorData = {
   line: number;
   column: number;
   length: number;

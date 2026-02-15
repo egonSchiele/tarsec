@@ -4,10 +4,12 @@ import {
   PlainObject,
   GeneralParser,
   CaptureParser,
+  ParserFailure,
 } from "./types.js";
 import { escape, round, shorten } from "./utils.js";
 import process from "process";
 import { execSync } from "child_process";
+import { TarsecErrorData } from "./tarsecError.js";
 
 const isNode =
   typeof process !== "undefined" &&
@@ -322,4 +324,50 @@ export function setInputStr(s: string) {
 
 export function getInputStr(): string {
   return inputStr;
+}
+
+export function getDiagnostics(
+  result: ParserFailure,
+  input: string,
+  _message?: string,
+): TarsecErrorData {
+  const inputStr = getInputStr();
+  const messages: string[] = [];
+  const prefix = "Near: ";
+  const message = _message || result.message || "Parsing failed";
+  if (inputStr.length > 0) {
+    const index = inputStr.length - input.length;
+    const start = Math.max(0, index - 20);
+    const end = Math.min(inputStr.length, index + 20);
+    const previewStr = inputStr.substring(start, end).split("\n")[0];
+    messages.push(`${prefix}${previewStr}`);
+    messages.push(`${" ".repeat(index + prefix.length)}^`);
+    messages.push(message);
+    const lines = inputStr.split("\n");
+    let acc = 0;
+    let i = 0;
+    while (index >= acc) {
+      acc += lines[i].length;
+      i++;
+    }
+    const linesIndex = Math.max(0, i - 1);
+    const column = lines[linesIndex].length - (acc - index);
+    return {
+      line: i - 1,
+      column,
+      length: 1,
+      prettyMessage: messages.join("\n"),
+      message: message,
+    };
+  } else {
+    messages.push(`${prefix}${input.substring(1, 100)}`);
+    messages.push(message);
+    return {
+      line: 0,
+      column: 0,
+      length: 0,
+      prettyMessage: messages.join("\n"),
+      message: message,
+    };
+  }
 }
