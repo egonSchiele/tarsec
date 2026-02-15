@@ -1026,7 +1026,7 @@ export function parseError<const T extends readonly GeneralParser<any, any>[]>(
       const inputStr = getInputStr();
       const messages: string[] = [];
       const prefix = "Near: ";
-      if (input.length > 0) {
+      if (inputStr.length > 0) {
         const index = inputStr.length - input.length;
         const start = Math.max(0, index - 20);
         const end = Math.min(inputStr.length, index + 20);
@@ -1038,11 +1038,12 @@ export function parseError<const T extends readonly GeneralParser<any, any>[]>(
         const lines = inputStr.split("\n");
         let acc = 0;
         let i = 0;
-        while (index > acc) {
+        while (index >= acc) {
           acc += lines[i].length;
           i++;
         }
-        const column = lines[i - 1].length - (acc - index);
+        const linesIndex = Math.max(0, i - 1);
+        const column = lines[linesIndex].length - (acc - index);
         throw new TarsecError({
           line: i - 1,
           column,
