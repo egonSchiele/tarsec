@@ -1026,3 +1026,204 @@ export function parseError<const T extends readonly GeneralParser<any, any>[]>(
     }
   };
 }
+
+/**
+ * Defers evaluation of a parser, allowing recursive parser definitions.
+ * Without `lazy`, you can't reference a parser before it's defined:
+ *
+ * ```ts
+ * // ReferenceError: expr is not defined
+ * const expr = or(number, seqR(char("("), expr, char(")")));
+ *
+ * // Works: the reference to expr is deferred
+ * const expr = or(number, seqR(char("("), lazy(() => expr), char(")")));
+ * ```
+ *
+ * @param thunk - a function that returns the parser
+ * @returns - a parser that evaluates the thunk on each parse attempt
+ */
+export function lazy<T>(thunk: () => Parser<T>): Parser<T> {
+  return trace("lazy", (input: string) => thunk()(input));
+}
+
+export type Associativity = "left" | "right";
+
+export type OperatorInfo<T> = {
+  /** A parser that matches the operator (e.g. `char("+")` or `str("**")`) */
+  op: Parser<any>;
+  /** Whether the operator is left- or right-associative */
+  assoc: Associativity;
+  /** A function that combines the left and right operands.
+   * For example: `(a, b) => a + b` */
+  apply: (left: T, right: T) => T;
+};
+
+/**
+ * Builds an expression parser that handles operator precedence and associativity.
+ * Operators are given as an array of precedence levels, from **highest** to **lowest**.
+ * Each level is an array of operators at that precedence.
+ *
+ * ```ts
+ * const expr = buildExpressionParser(
+ *   numberParser,
+ *   [
+ *     [{ op: char("*"), assoc: "left", apply: (a, b) => a * b },
+ *      { op: char("/"), assoc: "left", apply: (a, b) => a / b }],
+ *     [{ op: char("+"), assoc: "left", apply: (a, b) => a + b },
+ *      { op: char("-"), assoc: "left", apply: (a, b) => a - b }],
+ *   ],
+ *   // optional: override how parenthesized sub-expressions are parsed
+ *   // defaults to: seqR(char("("), lazy(() => expr), char(")")) mapped to the middle result
+ * );
+ * ```
+ *
+ * @param atom - parser for the smallest unit (numbers, identifiers, parenthesized sub-expressions)
+ * @param operatorTable - array of precedence levels, highest first. Each level is an array of OperatorInfo.
+ * @param parenParser - optional parser for parenthesized sub-expressions. If not provided,
+ *   one is built automatically using `(` and `)` with `lazy` to handle recursion.
+ * @returns - a parser that handles the full expression grammar
+ */
+export function buildExpressionParser<T>(
+  atom: Parser<T>,
+  operatorTable: OperatorInfo<T>[][],
+  parenParser?: Parser<T>,
+): Parser<T> {
+  // Build the parser from highest precedence to lowest.
+  // Each level wraps the previous one, so higher-precedence operators bind tighter.
+
+  // The "base" is the atom or a parenthesized expression.
+  // We use lazy for the paren parser since it references the final `expr` which doesn't exist yet.
+  let expr: Parser<T>;
+
+  const base: Parser<T> = (input: string) => {
+    const paren = parenParser ?? buildDefaultParenParser();
+    const result = paren(input);
+    if (result.success) return result;
+    return atom(input);
+  };
+
+  function buildDefaultParenParser(): Parser<T> {
+    return (input: string) => {
+      const openResult = input[0] === "(" ? success("(", input.slice(1)) : failure("expected (", input);
+      if (!openResult.success) return openResult;
+
+      const exprResult = expr(openResult.rest);
+      if (!exprResult.success) return failure(exprResult.message, input);
+
+      const closeResult =
+        exprResult.rest[0] === ")" ? success(")", exprResult.rest.slice(1)) : failure("expected )", input);
+      if (!closeResult.success) return closeResult;
+
+      return success(exprResult.result, closeResult.rest);
+    };
+  }
+
+  // Start with the base (atoms and parens), then wrap with each precedence level
+  let currentLevel = base;
+
+  for (let i = 0; i < operatorTable.length; i++) {
+    const ops = operatorTable[i];
+    currentLevel = buildLevel(currentLevel, ops);
+  }
+
+  expr = currentLevel;
+  return expr;
+}
+
+function buildLevel<T>(
+  nextLevel: Parser<T>,
+  ops: OperatorInfo<T>[],
+): Parser<T> {
+  return (input: string) => {
+    const leftResult = nextLevel(input);
+    if (!leftResult.success) return leftResult;
+
+    // Try to parse a chain of operators at this level
+    let left = leftResult.result;
+    let rest = leftResult.rest;
+
+    // For right-associative, we collect all operands and operators, then fold right
+    const rightOps = ops.filter((o) => o.assoc === "right");
+    const leftOps = ops.filter((o) => o.assoc === "left");
+
+    if (rightOps.length > 0 && leftOps.length > 0) {
+      // Mixed associativity at same level: handle left-assoc first in the loop,
+      // then right-assoc. This is an unusual case but we handle it.
+      return parseChain(left, rest, nextLevel, ops);
+    } else if (rightOps.length > 0) {
+      return parseRight(left, rest, nextLevel, rightOps);
+    } else {
+      return parseLeft(left, rest, nextLevel, leftOps);
+    }
+  };
+}
+
+function parseLeft<T>(
+  left: T,
+  rest: string,
+  nextLevel: Parser<T>,
+  ops: OperatorInfo<T>[],
+): ParserSuccess<T> {
+  while (true) {
+    const opMatch = tryOps(ops, rest);
+    if (!opMatch) break;
+
+    const rightResult = nextLevel(opMatch.rest);
+    if (!rightResult.success) break;
+
+    left = opMatch.apply(left, rightResult.result);
+    rest = rightResult.rest;
+  }
+  return success(left, rest);
+}
+
+function parseRight<T>(
+  left: T,
+  rest: string,
+  nextLevel: Parser<T>,
+  ops: OperatorInfo<T>[],
+): ParserSuccess<T> {
+  const opMatch = tryOps(ops, rest);
+  if (!opMatch) return success(left, rest);
+
+  const rightResult = nextLevel(opMatch.rest);
+  if (!rightResult.success) return success(left, rest);
+
+  // Recursively parse the right side to get right-associativity
+  const rightFolded = parseRight(rightResult.result, rightResult.rest, nextLevel, ops);
+
+  return success(opMatch.apply(left, rightFolded.result), rightFolded.rest);
+}
+
+function parseChain<T>(
+  left: T,
+  rest: string,
+  nextLevel: Parser<T>,
+  ops: OperatorInfo<T>[],
+): ParserSuccess<T> {
+  // Fallback: treat everything as left-associative
+  while (true) {
+    const opMatch = tryOps(ops, rest);
+    if (!opMatch) break;
+
+    const rightResult = nextLevel(opMatch.rest);
+    if (!rightResult.success) break;
+
+    left = opMatch.apply(left, rightResult.result);
+    rest = rightResult.rest;
+  }
+  return success(left, rest);
+}
+
+function tryOps<T>(
+  ops: OperatorInfo<T>[],
+  input: string,
+): { rest: string; apply: (left: T, right: T) => T } | null {
+  for (const op of ops) {
+    const result = op.op(input);
+    if (result.success) {
+      return { rest: result.rest, apply: op.apply };
+    }
+  }
+  return null;
+}

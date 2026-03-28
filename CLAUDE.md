@@ -16,7 +16,7 @@ A parser combinator library for TypeScript, inspired by Parsec.
 - `lib/` — library source
   - `types.ts` — core types: `Parser`, `ParserSuccess`, `ParserFailure`, `CaptureParser`, etc.
   - `parsers.ts` — primitive parsers: `char`, `str`, `word`, `digit`, `regex`, etc.
-  - `combinators.ts` — combinators: `many`, `or`, `seq`, `seqR`, `seqC`, `map`, `capture`, `between`, `sepBy`, `optional`, `not`, etc.
+  - `combinators.ts` — combinators: `many`, `or`, `seq`, `seqR`, `seqC`, `map`, `capture`, `between`, `sepBy`, `optional`, `not`, `lazy`, `buildExpressionParser`, etc.
   - `position.ts` — position tracking: `getOffset`, `getPosition`, `withSpan`, `buildLineTable`, `offsetToPosition`
   - `trace.ts` — debug tracing, `setInputStr`/`getInputStr`, `getDiagnostics`
   - `tarsecError.ts` — `TarsecError` class with line/column info
@@ -38,6 +38,8 @@ A parser combinator library for TypeScript, inspired by Parsec.
 - `setInputStr` stores the original input in a module-level variable; `getInputStr` retrieves it. This is used by `getDiagnostics` and the position module for computing offsets
 - `seq` uses a tree-based backtracking system (`createTree`, `ParserNode`) to try alternatives
 - `or` returns a `nextParser` field on success to enable lazy backtracking in `seq`
+- `lazy(() => parser)` enables recursive parser definitions by deferring evaluation
+- `buildExpressionParser(atom, operatorTable)` handles operator precedence and associativity for expression parsing. Operator table is ordered highest-to-lowest precedence. Supports left/right associativity and auto-generates `()`-based paren parsing (overridable via third arg).
 
 ## Conventions
 
