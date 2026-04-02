@@ -320,6 +320,7 @@ let inputStr = "";
  */
 export function setInputStr(s: string) {
   inputStr = s;
+  resetRightmostFailure();
 }
 
 export function getInputStr(): string {
@@ -370,4 +371,99 @@ export function getDiagnostics(
       message: message,
     };
   }
+}
+
+// --- Rightmost failure tracking ---
+
+let rightmostFailurePos = -1;
+let rightmostFailureExpected: string[] = [];
+
+function resetRightmostFailure() {
+  rightmostFailurePos = -1;
+  rightmostFailureExpected = [];
+}
+
+/**
+ * Record an expected alternative at the current failure position.
+ * If this position is further right than any previous failure, it replaces the previous.
+ * If it's at the same position, it adds to the list of expectations (with dedup).
+ * No-op if `setInputStr` has not been called.
+ *
+ * @param input - the remaining input at the point of failure
+ * @param expected - a human-readable description of what was expected
+ */
+export function recordFailure(input: string, expected: string) {
+  const source = getInputStr();
+  if (source.length === 0) return;
+  const pos = source.length - input.length;
+  if (pos > rightmostFailurePos) {
+    rightmostFailurePos = pos;
+    rightmostFailureExpected = [expected];
+  } else if (pos === rightmostFailurePos) {
+    if (!rightmostFailureExpected.includes(expected)) {
+      rightmostFailureExpected.push(expected);
+    }
+  }
+}
+
+/**
+ * Returns the current rightmost failure position and expected alternatives,
+ * or `null` if no failures have been recorded.
+ */
+export function getRightmostFailure(): {
+  pos: number;
+  expected: string[];
+} | null {
+  if (rightmostFailurePos < 0) return null;
+  return { pos: rightmostFailurePos, expected: rightmostFailureExpected };
+}
+
+type SavedRightmostFailure = {
+  pos: number;
+  expected: string[];
+};
+
+export function saveRightmostFailure(): SavedRightmostFailure {
+  return { pos: rightmostFailurePos, expected: [...rightmostFailureExpected] };
+}
+
+export function restoreRightmostFailure(saved: SavedRightmostFailure) {
+  rightmostFailurePos = saved.pos;
+  rightmostFailureExpected = saved.expected;
+}
+
+function formatExpected(expected: string[]): string {
+  if (expected.length === 1) return expected[0];
+  if (expected.length === 2) return `${expected[0]} or ${expected[1]}`;
+  return expected.slice(0, -1).join(", ") + ", or " + expected[expected.length - 1];
+}
+
+/**
+ * Formats the rightmost failure into a human-readable error message with line and column info.
+ * Returns `null` if no failures have been recorded.
+ * Requires `setInputStr` to have been called.
+ */
+export function getErrorMessage(): string | null {
+  if (rightmostFailurePos < 0) return null;
+  const source = getInputStr();
+  // Inline line table + offset-to-position to avoid circular import with position.ts
+  const lineStarts = [0];
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] === "\n") {
+      lineStarts.push(i + 1);
+    }
+  }
+  let lo = 0;
+  let hi = lineStarts.length - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (lineStarts[mid] <= rightmostFailurePos) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  const line = lo + 1;
+  const column = rightmostFailurePos - lineStarts[lo] + 1;
+  return `Line ${line}, col ${column}: expected ${formatExpected(rightmostFailureExpected)}`;
 }
