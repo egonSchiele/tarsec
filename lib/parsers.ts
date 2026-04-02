@@ -1,5 +1,6 @@
 import { many1WithJoin, manyWithJoin, seq } from "./combinators.js";
 import { trace } from "./trace.js";
+import { recordFailure, saveRightmostFailure, restoreRightmostFailure } from "./rightmostFailure.js";
 import {
   CaptureParser,
   captureSuccess,
@@ -20,15 +21,13 @@ export { within } from "./parsers/within.js";
 export function char<const S extends string>(c: S): Parser<S> {
   return trace(`char(${escape(c)})`, (input: string) => {
     if (input.length === 0) {
-      return {
-        success: false,
-        rest: input,
-        message: "unexpected end of input",
-      };
+      recordFailure(input, `"${c}"`);
+      return failure("unexpected end of input", input);
     }
     if (input[0] === c) {
       return success(c, input.slice(1));
     }
+    recordFailure(input, `"${c}"`);
     return failure(`expected ${escape(c)}, got ${escape(input[0])}`, input);
   });
 }
@@ -44,6 +43,7 @@ export function str<const S extends string>(s: S): Parser<S> {
     if (input.substring(0, s.length) === s) {
       return success(s, input.slice(s.length));
     }
+    recordFailure(input, `"${s}"`);
     return failure(`expected ${s}, got ${input.substring(0, s.length)}`, input);
   });
 }
@@ -60,6 +60,7 @@ export function istr<const S extends string>(s: S): Parser<S> {
     ) {
       return success(input.substring(0, s.length) as S, input.slice(s.length));
     }
+    recordFailure(input, `"${s}"`);
     return failure(`expected ${s}, got ${input.substring(0, s.length)}`, input);
   });
 }
@@ -74,12 +75,14 @@ export function istr<const S extends string>(s: S): Parser<S> {
 export function oneOf(chars: string): Parser<string> {
   return trace(`oneOf(${escape(chars)})`, (input: string) => {
     if (input.length === 0) {
+      recordFailure(input, `one of "${chars}"`);
       return failure("unexpected end of input", input);
     }
     const c = input[0];
     if (chars.includes(c)) {
       return char(c)(input);
     }
+    recordFailure(input, `one of "${chars}"`);
     return failure(`expected one of ${escape(chars)}, got ${c}`, input);
   });
 }
@@ -94,9 +97,11 @@ export function oneOf(chars: string): Parser<string> {
 export function noneOf(chars: string): Parser<string> {
   return trace(`noneOf(${escape(chars)})`, (input: string) => {
     if (input.length === 0) {
+      recordFailure(input, `none of "${chars}"`);
       return failure("unexpected end of input", input);
     }
     if (chars.includes(input[0])) {
+      recordFailure(input, `none of "${chars}"`);
       return failure(
         `expected none of ${escape(chars)}, got ${input[0]}`,
         input
@@ -115,38 +120,60 @@ export function noneOf(chars: string): Parser<string> {
  */
 export const anyChar: Parser<string> = trace("anyChar", (input: string) => {
   if (input.length === 0) {
+    recordFailure(input, "any character");
     return failure("unexpected end of input", input);
   }
   return success(input[0], input.slice(1));
 });
 
+/**
+ * Wraps a parser with a human-readable label for error reporting.
+ * On failure, suppresses any inner failure recordings and records only the label.
+ * This produces clean error messages like `expected a digit` instead of `expected one of "0123456789"`.
+ *
+ * @param name - human-readable description of what the parser expects
+ * @param parser - the parser to wrap
+ * @returns - a parser that records the label on failure
+ */
+export function label<T>(name: string, parser: Parser<T>): Parser<T> {
+  return (input: string) => {
+    const saved = saveRightmostFailure();
+    const result = parser(input);
+    restoreRightmostFailure(saved);
+    if (!result.success) recordFailure(input, name);
+    return result;
+  };
+}
+
 /** A parser that matches one of " \t\n\r". */
-export const space: Parser<string> = oneOf(" \t\n\r");
+export const space: Parser<string> = label("whitespace", oneOf(" \t\n\r"));
 
 /** A parser that matches one or more spaces. */
 export const spaces: Parser<string> = many1WithJoin(space);
 
 /** A parser that matches one digit. */
-export const digit: Parser<string> = oneOf("0123456789");
+export const digit: Parser<string> = label("a digit", oneOf("0123456789"));
 
 /** A parser that matches one letter, case insensitive. */
-export const letter: Parser<string> = oneOf(
-  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+export const letter: Parser<string> = label(
+  "a letter",
+  oneOf("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 );
 
 /** A parser that matches one digit or letter, case insensitive. */
-export const alphanum: Parser<string> = oneOf(
-  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+export const alphanum: Parser<string> = label(
+  "a letter or digit",
+  oneOf("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 );
 
 /** A parser that matches one word, case insensitive. */
-export const word: Parser<string> = regexParser("^[a-z]+", "ui");
+export const word: Parser<string> = label("a word", regexParser("^[a-z]+", "ui"));
 
 /** A parser that matches one or more digits. */
-export const num: Parser<string> = regexParser("^[0-9]+");
+export const num: Parser<string> = label("a number", regexParser("^[0-9]+"));
 
 /** A parser that matches one single or double quote. */
-export const quote: Parser<string> = oneOf(`'"`);
+export const quote: Parser<string> = label("a quote", oneOf(`'"`));
 
 /** A parser that matches one tab character. */
 export const tab: Parser<string> = char("\t");
@@ -159,6 +186,7 @@ export const eof: Parser<null> = (input: string) => {
   if (input === "") {
     return success(null, input);
   }
+  recordFailure(input, "end of input");
   return failure("expected end of input", input);
 };
 
@@ -194,6 +222,7 @@ export function regexParser(
     if (match) {
       return success(match[0], input.slice(match[0].length));
     }
+    recordFailure(input, `${str}`);
     return failure(`expected ${str}, got ${input.slice(0, 10)}`, input);
   });
 }
@@ -242,6 +271,7 @@ export function captureRegex<const T extends string[]>(
       } as Record<(typeof captureNames)[number], string>;
       return success(captures, input.slice(match[0].length));
     }
+    recordFailure(input, `${str}`);
     return failure(`expected ${str}, got ${input.slice(0, 10)}`, input);
   }
 

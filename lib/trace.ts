@@ -10,6 +10,7 @@ import { escape, round, shorten } from "./utils.js";
 import process from "process";
 import { execSync } from "child_process";
 import { TarsecErrorData } from "./tarsecError.js";
+import { resetRightmostFailure } from "./rightmostFailure.js";
 
 const isNode =
   typeof process !== "undefined" &&
@@ -320,6 +321,7 @@ let inputStr = "";
  */
 export function setInputStr(s: string) {
   inputStr = s;
+  resetRightmostFailure();
 }
 
 export function getInputStr(): string {
