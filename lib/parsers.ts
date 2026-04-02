@@ -1,5 +1,6 @@
 import { many1WithJoin, manyWithJoin, seq } from "./combinators.js";
-import { trace, recordFailure, saveRightmostFailure, restoreRightmostFailure } from "./trace.js";
+import { trace } from "./trace.js";
+import { recordFailure, saveRightmostFailure, restoreRightmostFailure } from "./rightmostFailure.js";
 import {
   CaptureParser,
   captureSuccess,

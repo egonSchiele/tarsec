@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
+import { setInputStr } from "@/lib/trace.js";
 import {
-  setInputStr,
   recordFailure,
   getRightmostFailure,
   getErrorMessage,
-} from "@/lib/trace.js";
+} from "@/lib/rightmostFailure.js";
 import { char, str, digit, letter, or, label } from "@/lib/index.js";
 
 describe("rightmost failure tracking", () => {
