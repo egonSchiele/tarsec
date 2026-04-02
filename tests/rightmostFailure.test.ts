@@ -13,7 +13,7 @@ describe("rightmost failure tracking", () => {
   });
 
   describe("recordFailure", () => {
-    it("is a no-op when setInputStr has not been called", () => {
+    it("is a no-op when the input string is empty", () => {
       recordFailure("abc", "something");
       expect(getRightmostFailure()).toBeNull();
     });

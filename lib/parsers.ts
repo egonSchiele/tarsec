@@ -20,11 +20,8 @@ export { within } from "./parsers/within.js";
 export function char<const S extends string>(c: S): Parser<S> {
   return trace(`char(${escape(c)})`, (input: string) => {
     if (input.length === 0) {
-      return {
-        success: false,
-        rest: input,
-        message: "unexpected end of input",
-      };
+      recordFailure(input, `"${c}"`);
+      return failure("unexpected end of input", input);
     }
     if (input[0] === c) {
       return success(c, input.slice(1));
@@ -77,6 +74,7 @@ export function istr<const S extends string>(s: S): Parser<S> {
 export function oneOf(chars: string): Parser<string> {
   return trace(`oneOf(${escape(chars)})`, (input: string) => {
     if (input.length === 0) {
+      recordFailure(input, `one of "${chars}"`);
       return failure("unexpected end of input", input);
     }
     const c = input[0];
@@ -98,6 +96,7 @@ export function oneOf(chars: string): Parser<string> {
 export function noneOf(chars: string): Parser<string> {
   return trace(`noneOf(${escape(chars)})`, (input: string) => {
     if (input.length === 0) {
+      recordFailure(input, `none of "${chars}"`);
       return failure("unexpected end of input", input);
     }
     if (chars.includes(input[0])) {

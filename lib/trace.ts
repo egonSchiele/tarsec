@@ -415,7 +415,7 @@ export function getRightmostFailure(): {
   expected: string[];
 } | null {
   if (rightmostFailurePos < 0) return null;
-  return { pos: rightmostFailurePos, expected: rightmostFailureExpected };
+  return { pos: rightmostFailurePos, expected: [...rightmostFailureExpected] };
 }
 
 type SavedRightmostFailure = {
