@@ -55,7 +55,7 @@ export function saveRightmostFailure(): SavedRightmostFailure {
 
 export function restoreRightmostFailure(saved: SavedRightmostFailure) {
   rightmostFailurePos = saved.pos;
-  rightmostFailureExpected = saved.expected;
+  rightmostFailureExpected = [...saved.expected];
 }
 
 function formatExpected(expected: string[]): string {

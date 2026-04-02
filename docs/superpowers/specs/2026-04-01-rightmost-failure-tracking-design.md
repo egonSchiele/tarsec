@@ -12,9 +12,9 @@ Module-level state in `trace.ts` (Approach A), consistent with the existing `inp
 
 ## Design
 
-### 1. State and core functions (`trace.ts`)
+### 1. State and core functions (`rightmostFailure.ts`)
 
-New module-level variables alongside `inputStr`:
+New module-level variables:
 
 ```ts
 let rightmostFailurePos = -1;
@@ -33,7 +33,7 @@ New functions:
   - Returns `null` if no failures recorded.
 - **`resetRightmostFailure()`** — internal (not exported), resets `rightmostFailurePos` to `-1` and clears the expected array.
 
-`setInputStr()` calls `resetRightmostFailure()` automatically, so consumers don't need to manage reset.
+`setInputStr()` (in `trace.ts`) imports and calls `resetRightmostFailure()` automatically, so consumers don't need to manage reset.
 
 ### 2. Recording failures in leaf parsers
 
@@ -115,25 +115,28 @@ No new types. No breaking changes. Existing code that doesn't call `setInputStr`
 
 ### 6. Exports
 
-New exports from `trace.ts` (automatically re-exported by `index.ts` via `export * from "./trace.js"`):
+New exports from `rightmostFailure.ts` (re-exported by `index.ts` via `export * from "./rightmostFailure.js"`):
 - `recordFailure`
 - `getRightmostFailure`
 - `getErrorMessage`
+- `resetRightmostFailure`
+- `saveRightmostFailure`
+- `restoreRightmostFailure`
 
 New export from `parsers.ts` (automatically re-exported by `index.ts` via `export * from "./parsers.js"`):
 - `label`
-
-Internal only (not exported from module): `resetRightmostFailure`, `saveRightmostFailure`, `restoreRightmostFailure`.
 
 ## File change summary
 
 | File | Change |
 |------|--------|
-| `trace.ts` | Add rightmost failure state, `recordFailure()`, `getRightmostFailure()`, `getErrorMessage()`, `saveRightmostFailure()`, `restoreRightmostFailure()`. Call reset inside `setInputStr()`. |
+| `rightmostFailure.ts` | New module. Rightmost failure state, `recordFailure()`, `getRightmostFailure()`, `getErrorMessage()`, `saveRightmostFailure()`, `restoreRightmostFailure()`, `resetRightmostFailure()`. |
+| `trace.ts` | Import `resetRightmostFailure` from `rightmostFailure.ts`. Call it inside `setInputStr()`. |
 | `parsers.ts` | Add exported `label()` combinator. Add `recordFailure` calls in `char`, `str`, `istr`, `oneOf`, `noneOf`, `regexParser`, `captureRegex`, `anyChar`, `eof`. Wrap `digit`, `space`, `letter`, `alphanum`, `word`, `num`, `quote` with `label()`. |
+| `index.ts` | Re-export `rightmostFailure.ts`. |
 | `tests/` | New test file for rightmost failure tracking. |
 
-No changes to `types.ts`, `position.ts`, `combinators.ts`, `tarsecError.ts`, or `index.ts`.
+No changes to `types.ts`, `position.ts`, `combinators.ts`, or `tarsecError.ts`.
 
 ## What this doesn't solve
 
