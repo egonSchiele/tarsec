@@ -155,9 +155,15 @@ describe("quote parser", () => {
     expect(result).toEqual(success('"', ""));
   });
 
-  test("quote parser - invalid quote", () => {
+  test("quote parser - backtick", () => {
     const input = "`";
     const result = quote(input);
-    expect(result).toEqual(failure('expected one of "\'\\"", got `', "`"));
+    expect(result).toEqual(success("`", ""));
+  });
+
+  test("quote parser - invalid quote", () => {
+    const input = "<";
+    const result = quote(input);
+    expect(result).toEqual(failure('expected one of "\'\\"`", got <', "<"));
   });
 });

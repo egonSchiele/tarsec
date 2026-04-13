@@ -1,4 +1,4 @@
-import { many1WithJoin, manyWithJoin, seq } from "./combinators.js";
+import { many1WithJoin } from "./combinators.js";
 import { trace } from "./trace.js";
 import { recordFailure, saveRightmostFailure, restoreRightmostFailure } from "./rightmostFailure.js";
 import {
@@ -172,8 +172,8 @@ export const word: Parser<string> = label("a word", regexParser("^[a-z]+", "ui")
 /** A parser that matches one or more digits. */
 export const num: Parser<string> = label("a number", regexParser("^[0-9]+"));
 
-/** A parser that matches one single or double quote. */
-export const quote: Parser<string> = label("a quote", oneOf(`'"`));
+/** A parser that matches one single quote, double quote, or backtick. */
+export const quote: Parser<string> = label("a quote", oneOf(`'"\``));
 
 /** A parser that matches one tab character. */
 export const tab: Parser<string> = char("\t");
@@ -190,12 +190,33 @@ export const eof: Parser<null> = (input: string) => {
   return failure("expected end of input", input);
 };
 
-/** A parser that matches a quoted string, in single or double quotes.
+/** A parser that matches a quoted string, in single quotes, double quotes, or backticks.
+ * The closing quote must match the opening quote.
  * Returns the string as the result, including the quotes.
  */
-export const quotedString = seq(
-  [quote, manyWithJoin(noneOf(`"'`)), quote],
-  (results: string[]) => results.join("")
+export const quotedString: Parser<string> = trace(
+  "quotedString",
+  (input: string) => {
+    if (input.length === 0) {
+      recordFailure(input, "a quoted string");
+      return failure("unexpected end of input", input);
+    }
+    const q = input[0];
+    if (q !== '"' && q !== "'" && q !== "`") {
+      recordFailure(input, "a quoted string");
+      return failure(
+        `expected a quote, got ${escape(input[0])}`,
+        input
+      );
+    }
+    const closeIdx = input.indexOf(q, 1);
+    if (closeIdx === -1) {
+      recordFailure(input, "a quoted string");
+      return failure(`expected closing ${escape(q)}`, input);
+    }
+    const matched = input.slice(0, closeIdx + 1);
+    return success(matched, input.slice(closeIdx + 1));
+  }
 );
 
 /**

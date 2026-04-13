@@ -235,15 +235,7 @@ describe("within", () => {
       },
       {
         type: "matched",
-        value: "\"nested '",
-      },
-      {
-        type: "unmatched",
-        value: "quote",
-      },
-      {
-        type: "matched",
-        value: "'\"",
+        value: "\"nested 'quote'\"",
       },
     ];
     expect(result).toEqual(success(expectedResult, ""));
