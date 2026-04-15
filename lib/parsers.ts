@@ -209,7 +209,21 @@ export const quotedString: Parser<string> = trace(
         input
       );
     }
-    const closeIdx = input.indexOf(q, 1);
+    let closeIdx = -1;
+    let searchFrom = 1;
+    while (true) {
+      const idx = input.indexOf(q, searchFrom);
+      if (idx === -1) break;
+      // Count consecutive backslashes before the quote
+      let backslashes = 0;
+      for (let i = idx - 1; i >= 1 && input[i] === "\\"; i--) backslashes++;
+      if (backslashes % 2 === 0) {
+        // Even number of backslashes (including 0) means the quote is unescaped
+        closeIdx = idx;
+        break;
+      }
+      searchFrom = idx + 1;
+    }
     if (closeIdx === -1) {
       recordFailure(input, "a quoted string");
       return failure(`expected closing ${escape(q)}`, input);
