@@ -21,22 +21,22 @@ export type InlineText = {
 
 export type InlineBold = {
   type: "inline-bold";
-  content: string;
+  content: InlineMarkdown[];
 };
 
 export type InlineItalic = {
   type: "inline-italic";
-  content: string;
+  content: InlineMarkdown[];
 };
 
 export type InlineBoldItalic = {
   type: "inline-bold-italic";
-  content: string;
+  content: InlineMarkdown[];
 };
 
 export type InlineStrike = {
   type: "inline-strike";
-  content: string;
+  content: InlineMarkdown[];
 };
 
 export type InlineHardBreak = {
@@ -45,7 +45,7 @@ export type InlineHardBreak = {
 
 export type InlineLink = {
   type: "inline-link";
-  content: string;
+  content: InlineMarkdown[];
   url: string;
 };
 

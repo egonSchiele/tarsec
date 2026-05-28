@@ -104,7 +104,7 @@ describe("paragraphParser", () => {
         },
         {
           type: "inline-link",
-          content: "nearley",
+          content: [{ type: "inline-text", content: "nearley" }],
           url: "https://nearley.js.org/",
         },
         {
@@ -113,7 +113,7 @@ describe("paragraphParser", () => {
         },
         {
           type: "inline-link",
-          content: "yacc",
+          content: [{ type: "inline-text", content: "yacc" }],
           url: "https://silcnitc.github.io/yacc.html",
         },
         {
@@ -154,7 +154,7 @@ describe("inlineBoldParser", () => {
     const input = "**This is bold text**";
     const expected = {
       type: "inline-bold",
-      content: "This is bold text",
+      content: [{ type: "inline-text", content: "This is bold text" }],
     };
     expect(inlineBoldParser(input)).toEqual(success(expected, ""));
   });
@@ -165,7 +165,7 @@ describe("inlineItalicParser", () => {
     const input = "*This is italic text*";
     const expected = {
       type: "inline-italic",
-      content: "This is italic text",
+      content: [{ type: "inline-text", content: "This is italic text" }],
     };
     expect(inlineItalicParser(input)).toEqual(success(expected, ""));
   });
@@ -176,7 +176,7 @@ describe("inlineLinkParser", () => {
     const input = "[Link Text](https://example.com)";
     const expected = {
       type: "inline-link",
-      content: "Link Text",
+      content: [{ type: "inline-text", content: "Link Text" }],
       url: "https://example.com",
     };
     expect(inlineLinkParser(input)).toEqual(success(expected, ""));
@@ -212,7 +212,7 @@ describe("inlineMarkdownParser", () => {
     const expected = success(
       {
         type: "inline-bold",
-        content: "This is bold text",
+        content: [{ type: "inline-text", content: "This is bold text" }],
       },
       ""
     );
@@ -224,7 +224,7 @@ describe("inlineMarkdownParser", () => {
     const expected = success(
       {
         type: "inline-italic",
-        content: "This is italic text",
+        content: [{ type: "inline-text", content: "This is italic text" }],
       },
       ""
     );
@@ -236,7 +236,7 @@ describe("inlineMarkdownParser", () => {
     const expected = success(
       {
         type: "inline-link",
-        content: "Link Text",
+        content: [{ type: "inline-text", content: "Link Text" }],
         url: "https://example.com",
       },
       ""

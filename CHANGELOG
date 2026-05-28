@@ -1,4 +1,12 @@
 ## Unreleased
+- Markdown example: inline emphasis, strikethrough, and inline-link nodes
+  now carry `InlineMarkdown[]` content instead of `string`, so nested
+  inlines like ``**[link](u)**`` or ``*foo `code` bar*`` round-trip through
+  the AST. A new `inlineSeqUntil(stop)` helper handles node-level
+  recursion via `lazy`; code spans, autolinks, and image alt-text stay
+  string-typed (they aren't nestable per CommonMark). `]` is added to the
+  inline-text stop set and literal-char fallback so stray `]` outside a
+  link still renders.
 - Markdown example: rewritten as a small package under `tests/examples/markdown/`
   (`types.ts`, `inline.ts`, `blocks.ts`, `references.ts`, `index.ts`) and brought
   to near-CommonMark coverage, all built from Tarsec combinators:

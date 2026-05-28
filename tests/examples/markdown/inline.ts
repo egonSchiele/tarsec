@@ -10,6 +10,7 @@ import {
   many1WithJoin,
   manyTillStr,
   iManyTillStr,
+  lazy,
 } from "@/lib/combinators";
 import { str, char, set, oneOf, alphanum, noneOf } from "@/lib/parsers";
 import { Parser } from "@/lib/types";
@@ -33,9 +34,10 @@ import { optional, between } from "@/lib/combinators";
 
 // Stop inline-text at any single delimiter char OR at a hard-break sequence
 // ("  \n"+). Using many1Till with an `or` of delimiters makes the stop set
-// composable rather than embedded inside a regex.
+// composable rather than embedded inside a regex. `]` is included so that
+// inline-text inside a link-text (`[...]`) terminates at the closing `]`.
 const inlineTextStop: Parser<unknown> = or(
-  oneOf("*_`[!<~\\\n"),
+  oneOf("*_`[]!<~\\\n"),
   str("  ")
 );
 
@@ -44,28 +46,57 @@ export const inlineTextParser: Parser<InlineText> = map(
   (content) => ({ type: "inline-text", content })
 );
 
-export const inlineBoldParser: Parser<InlineBold> = seqC(
-  set("type", "inline-bold"),
-  str("**"),
-  capture(manyTillStr("**"), "content"),
-  str("**")
+/**
+ * Run `inlineMarkdownParser` repeatedly until `stop` would match at the
+ * current position. The `stop` parser is a lookahead — it is *not* consumed.
+ * Returns the list of inline nodes collected before `stop`.
+ *
+ * Used by every delimited inline parser (bold, italic, strike, link, …) so
+ * that the content between delimiters is a sequence of inline nodes rather
+ * than a flat string.
+ */
+export const inlineSeqUntil = (
+  stop: Parser<unknown>
+): Parser<InlineMarkdown[]> =>
+  many(
+    map(
+      seqC(not(stop), capture(lazy(() => inlineMarkdownParser), "node")),
+      ({ node }) => node as InlineMarkdown
+    )
+  );
+
+export const inlineBoldParser: Parser<InlineBold> = map(
+  seqC(
+    str("**"),
+    capture(inlineSeqUntil(str("**")), "content"),
+    str("**")
+  ),
+  ({ content }) => ({ type: "inline-bold" as const, content: content as InlineMarkdown[] })
 );
 
-export const inlineItalicParser: Parser<InlineItalic> = seqC(
-  set("type", "inline-italic"),
-  not(str("**")),
-  char("*"),
-  capture(manyTillStr("*"), "content"),
-  char("*")
+export const inlineItalicParser: Parser<InlineItalic> = map(
+  seqC(
+    not(str("**")),
+    char("*"),
+    capture(inlineSeqUntil(char("*")), "content"),
+    char("*")
+  ),
+  ({ content }) => ({ type: "inline-italic" as const, content: content as InlineMarkdown[] })
 );
 
-export const inlineLinkParser: Parser<InlineLink> = seqC(
-  set("type", "inline-link"),
-  str("["),
-  capture(iManyTillStr("]("), "content"),
-  str("]("),
-  capture(iManyTillStr(")"), "url"),
-  str(")")
+export const inlineLinkParser: Parser<InlineLink> = map(
+  seqC(
+    char("["),
+    capture(inlineSeqUntil(char("]")), "content"),
+    str("]("),
+    capture(iManyTillStr(")"), "url"),
+    str(")")
+  ),
+  ({ content, url }) => ({
+    type: "inline-link" as const,
+    content: content as InlineMarkdown[],
+    url,
+  })
 );
 
 export const inlineCodeParser: Parser<InlineCode> = seqC(
@@ -83,35 +114,49 @@ export const inlineEscapeParser: Parser<InlineText> = seqC(
 );
 
 export const inlineBoldItalicParser: Parser<InlineBoldItalic> = or(
-  seqC(
-    set("type", "inline-bold-italic"),
-    str("***"),
-    capture(manyTillStr("***"), "content"),
-    str("***")
+  map(
+    seqC(
+      str("***"),
+      capture(inlineSeqUntil(str("***")), "content"),
+      str("***")
+    ),
+    ({ content }) => ({
+      type: "inline-bold-italic" as const,
+      content: content as InlineMarkdown[],
+    })
   ),
-  seqC(
-    set("type", "inline-bold-italic"),
-    str("___"),
-    capture(manyTillStr("___"), "content"),
-    str("___")
+  map(
+    seqC(
+      str("___"),
+      capture(inlineSeqUntil(str("___")), "content"),
+      str("___")
+    ),
+    ({ content }) => ({
+      type: "inline-bold-italic" as const,
+      content: content as InlineMarkdown[],
+    })
   )
 );
 
-export const inlineBoldUnderscoreParser: Parser<InlineBold> = seqC(
-  set("type", "inline-bold"),
-  str("__"),
-  capture(manyTillStr("__"), "content"),
-  str("__"),
-  not(alphanum)
+export const inlineBoldUnderscoreParser: Parser<InlineBold> = map(
+  seqC(
+    str("__"),
+    capture(inlineSeqUntil(str("__")), "content"),
+    str("__"),
+    not(alphanum)
+  ),
+  ({ content }) => ({ type: "inline-bold" as const, content: content as InlineMarkdown[] })
 );
 
-export const inlineItalicUnderscoreParser: Parser<InlineItalic> = seqC(
-  set("type", "inline-italic"),
-  not(str("__")),
-  char("_"),
-  capture(manyTillStr("_"), "content"),
-  char("_"),
-  not(alphanum)
+export const inlineItalicUnderscoreParser: Parser<InlineItalic> = map(
+  seqC(
+    not(str("__")),
+    char("_"),
+    capture(inlineSeqUntil(char("_")), "content"),
+    char("_"),
+    not(alphanum)
+  ),
+  ({ content }) => ({ type: "inline-italic" as const, content: content as InlineMarkdown[] })
 );
 
 // URL body inside <...>: http(s)://<non-space, non-< or >>
@@ -132,16 +177,21 @@ const emailBody = map(
   (parts) => parts.join("")
 );
 
+// Wrap a literal string as the single-text content array used by InlineLink.
+const asTextContent = (s: string): InlineMarkdown[] => [
+  { type: "inline-text", content: s },
+];
+
 export const urlAutolinkParser: Parser<InlineLink> = map(
   seqC(char("<"), capture(urlBody, "url"), char(">")),
-  ({ url }) => ({ type: "inline-link" as const, content: url, url })
+  ({ url }) => ({ type: "inline-link" as const, content: asTextContent(url), url })
 );
 
 export const emailAutolinkParser: Parser<InlineLink> = map(
   seqC(char("<"), capture(emailBody, "email"), char(">")),
   ({ email }) => ({
     type: "inline-link" as const,
-    content: email,
+    content: asTextContent(email),
     url: `mailto:${email}`,
   })
 );
@@ -211,11 +261,16 @@ export const hardBreakParser: Parser<InlineHardBreak> = map(
   () => ({ type: "inline-hard-break" as const })
 );
 
-export const inlineStrikeParser: Parser<InlineStrike> = seqC(
-  set("type", "inline-strike"),
-  str("~~"),
-  capture(manyTillStr("~~"), "content"),
-  str("~~")
+export const inlineStrikeParser: Parser<InlineStrike> = map(
+  seqC(
+    str("~~"),
+    capture(inlineSeqUntil(str("~~")), "content"),
+    str("~~")
+  ),
+  ({ content }) => ({
+    type: "inline-strike" as const,
+    content: content as InlineMarkdown[],
+  })
 );
 
 /** Last-resort: consume a single delimiter char as literal text so unmatched
@@ -223,7 +278,7 @@ export const inlineStrikeParser: Parser<InlineStrike> = seqC(
  *  the paragraph. Matches one of the inline-text stop characters. */
 export const inlineLiteralCharParser: Parser<InlineText> = seqC(
   set("type", "inline-text"),
-  capture(oneOf("*_`[!<~\\"), "content")
+  capture(oneOf("*_`[]!<~\\"), "content")
 );
 
 export const inlineMarkdownParser: Parser<InlineMarkdown> = or(

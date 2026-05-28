@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { success } from "@/lib/types";
+import { str } from "@/lib/parsers";
 import {
   inlineMarkdownParser,
   inlineItalicParser,
@@ -7,14 +8,87 @@ import {
   inlineEscapeParser,
   inlineItalicUnderscoreParser,
   inlineBoldUnderscoreParser,
+  inlineSeqUntil,
 } from "./inline";
+
+describe("inlineSeqUntil", () => {
+  it("collects inline nodes up to (but not including) the stop", () => {
+    const p = inlineSeqUntil(str("**"));
+    const res = p("foo bar**");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.rest).toBe("**");
+      expect(res.result).toEqual([
+        { type: "inline-text", content: "foo bar" },
+      ]);
+    }
+  });
+
+  it("returns an empty array when the stop matches immediately", () => {
+    const p = inlineSeqUntil(str("**"));
+    const res = p("**rest");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual([]);
+      expect(res.rest).toBe("**rest");
+    }
+  });
+
+  it("collects through to the end of input when the stop never matches", () => {
+    const p = inlineSeqUntil(str("**"));
+    const res = p("foo");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.rest).toBe("");
+      expect(res.result).toEqual([
+        { type: "inline-text", content: "foo" },
+      ]);
+    }
+  });
+});
 
 describe("bold vs italic ordering", () => {
   it("parses ** as bold even when * could match first", () => {
     const res = inlineMarkdownParser("**hi**");
     expect(res.success).toBe(true);
     if (res.success) {
-      expect(res.result).toEqual({ type: "inline-bold", content: "hi" });
+      expect(res.result).toEqual({
+        type: "inline-bold",
+        content: [{ type: "inline-text", content: "hi" }],
+      });
+    }
+  });
+
+  it("bold content carries nested inline nodes (italic, code)", () => {
+    const res = inlineMarkdownParser("**a *b* `c`**");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual({
+        type: "inline-bold",
+        content: [
+          { type: "inline-text", content: "a " },
+          {
+            type: "inline-italic",
+            content: [{ type: "inline-text", content: "b" }],
+          },
+          { type: "inline-text", content: " " },
+          { type: "inline-code", content: "c" },
+        ],
+      });
+    }
+  });
+
+  it("italic content carries nested inline nodes (code)", () => {
+    const res = inlineMarkdownParser("*see `here`*");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual({
+        type: "inline-italic",
+        content: [
+          { type: "inline-text", content: "see " },
+          { type: "inline-code", content: "here" },
+        ],
+      });
     }
   });
 
@@ -84,14 +158,20 @@ describe("underscore emphasis", () => {
     const res = inlineItalicUnderscoreParser("_x_");
     expect(res.success).toBe(true);
     if (res.success)
-      expect(res.result).toEqual({ type: "inline-italic", content: "x" });
+      expect(res.result).toEqual({
+        type: "inline-italic",
+        content: [{ type: "inline-text", content: "x" }],
+      });
   });
 
   it("parses __x__ as bold", () => {
     const res = inlineBoldUnderscoreParser("__x__");
     expect(res.success).toBe(true);
     if (res.success)
-      expect(res.result).toEqual({ type: "inline-bold", content: "x" });
+      expect(res.result).toEqual({
+        type: "inline-bold",
+        content: [{ type: "inline-text", content: "x" }],
+      });
   });
 
   it("dispatches _x_ via inlineMarkdownParser", () => {
@@ -181,7 +261,7 @@ describe("autolinks", () => {
     if (res.success)
       expect(res.result).toEqual({
         type: "inline-link",
-        content: "https://example.com",
+        content: [{ type: "inline-text", content: "https://example.com" }],
         url: "https://example.com",
       });
   });
@@ -198,7 +278,7 @@ describe("autolinks", () => {
     if (res.success)
       expect(res.result).toEqual({
         type: "inline-link",
-        content: "a@b.com",
+        content: [{ type: "inline-text", content: "a@b.com" }],
         url: "mailto:a@b.com",
       });
   });
@@ -216,7 +296,47 @@ describe("strikethrough", () => {
     const res = inlineMarkdownParser("~~gone~~");
     expect(res.success).toBe(true);
     if (res.success)
-      expect(res.result).toEqual({ type: "inline-strike", content: "gone" });
+      expect(res.result).toEqual({
+        type: "inline-strike",
+        content: [{ type: "inline-text", content: "gone" }],
+      });
+  });
+
+  it("strike content carries nested inline nodes", () => {
+    const res = inlineMarkdownParser("~~**bold** gone~~");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual({
+        type: "inline-strike",
+        content: [
+          {
+            type: "inline-bold",
+            content: [{ type: "inline-text", content: "bold" }],
+          },
+          { type: "inline-text", content: " gone" },
+        ],
+      });
+    }
+  });
+
+  it("inline-link content carries nested inline nodes", () => {
+    const res = inlineMarkdownParser("[a **b** `c`](u)");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual({
+        type: "inline-link",
+        url: "u",
+        content: [
+          { type: "inline-text", content: "a " },
+          {
+            type: "inline-bold",
+            content: [{ type: "inline-text", content: "b" }],
+          },
+          { type: "inline-text", content: " " },
+          { type: "inline-code", content: "c" },
+        ],
+      });
+    }
   });
 
   it("falls back to literal ~ when not paired", () => {
@@ -230,14 +350,20 @@ describe("bold-italic combined", () => {
     const res = inlineMarkdownParser("***hey***");
     expect(res.success).toBe(true);
     if (res.success)
-      expect(res.result).toEqual({ type: "inline-bold-italic", content: "hey" });
+      expect(res.result).toEqual({
+        type: "inline-bold-italic",
+        content: [{ type: "inline-text", content: "hey" }],
+      });
   });
 
   it("parses ___x___ as bold-italic", () => {
     const res = inlineMarkdownParser("___hey___");
     expect(res.success).toBe(true);
     if (res.success)
-      expect(res.result).toEqual({ type: "inline-bold-italic", content: "hey" });
+      expect(res.result).toEqual({
+        type: "inline-bold-italic",
+        content: [{ type: "inline-text", content: "hey" }],
+      });
   });
 
   it("does not greedily eat ***x*** as bold of '*x*'", () => {

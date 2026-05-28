@@ -67,7 +67,10 @@ describe("ATX heading inline content", () => {
     if (res.success) {
       expect(res.result.content).toEqual([
         { type: "inline-text", content: "hello " },
-        { type: "inline-bold", content: "world" },
+        {
+          type: "inline-bold",
+          content: [{ type: "inline-text", content: "world" }],
+        },
       ]);
     }
   });

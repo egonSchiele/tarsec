@@ -48,7 +48,7 @@ parser("hello there"); // failure
 - [Pretty error messages](/tutorials/pretty-errors.md)
 
 ## Examples
-- [A CommonMark-ish markdown parser](/tests/examples/markdown) — headings (ATX + setext), fenced and indented code blocks, multi-line / nested block quotes, ordered / unordered / nested lists, pipe tables with alignment, horizontal rules, HTML passthrough, VitePress-style YAML frontmatter, plus inline bold/italic (`*` and `_`), combined `***bold-italic***`, strikethrough, escapes, autolinks, hard line breaks, images, and reference-style links / footnotes resolved in a post-parse pass.
+- [A CommonMark-ish markdown parser](/tests/examples/markdown) — headings (ATX + setext), fenced and indented code blocks, multi-line / nested block quotes, ordered / unordered / nested lists, pipe tables with alignment, horizontal rules, HTML passthrough, VitePress-style YAML frontmatter, plus inline bold/italic (`*` and `_`), combined `***bold-italic***`, strikethrough, escapes, autolinks, hard line breaks, images, and reference-style links / footnotes resolved in a post-parse pass. Inline emphasis, strike, and link content all nest, so ``**[link](u)**`` and ``*a `code` b*`` round-trip into the AST.
 
 Read more about [use cases for tarsec](/tutorials/use-case.md).
 
