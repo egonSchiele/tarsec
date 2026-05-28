@@ -6,6 +6,7 @@ export type InlineMarkdown =
   | InlineItalic
   | InlineBoldItalic
   | InlineStrike
+  | InlineHardBreak
   | InlineLink
   | InlineCode;
 
@@ -32,6 +33,10 @@ export type InlineBoldItalic = {
 export type InlineStrike = {
   type: "inline-strike";
   content: string;
+};
+
+export type InlineHardBreak = {
+  type: "inline-hard-break";
 };
 
 export type InlineLink = {

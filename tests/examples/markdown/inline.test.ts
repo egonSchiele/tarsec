@@ -112,6 +112,26 @@ describe("underscore emphasis", () => {
   });
 });
 
+describe("hard line breaks", () => {
+  it("parses two-trailing-spaces + newline as hard break", () => {
+    const res = inlineMarkdownParser("  \n");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result).toEqual({ type: "inline-hard-break" });
+  });
+
+  it("parses backslash + newline as hard break", () => {
+    const res = inlineMarkdownParser("\\\n");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result).toEqual({ type: "inline-hard-break" });
+  });
+
+  it("inline text stops before the trailing-spaces hard break", () => {
+    const res = inlineTextParser("abc  \n");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe("abc");
+  });
+});
+
 describe("autolinks", () => {
   it("parses <https://example.com> as a URL autolink", () => {
     const res = inlineMarkdownParser("<https://example.com>");

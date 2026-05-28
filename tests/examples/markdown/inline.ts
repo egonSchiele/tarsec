@@ -5,10 +5,11 @@ import {
   or,
   not,
   map,
+  many,
+  many1Till,
   many1WithJoin,
   manyTillStr,
   iManyTillStr,
-  manyTillOneOf,
 } from "@/lib/combinators";
 import { str, char, set, oneOf, alphanum, noneOf } from "@/lib/parsers";
 import { Parser } from "@/lib/types";
@@ -19,26 +20,23 @@ import {
   InlineItalic,
   InlineBoldItalic,
   InlineStrike,
+  InlineHardBreak,
   InlineLink,
   InlineCode,
 } from "./types";
 
-import { failure } from "@/lib/types";
-
-const _inlineTextParser = seqC(
-  set("type", "inline-text"),
-  capture(
-    manyTillOneOf(["*", "_", "`", "[", "!", "<", "~", "\\", "\n"]),
-    "content"
-  )
+// Stop inline-text at any single delimiter char OR at a hard-break sequence
+// ("  \n"+). Using many1Till with an `or` of delimiters makes the stop set
+// composable rather than embedded inside a regex.
+const inlineTextStop: Parser<unknown> = or(
+  oneOf("*_`[!<~\\\n"),
+  str("  ")
 );
-export const inlineTextParser: Parser<InlineText> = (input) => {
-  const res = _inlineTextParser(input);
-  if (res.success && (res.result as InlineText).content === "") {
-    return failure("empty inline text", input);
-  }
-  return res;
-};
+
+export const inlineTextParser: Parser<InlineText> = map(
+  many1Till(inlineTextStop),
+  (content) => ({ type: "inline-text", content })
+);
 
 export const inlineBoldParser: Parser<InlineBold> = seqC(
   set("type", "inline-bold"),
@@ -149,6 +147,16 @@ export const autolinkParser: Parser<InlineLink> = or(
   emailAutolinkParser
 );
 
+export const hardBreakParser: Parser<InlineHardBreak> = map(
+  or(
+    // two-or-more trailing spaces then newline
+    seqR(str("  "), many(char(" ")), char("\n")),
+    // backslash then newline
+    seqR(char("\\"), char("\n"))
+  ),
+  () => ({ type: "inline-hard-break" as const })
+);
+
 export const inlineStrikeParser: Parser<InlineStrike> = seqC(
   set("type", "inline-strike"),
   str("~~"),
@@ -165,6 +173,7 @@ export const inlineLiteralCharParser: Parser<InlineText> = seqC(
 );
 
 export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
+  hardBreakParser,
   inlineEscapeParser,
   inlineBoldItalicParser,
   inlineBoldParser,
