@@ -77,7 +77,7 @@ export function resolveReferences(ast: unknown[]): unknown[] {
       if (def) {
         return {
           type: "inline-link",
-          content: [{ type: "inline-text", content: obj.text }],
+          content: [{ type: "inline-text", content: String(obj.text) }],
           url: def.url,
         };
       }
