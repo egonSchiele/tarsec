@@ -94,10 +94,16 @@ export type InlineRefImage = {
   id: string;
 };
 
+export type ListItem = {
+  content: InlineMarkdown[];
+  sublist?: List;
+};
+
 export type List = {
   type: "list";
   ordered: boolean;
-  items: string[];
+  start: number;
+  items: ListItem[];
 };
 
 export type HorizontalRule = {

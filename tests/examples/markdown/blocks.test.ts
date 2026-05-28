@@ -7,6 +7,7 @@ import {
   setextHeadingParser,
   indentedCodeBlockParser,
   blockQuoteParser,
+  listParser,
 } from "./blocks";
 
 describe("codeBlockParser language tag", () => {
@@ -53,6 +54,60 @@ describe("horizontalRuleParser", () => {
     const res = horizontalRuleParser("---\nfoo");
     expect(res.success).toBe(true);
     if (res.success) expect(res.rest).toBe("foo");
+  });
+});
+
+describe("listParser unordered", () => {
+  it("parses a flat unordered list", () => {
+    const res = listParser("- a\n- b\n- c");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.type).toBe("list");
+      expect(res.result.ordered).toBe(false);
+      expect(res.result.items.map((i) => i.content)).toEqual([
+        [{ type: "inline-text", content: "a" }],
+        [{ type: "inline-text", content: "b" }],
+        [{ type: "inline-text", content: "c" }],
+      ]);
+    }
+  });
+
+  it("accepts * and + as markers", () => {
+    expect(listParser("* a\n* b").success).toBe(true);
+    expect(listParser("+ a\n+ b").success).toBe(true);
+  });
+});
+
+describe("listParser ordered", () => {
+  it("parses a flat ordered list", () => {
+    const res = listParser("1. a\n2. b\n3. c");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.ordered).toBe(true);
+      expect(res.result.start).toBe(1);
+      expect(res.result.items.length).toBe(3);
+    }
+  });
+
+  it("preserves starting number", () => {
+    const res = listParser("5. a\n6. b");
+    if (res.success) expect(res.result.start).toBe(5);
+  });
+});
+
+describe("listParser nested", () => {
+  it("parses a nested unordered list", () => {
+    const input = "- a\n  - a1\n  - a2\n- b";
+    const res = listParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.items.length).toBe(2);
+      const first = res.result.items[0];
+      expect(first.sublist).toBeDefined();
+      if (first.sublist) {
+        expect(first.sublist.items.length).toBe(2);
+      }
+    }
   });
 });
 

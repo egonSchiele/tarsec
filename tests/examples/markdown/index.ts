@@ -14,6 +14,7 @@ import {
   horizontalRuleParser,
   setextHeadingParser,
   indentedCodeBlockParser,
+  listParser,
 } from "./blocks";
 
 export const markdownParser = seq(
@@ -28,6 +29,7 @@ export const markdownParser = seq(
         codeBlockParser,
         indentedCodeBlockParser,
         blockQuoteParser,
+        listParser,
         paragraphParser,
         imageParser
       )
