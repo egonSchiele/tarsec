@@ -9,6 +9,7 @@ import {
   blockQuoteParser,
   listParser,
   tableParser,
+  htmlBlockParser,
 } from "./blocks";
 
 describe("codeBlockParser language tag", () => {
@@ -55,6 +56,33 @@ describe("horizontalRuleParser", () => {
     const res = horizontalRuleParser("---\nfoo");
     expect(res.success).toBe(true);
     if (res.success) expect(res.rest).toBe("foo");
+  });
+});
+
+describe("htmlBlockParser", () => {
+  it("passes through a <div>...</div> block until a blank line", () => {
+    const input = "<div>\nhi\n</div>\n\nafter";
+    const res = htmlBlockParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual({
+        type: "html-block",
+        content: "<div>\nhi\n</div>",
+      });
+      expect(res.rest.startsWith("\n\n")).toBe(true);
+    }
+  });
+
+  it("passes through a self-closing <hr /> tag", () => {
+    const input = "<hr />";
+    const res = htmlBlockParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe("<hr />");
+  });
+
+  it("rejects when the input does not start with an html-like tag", () => {
+    expect(htmlBlockParser("hi <div>").success).toBe(false);
+    expect(htmlBlockParser("<3 you").success).toBe(false);
   });
 });
 

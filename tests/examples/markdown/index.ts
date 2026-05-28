@@ -16,6 +16,7 @@ import {
   indentedCodeBlockParser,
   listParser,
   tableParser,
+  htmlBlockParser,
 } from "./blocks";
 import {
   linkDefinitionParser,
@@ -39,6 +40,7 @@ const _markdownParser = seq(
         tableParser,
         blockQuoteParser,
         listParser,
+        htmlBlockParser,
         linkDefinitionParser,
         footnoteDefinitionParser,
         paragraphParser,

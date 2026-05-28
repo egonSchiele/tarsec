@@ -139,3 +139,8 @@ export type FootnoteDef = {
   id: string;
   content: string;
 };
+
+export type HTMLBlock = {
+  type: "html-block";
+  content: string;
+};

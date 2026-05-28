@@ -39,9 +39,11 @@ import {
   ListItem,
   Table,
   Alignment,
+  HTMLBlock,
 } from "./types";
 import { failure } from "@/lib/types";
-import { digit } from "@/lib/parsers";
+import { digit, letter } from "@/lib/parsers";
+import { manyTill } from "@/lib/combinators";
 import { inlineMarkdownParser, imageParser } from "./inline";
 export { imageParser } from "./inline";
 
@@ -275,6 +277,26 @@ const sepRow: Parser<Alignment[]> = map(
   ),
   (parts) => parts[1] as Alignment[]
 );
+
+/* HTML blocks (passthrough subset).
+ *
+ * A line starting with `<` followed by a letter, `/`, `!`, or `?` is treated
+ * as the start of a raw HTML block. The block extends until the next blank
+ * line or end of input. We don't try to balance tags — the content is kept
+ * as a single opaque string so downstream renderers can hand it to an HTML
+ * renderer untouched. */
+const htmlBlockOpen: Parser<unknown> = seqR(char("<"), or(letter, oneOf("/!?")));
+
+export const htmlBlockParser: Parser<HTMLBlock> = (input) => {
+  const peek = htmlBlockOpen(input);
+  if (!peek.success) return peek;
+  const consume = manyTill(or(blankLine, eof))(input);
+  if (!consume.success) return consume;
+  return success(
+    { type: "html-block", content: consume.result as string },
+    consume.rest
+  );
+};
 
 export const tableParser: Parser<Table> = map(
   seqR(tableRow, sepRow, many1(tableRow)),
