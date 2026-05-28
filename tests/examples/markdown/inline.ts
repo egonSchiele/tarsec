@@ -249,11 +249,16 @@ export const hardBreakParser: Parser<InlineHardBreak> = map(
   () => ({ type: "inline-hard-break" as const })
 );
 
-export const inlineStrikeParser: Parser<InlineStrike> = seqC(
-  set("type", "inline-strike"),
-  str("~~"),
-  capture(manyTillStr("~~"), "content"),
-  str("~~")
+export const inlineStrikeParser: Parser<InlineStrike> = map(
+  seqC(
+    str("~~"),
+    capture(inlineSeqUntil(str("~~")), "content"),
+    str("~~")
+  ),
+  ({ content }) => ({
+    type: "inline-strike" as const,
+    content: content as InlineMarkdown[],
+  })
 );
 
 /** Last-resort: consume a single delimiter char as literal text so unmatched

@@ -296,7 +296,27 @@ describe("strikethrough", () => {
     const res = inlineMarkdownParser("~~gone~~");
     expect(res.success).toBe(true);
     if (res.success)
-      expect(res.result).toEqual({ type: "inline-strike", content: "gone" });
+      expect(res.result).toEqual({
+        type: "inline-strike",
+        content: [{ type: "inline-text", content: "gone" }],
+      });
+  });
+
+  it("strike content carries nested inline nodes", () => {
+    const res = inlineMarkdownParser("~~**bold** gone~~");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual({
+        type: "inline-strike",
+        content: [
+          {
+            type: "inline-bold",
+            content: [{ type: "inline-text", content: "bold" }],
+          },
+          { type: "inline-text", content: " gone" },
+        ],
+      });
+    }
   });
 
   it("falls back to literal ~ when not paired", () => {

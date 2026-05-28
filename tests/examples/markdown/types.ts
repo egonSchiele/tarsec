@@ -36,7 +36,7 @@ export type InlineBoldItalic = {
 
 export type InlineStrike = {
   type: "inline-strike";
-  content: string;
+  content: InlineMarkdown[];
 };
 
 export type InlineHardBreak = {
