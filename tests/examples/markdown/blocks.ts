@@ -8,8 +8,17 @@ import {
   count,
   iManyTillStr,
   many1,
+  many1WithJoin,
 } from "@/lib/combinators";
-import { str, spaces, word, char, eof, set } from "@/lib/parsers";
+import {
+  str,
+  spaces,
+  char,
+  eof,
+  set,
+  alphanum,
+  oneOf,
+} from "@/lib/parsers";
 import { Parser, ParserResult, success } from "@/lib/types";
 import {
   Heading,
@@ -19,6 +28,9 @@ import {
   Paragraph,
 } from "./types";
 import { inlineMarkdownParser } from "./inline";
+
+const languageChar = or(alphanum, oneOf("_+#.-"));
+const languageTag = many1WithJoin(languageChar);
 
 export const headingParser: Parser<Heading> = seqC(
   set("type", "heading"),
@@ -30,7 +42,7 @@ export const headingParser: Parser<Heading> = seqC(
 export const codeBlockParser: Parser<CodeBlock> = seqC(
   set("type", "code-block"),
   str("```"),
-  capture(optional(word), "language"),
+  capture(optional(languageTag), "language"),
   optional(spaces),
   capture(manyTillStr("```"), "content"),
   str("```")
