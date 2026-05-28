@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { inlineMarkdownParser, inlineItalicParser, inlineTextParser } from "./inline";
+import { success } from "@/lib/types";
+import {
+  inlineMarkdownParser,
+  inlineItalicParser,
+  inlineTextParser,
+  inlineEscapeParser,
+} from "./inline";
 
 describe("bold vs italic ordering", () => {
   it("parses ** as bold even when * could match first", () => {
@@ -41,5 +47,32 @@ describe("inlineTextParser stop set", () => {
   it("fails on an empty match (so many1 cannot infinite-loop)", () => {
     expect(inlineTextParser("").success).toBe(false);
     expect(inlineTextParser("*x*").success).toBe(false);
+  });
+});
+
+describe("inlineEscapeParser", () => {
+  it("parses \\* as literal *", () => {
+    expect(inlineEscapeParser("\\*rest")).toEqual(
+      success({ type: "inline-text", content: "*" }, "rest")
+    );
+  });
+
+  it("parses every escapable punctuation char", () => {
+    const escapable = "\\`*_{}[]()#+-.!~<>|";
+    for (const ch of escapable) {
+      const res = inlineEscapeParser("\\" + ch);
+      expect(res.success).toBe(true);
+      if (res.success) expect(res.result.content).toBe(ch);
+    }
+  });
+
+  it("fails on \\z (not an escapable char)", () => {
+    expect(inlineEscapeParser("\\z").success).toBe(false);
+  });
+
+  it("dispatches via inlineMarkdownParser", () => {
+    const res = inlineMarkdownParser("\\*not bold");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result).toEqual({ type: "inline-text", content: "*" });
   });
 });

@@ -7,7 +7,7 @@ import {
   iManyTillStr,
   manyTillOneOf,
 } from "@/lib/combinators";
-import { str, char, set } from "@/lib/parsers";
+import { str, char, set, oneOf } from "@/lib/parsers";
 import { Parser } from "@/lib/types";
 import {
   InlineMarkdown,
@@ -66,7 +66,15 @@ export const inlineCodeParser: Parser<InlineCode> = seqC(
   str("`")
 );
 
+const ESCAPABLE = "\\`*_{}[]()#+-.!~<>|";
+export const inlineEscapeParser: Parser<InlineText> = seqC(
+  set("type", "inline-text"),
+  char("\\"),
+  capture(oneOf(ESCAPABLE), "content")
+);
+
 export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
+  inlineEscapeParser,
   inlineBoldParser,
   inlineItalicParser,
   inlineLinkParser,
