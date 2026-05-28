@@ -31,7 +31,7 @@ export type InlineItalic = {
 
 export type InlineBoldItalic = {
   type: "inline-bold-italic";
-  content: string;
+  content: InlineMarkdown[];
 };
 
 export type InlineStrike = {

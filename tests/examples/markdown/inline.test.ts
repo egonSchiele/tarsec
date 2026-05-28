@@ -310,14 +310,20 @@ describe("bold-italic combined", () => {
     const res = inlineMarkdownParser("***hey***");
     expect(res.success).toBe(true);
     if (res.success)
-      expect(res.result).toEqual({ type: "inline-bold-italic", content: "hey" });
+      expect(res.result).toEqual({
+        type: "inline-bold-italic",
+        content: [{ type: "inline-text", content: "hey" }],
+      });
   });
 
   it("parses ___x___ as bold-italic", () => {
     const res = inlineMarkdownParser("___hey___");
     expect(res.success).toBe(true);
     if (res.success)
-      expect(res.result).toEqual({ type: "inline-bold-italic", content: "hey" });
+      expect(res.result).toEqual({
+        type: "inline-bold-italic",
+        content: [{ type: "inline-text", content: "hey" }],
+      });
   });
 
   it("does not greedily eat ***x*** as bold of '*x*'", () => {

@@ -107,17 +107,27 @@ export const inlineEscapeParser: Parser<InlineText> = seqC(
 );
 
 export const inlineBoldItalicParser: Parser<InlineBoldItalic> = or(
-  seqC(
-    set("type", "inline-bold-italic"),
-    str("***"),
-    capture(manyTillStr("***"), "content"),
-    str("***")
+  map(
+    seqC(
+      str("***"),
+      capture(inlineSeqUntil(str("***")), "content"),
+      str("***")
+    ),
+    ({ content }) => ({
+      type: "inline-bold-italic" as const,
+      content: content as InlineMarkdown[],
+    })
   ),
-  seqC(
-    set("type", "inline-bold-italic"),
-    str("___"),
-    capture(manyTillStr("___"), "content"),
-    str("___")
+  map(
+    seqC(
+      str("___"),
+      capture(inlineSeqUntil(str("___")), "content"),
+      str("___")
+    ),
+    ({ content }) => ({
+      type: "inline-bold-italic" as const,
+      content: content as InlineMarkdown[],
+    })
   )
 );
 
