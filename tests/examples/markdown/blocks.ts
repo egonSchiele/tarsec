@@ -5,7 +5,7 @@ import {
   optional,
   or,
   manyTillStr,
-  count,
+  exactly,
   iManyTillStr,
   many,
   many1,
@@ -48,9 +48,19 @@ export { imageParser } from "./inline";
 const languageChar = or(alphanum, oneOf("_+#.-"));
 const languageTag = many1WithJoin(languageChar);
 
+/* ATX heading marker: 1–6 consecutive `#`, not followed by another `#`.
+ * Try widest first so `###` doesn't parse as level 1 and leave `##` behind.
+ * `not(char("#"))` rejects 7+ `#` runs (they fall through to a paragraph). */
+const atxMarker: Parser<number> = or(
+  ...[6, 5, 4, 3, 2, 1].map(
+    (n): Parser<number> =>
+      map(seqR(exactly(n, char("#")), not(char("#"))), () => n)
+  )
+);
+
 export const headingParser: Parser<Heading> = seqC(
   set("type", "heading"),
-  capture(count(char("#")), "level"),
+  capture(atxMarker, "level"),
   spaces,
   capture(many1(inlineMarkdownParser), "content"),
   optional(char("\n"))

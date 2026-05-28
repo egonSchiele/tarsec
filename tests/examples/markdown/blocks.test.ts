@@ -60,6 +60,20 @@ describe("horizontalRuleParser", () => {
   });
 });
 
+describe("ATX heading level cap", () => {
+  it("parses heading levels 1–6", () => {
+    for (let n = 1; n <= 6; n++) {
+      const res = headingParser("#".repeat(n) + " Title");
+      expect(res.success).toBe(true);
+      if (res.success) expect(res.result.level).toBe(n);
+    }
+  });
+
+  it("rejects 7+ '#' as a heading", () => {
+    expect(headingParser("####### Title").success).toBe(false);
+  });
+});
+
 describe("ATX heading inline content", () => {
   it("parses bold inside a heading", () => {
     const res = headingParser("# hello **world**");
