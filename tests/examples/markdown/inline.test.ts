@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { success } from "@/lib/types";
+import { str } from "@/lib/parsers";
 import {
   inlineMarkdownParser,
   inlineItalicParser,
@@ -7,7 +8,44 @@ import {
   inlineEscapeParser,
   inlineItalicUnderscoreParser,
   inlineBoldUnderscoreParser,
+  inlineSeqUntil,
 } from "./inline";
+
+describe("inlineSeqUntil", () => {
+  it("collects inline nodes up to (but not including) the stop", () => {
+    const p = inlineSeqUntil(str("**"));
+    const res = p("foo bar**");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.rest).toBe("**");
+      expect(res.result).toEqual([
+        { type: "inline-text", content: "foo bar" },
+      ]);
+    }
+  });
+
+  it("returns an empty array when the stop matches immediately", () => {
+    const p = inlineSeqUntil(str("**"));
+    const res = p("**rest");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual([]);
+      expect(res.rest).toBe("**rest");
+    }
+  });
+
+  it("collects through to the end of input when the stop never matches", () => {
+    const p = inlineSeqUntil(str("**"));
+    const res = p("foo");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.rest).toBe("");
+      expect(res.result).toEqual([
+        { type: "inline-text", content: "foo" },
+      ]);
+    }
+  });
+});
 
 describe("bold vs italic ordering", () => {
   it("parses ** as bold even when * could match first", () => {

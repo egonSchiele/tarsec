@@ -10,6 +10,7 @@ import {
   many1WithJoin,
   manyTillStr,
   iManyTillStr,
+  lazy,
 } from "@/lib/combinators";
 import { str, char, set, oneOf, alphanum, noneOf } from "@/lib/parsers";
 import { Parser } from "@/lib/types";
@@ -245,3 +246,22 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineTextParser,
   inlineLiteralCharParser
 );
+
+/**
+ * Run `inlineMarkdownParser` repeatedly until `stop` would match at the
+ * current position. The `stop` parser is a lookahead — it is *not* consumed.
+ * Returns the list of inline nodes collected before `stop`.
+ *
+ * Used by every delimited inline parser (bold, italic, strike, link, …) so
+ * that the content between delimiters is a sequence of inline nodes rather
+ * than a flat string.
+ */
+export const inlineSeqUntil = (
+  stop: Parser<unknown>
+): Parser<InlineMarkdown[]> =>
+  many(
+    map(
+      seqC(not(stop), capture(lazy(() => inlineMarkdownParser), "node")),
+      ({ node }) => node as InlineMarkdown
+    )
+  );
