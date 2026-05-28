@@ -112,6 +112,48 @@ describe("underscore emphasis", () => {
   });
 });
 
+describe("reference-style links and images", () => {
+  it("parses [text][id] as a deferred ref link", () => {
+    const res = inlineMarkdownParser("[hi][x]");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "inline-ref-link", text: "hi", id: "x" });
+  });
+
+  it("parses [text][] as a deferred ref link using text as id", () => {
+    const res = inlineMarkdownParser("[hi][]");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "inline-ref-link", text: "hi", id: "hi" });
+  });
+
+  it("parses [text] (shortcut) as a deferred ref link", () => {
+    const res = inlineMarkdownParser("[hi]");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "inline-ref-link", text: "hi", id: "hi" });
+  });
+
+  it("still prefers inline link form [text](url) when ( follows", () => {
+    const res = inlineMarkdownParser("[hi](u)");
+    if (res.success) expect(res.result.type).toBe("inline-link");
+  });
+
+  it("parses ![alt][id] as a deferred ref image", () => {
+    const res = inlineMarkdownParser("![alt][img1]");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "inline-ref-image", alt: "alt", id: "img1" });
+  });
+
+  it("parses ![alt] (shortcut) as a deferred ref image", () => {
+    const res = inlineMarkdownParser("![alt]");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "inline-ref-image", alt: "alt", id: "alt" });
+  });
+});
+
 describe("hard line breaks", () => {
   it("parses two-trailing-spaces + newline as hard break", () => {
     const res = inlineMarkdownParser("  \n");

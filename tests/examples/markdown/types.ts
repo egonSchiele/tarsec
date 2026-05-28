@@ -9,7 +9,9 @@ export type InlineMarkdown =
   | InlineHardBreak
   | InlineLink
   | InlineCode
-  | Image;
+  | Image
+  | InlineRefLink
+  | InlineRefImage;
 
 export type InlineText = {
   type: "inline-text";
@@ -77,6 +79,18 @@ export type Image = {
   type: "image";
   url: string;
   alt: string;
+};
+
+export type InlineRefLink = {
+  type: "inline-ref-link";
+  text: string;
+  id: string;
+};
+
+export type InlineRefImage = {
+  type: "inline-ref-image";
+  alt: string;
+  id: string;
 };
 
 export type List = {

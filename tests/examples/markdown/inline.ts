@@ -24,7 +24,11 @@ import {
   InlineLink,
   InlineCode,
   Image,
+  InlineRefLink,
+  InlineRefImage,
 } from "./types";
+
+import { optional, between } from "@/lib/combinators";
 
 // Stop inline-text at any single delimiter char OR at a hard-break sequence
 // ("  \n"+). Using many1Till with an `or` of delimiters makes the stop set
@@ -148,6 +152,39 @@ export const autolinkParser: Parser<InlineLink> = or(
   emailAutolinkParser
 );
 
+// `[...]` where ... is one or more characters that aren't `]` or newline.
+const bracketed = between(char("["), char("]"), noneOf("]\n"));
+const bracketedAsString = map(bracketed, (chars) => (chars as string[]).join(""));
+
+export const inlineRefLinkParser: Parser<InlineRefLink> = map(
+  seqR(
+    bracketedAsString, // text
+    optional(bracketedAsString), // optional [id]
+    not(char("(")) // disambiguate from inline link
+  ),
+  (parts) => {
+    const text = parts[0] as string;
+    const rawId = parts[1] as string | null;
+    const id = rawId && rawId.length > 0 ? rawId : text;
+    return { type: "inline-ref-link", text, id };
+  }
+);
+
+export const inlineRefImageParser: Parser<InlineRefImage> = map(
+  seqR(
+    char("!"),
+    bracketedAsString, // alt
+    optional(bracketedAsString), // optional [id]
+    not(char("("))
+  ),
+  (parts) => {
+    const alt = parts[1] as string;
+    const rawId = parts[2] as string | null;
+    const id = rawId && rawId.length > 0 ? rawId : alt;
+    return { type: "inline-ref-image", alt, id };
+  }
+);
+
 /** An inline image: ![alt](url). Lives in `inline.ts` so it can participate
  *  in paragraph parsing without `blocks.ts` becoming a circular dep. */
 export const imageParser: Parser<Image> = seqC(
@@ -195,7 +232,9 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineStrikeParser,
   autolinkParser,
   imageParser,
+  inlineRefImageParser,
   inlineLinkParser,
+  inlineRefLinkParser,
   inlineCodeParser,
   inlineTextParser,
   inlineLiteralCharParser
