@@ -74,6 +74,37 @@ describe("ATX heading level cap", () => {
   });
 });
 
+describe("ATX heading trailing '#' stripping", () => {
+  it("strips a trailing '#' run preceded by a space", () => {
+    const res = headingParser("## Heading ##");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "Heading" },
+      ]);
+  });
+
+  it("does not strip when there's no separating space", () => {
+    const res = headingParser("## Heading##");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "Heading##" },
+      ]);
+  });
+
+  it("strips trailing '#' followed by trailing spaces and newline", () => {
+    const res = headingParser("## Heading ###  \nrest");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "Heading" },
+      ]);
+      expect(res.rest).toBe("rest");
+    }
+  });
+});
+
 describe("ATX heading inline content", () => {
   it("parses bold inside a heading", () => {
     const res = headingParser("# hello **world**");

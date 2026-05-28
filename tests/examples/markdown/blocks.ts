@@ -5,6 +5,7 @@ import {
   optional,
   or,
   manyTillStr,
+  many1Till,
   exactly,
   iManyTillStr,
   many,
@@ -58,12 +59,38 @@ const atxMarker: Parser<number> = or(
   )
 );
 
-export const headingParser: Parser<Heading> = seqC(
-  set("type", "heading"),
-  capture(atxMarker, "level"),
-  spaces,
-  capture(many1(inlineMarkdownParser), "content"),
-  optional(char("\n"))
+/* An optional trailing run of `#`s on an ATX heading: at least one separating
+ * space, one or more `#`, optional trailing spaces, then end-of-line. */
+const trailingHashRun: Parser<unknown> = seqR(
+  many1(char(" ")),
+  many1(char("#")),
+  many(char(" ")),
+  or(char("\n"), eof)
+);
+
+/* The heading body — everything up to (but not including) either the line end
+ * or a trailing `#` run. We capture this as a raw string then re-parse it as
+ * inline markdown so the body shape matches ATX/setext headings. */
+const headingBody: Parser<string> = many1Till(or(char("\n"), trailingHashRun));
+
+export const headingParser: Parser<Heading> = map(
+  seqC(
+    capture(atxMarker, "level"),
+    spaces,
+    capture(headingBody, "body"),
+    optional(trailingHashRun),
+    optional(char("\n"))
+  ),
+  ({ level, body }) => {
+    const inner = many1(inlineMarkdownParser)(body as string);
+    return {
+      type: "heading" as const,
+      level: level as number,
+      content: inner.success
+        ? (inner.result as Heading["content"])
+        : [{ type: "inline-text" as const, content: body as string }],
+    };
+  }
 );
 
 export const codeBlockParser: Parser<CodeBlock> = seqC(
