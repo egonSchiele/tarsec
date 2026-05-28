@@ -10,6 +10,7 @@ import {
   listParser,
   tableParser,
   htmlBlockParser,
+  headingParser,
 } from "./blocks";
 
 describe("codeBlockParser language tag", () => {
@@ -56,6 +57,19 @@ describe("horizontalRuleParser", () => {
     const res = horizontalRuleParser("---\nfoo");
     expect(res.success).toBe(true);
     if (res.success) expect(res.rest).toBe("foo");
+  });
+});
+
+describe("ATX heading inline content", () => {
+  it("parses bold inside a heading", () => {
+    const res = headingParser("# hello **world**");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "hello " },
+        { type: "inline-bold", content: "world" },
+      ]);
+    }
   });
 });
 
@@ -222,14 +236,22 @@ describe("setextHeadingParser", () => {
     const res = setextHeadingParser("Title\n=====");
     expect(res.success).toBe(true);
     if (res.success)
-      expect(res.result).toEqual({ type: "heading", level: 1, content: "Title" });
+      expect(res.result).toEqual({
+        type: "heading",
+        level: 1,
+        content: [{ type: "inline-text", content: "Title" }],
+      });
   });
 
   it("parses setext H2", () => {
     const res = setextHeadingParser("Title\n--");
     expect(res.success).toBe(true);
     if (res.success)
-      expect(res.result).toEqual({ type: "heading", level: 2, content: "Title" });
+      expect(res.result).toEqual({
+        type: "heading",
+        level: 2,
+        content: [{ type: "inline-text", content: "Title" }],
+      });
   });
 
   it("rejects when the underline contains other chars", () => {

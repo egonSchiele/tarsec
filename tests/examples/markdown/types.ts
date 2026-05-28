@@ -62,7 +62,7 @@ export type Paragraph = {
 export type Heading = {
   type: "heading";
   level: number;
-  content: string;
+  content: InlineMarkdown[];
 };
 
 export type CodeBlock = {

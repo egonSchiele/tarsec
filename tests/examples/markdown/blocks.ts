@@ -54,7 +54,8 @@ export const headingParser: Parser<Heading> = seqC(
   set("type", "heading"),
   capture(count(char("#")), "level"),
   spaces,
-  capture(many1Till(or(char("\n"), eof)), "content")
+  capture(many1(inlineMarkdownParser), "content"),
+  optional(char("\n"))
 );
 
 export const codeBlockParser: Parser<CodeBlock> = seqC(
@@ -125,17 +126,33 @@ export const indentedCodeBlockParser: Parser<CodeBlock> = map(
 );
 
 /* Setext-style headings: a line of content followed by an underline of `=`
- * (level 1) or `-` (level 2), terminated by `\n` or end-of-input. */
+ * (level 1) or `-` (level 2), terminated by `\n` or end-of-input. We capture
+ * the first line as a raw string, then re-parse it as inline markdown so the
+ * heading's content has the same shape as ATX headings. */
 const setextLine = many1WithJoin(noneOf("\n"));
 const setextH1Underline = map(many1(char("=")), () => 1 as const);
 const setextH2Underline = map(many1(char("-")), () => 2 as const);
 
-export const setextHeadingParser: Parser<Heading> = seqC(
+const _setextRaw = seqC(
   set("type", "heading"),
   capture(setextLine, "content"),
   char("\n"),
   capture(or(setextH1Underline, setextH2Underline), "level"),
   or(char("\n"), eof)
+);
+
+export const setextHeadingParser: Parser<Heading> = map(
+  _setextRaw,
+  (caps: any) => {
+    const inner = many1(inlineMarkdownParser)(caps.content);
+    return {
+      type: "heading" as const,
+      level: caps.level as number,
+      content: inner.success
+        ? (inner.result as Heading["content"])
+        : [{ type: "inline-text" as const, content: caps.content }],
+    };
+  }
 );
 
 /* Lists.

@@ -21,7 +21,7 @@ describe("headingParser", () => {
     const expected = {
       type: "heading",
       level: 1,
-      content: "Heading 1",
+      content: [{ type: "inline-text", content: "Heading 1" }],
     };
     expect(headingParser(input)).toEqual(success(expected, ""));
   });
@@ -31,7 +31,7 @@ describe("headingParser", () => {
     const expected = {
       type: "heading",
       level: 2,
-      content: "Heading 2",
+      content: [{ type: "inline-text", content: "Heading 2" }],
     };
     expect(headingParser(input)).toEqual(success(expected, ""));
   });
