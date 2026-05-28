@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { success } from "@/lib/types";
-import { linkDefinitionParser, resolveReferences } from "./references";
+import {
+  linkDefinitionParser,
+  footnoteDefinitionParser,
+  resolveReferences,
+} from "./references";
 
 describe("linkDefinitionParser", () => {
   it("parses [id]: url", () => {
@@ -24,6 +28,20 @@ describe("linkDefinitionParser", () => {
         id: "foo",
         url: "https://x",
         title: "T",
+      });
+    }
+  });
+});
+
+describe("footnoteDefinitionParser", () => {
+  it("parses [^id]: text", () => {
+    const res = footnoteDefinitionParser("[^1]: This is a footnote");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual({
+        type: "footnote-definition",
+        id: "1",
+        content: "This is a footnote",
       });
     }
   });
@@ -71,6 +89,22 @@ describe("resolveReferences", () => {
     ];
     const out = resolveReferences(ast) as any[];
     expect(out[0].content[0].type).toBe("inline-text");
+  });
+
+  it("resolves footnote refs", () => {
+    const ast = [
+      { type: "footnote-definition", id: "1", content: "This is a footnote" },
+      {
+        type: "paragraph",
+        content: [{ type: "inline-footnote-ref", id: "1" }],
+      },
+    ];
+    const out = resolveReferences(ast) as any[];
+    expect(out[0].content[0]).toEqual({
+      type: "inline-footnote-ref",
+      id: "1",
+      content: "This is a footnote",
+    });
   });
 
   it("case-insensitive id matching", () => {

@@ -17,7 +17,11 @@ import {
   listParser,
   tableParser,
 } from "./blocks";
-import { linkDefinitionParser, resolveReferences } from "./references";
+import {
+  linkDefinitionParser,
+  footnoteDefinitionParser,
+  resolveReferences,
+} from "./references";
 
 import { Parser, success } from "@/lib/types";
 
@@ -36,6 +40,7 @@ const _markdownParser = seq(
         blockQuoteParser,
         listParser,
         linkDefinitionParser,
+        footnoteDefinitionParser,
         paragraphParser,
         imageParser
       )

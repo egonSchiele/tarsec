@@ -7,8 +7,9 @@ import {
   map,
 } from "@/lib/combinators";
 import { char, str, set, noneOf, spaces } from "@/lib/parsers";
+import { manyTillStr, many1Till } from "@/lib/combinators";
 import { Parser } from "@/lib/types";
-import { LinkDef } from "./types";
+import { LinkDef, FootnoteDef } from "./types";
 
 /* Reference link definitions.
  *
@@ -37,16 +38,32 @@ export const linkDefinitionParser: Parser<LinkDef> = seqC(
   optional(capture(titleParser, "title"))
 );
 
+/* Footnote definitions: `[^id]: text` on a single line. */
+export const footnoteDefinitionParser: Parser<FootnoteDef> = seqC(
+  set("type", "footnote-definition"),
+  str("[^"),
+  capture(many1WithJoin(noneOf("] \n\t")), "id"),
+  str("]:"),
+  spaces,
+  capture(many1WithJoin(noneOf("\n")), "content")
+);
+
 /* Resolution pass.
  *
  * Walk the AST. Collect link-definitions, then rewrite ref nodes to inline
  * links/images and strip the definitions. Id matching is case-insensitive. */
 export function resolveReferences(ast: unknown[]): unknown[] {
-  const defs = new Map<string, LinkDef>();
+  const linkDefs = new Map<string, LinkDef>();
+  const footnoteDefs = new Map<string, FootnoteDef>();
   for (const node of ast) {
-    if (isObj(node) && (node as any).type === "link-definition") {
+    if (!isObj(node)) continue;
+    const t = (node as any).type;
+    if (t === "link-definition") {
       const def = node as LinkDef;
-      defs.set(def.id.toLowerCase(), def);
+      linkDefs.set(def.id.toLowerCase(), def);
+    } else if (t === "footnote-definition") {
+      const def = node as FootnoteDef;
+      footnoteDefs.set(def.id.toLowerCase(), def);
     }
   }
 
@@ -56,20 +73,27 @@ export function resolveReferences(ast: unknown[]): unknown[] {
     const obj = node as Record<string, unknown>;
 
     if (obj.type === "inline-ref-link") {
-      const def = defs.get(String(obj.id).toLowerCase());
+      const def = linkDefs.get(String(obj.id).toLowerCase());
       if (def) {
         return { type: "inline-link", content: obj.text, url: def.url };
       }
-      // unresolved → literal text
       return { type: "inline-text", content: `[${obj.text}]` };
     }
 
     if (obj.type === "inline-ref-image") {
-      const def = defs.get(String(obj.id).toLowerCase());
+      const def = linkDefs.get(String(obj.id).toLowerCase());
       if (def) {
         return { type: "image", url: def.url, alt: obj.alt };
       }
       return { type: "inline-text", content: `![${obj.alt}]` };
+    }
+
+    if (obj.type === "inline-footnote-ref") {
+      const def = footnoteDefs.get(String(obj.id).toLowerCase());
+      if (def) {
+        return { type: "inline-footnote-ref", id: obj.id, content: def.content };
+      }
+      return { type: "inline-text", content: `[^${obj.id}]` };
     }
 
     // recurse into known child-bearing fields
@@ -82,7 +106,14 @@ export function resolveReferences(ast: unknown[]): unknown[] {
   }
 
   return ast
-    .filter((n) => !(isObj(n) && (n as any).type === "link-definition"))
+    .filter(
+      (n) =>
+        !(
+          isObj(n) &&
+          ((n as any).type === "link-definition" ||
+            (n as any).type === "footnote-definition")
+        )
+    )
     .map(walk);
 }
 

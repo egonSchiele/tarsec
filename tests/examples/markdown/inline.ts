@@ -26,6 +26,7 @@ import {
   Image,
   InlineRefLink,
   InlineRefImage,
+  InlineFootnoteRef,
 } from "./types";
 
 import { optional, between } from "@/lib/combinators";
@@ -152,6 +153,12 @@ export const autolinkParser: Parser<InlineLink> = or(
   emailAutolinkParser
 );
 
+// Footnote reference: `[^id]` (id has no `]`, `\n`, or spaces).
+export const inlineFootnoteRefParser: Parser<InlineFootnoteRef> = map(
+  seqR(str("[^"), many1WithJoin(noneOf("] \n\t")), char("]")),
+  (parts) => ({ type: "inline-footnote-ref", id: parts[1] as string })
+);
+
 // `[...]` where ... is one or more characters that aren't `]` or newline.
 const bracketed = between(char("["), char("]"), noneOf("]\n"));
 const bracketedAsString = map(bracketed, (chars) => (chars as string[]).join(""));
@@ -233,6 +240,7 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   autolinkParser,
   imageParser,
   inlineRefImageParser,
+  inlineFootnoteRefParser,
   inlineLinkParser,
   inlineRefLinkParser,
   inlineCodeParser,

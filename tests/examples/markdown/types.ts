@@ -11,7 +11,8 @@ export type InlineMarkdown =
   | InlineCode
   | Image
   | InlineRefLink
-  | InlineRefImage;
+  | InlineRefImage
+  | InlineFootnoteRef;
 
 export type InlineText = {
   type: "inline-text";
@@ -124,4 +125,17 @@ export type LinkDef = {
   id: string;
   url: string;
   title?: string;
+};
+
+export type InlineFootnoteRef = {
+  type: "inline-footnote-ref";
+  id: string;
+  /** Filled in by `resolveReferences` when a matching FootnoteDef exists. */
+  content?: string;
+};
+
+export type FootnoteDef = {
+  type: "footnote-definition";
+  id: string;
+  content: string;
 };
