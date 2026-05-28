@@ -72,7 +72,7 @@ describe("markdownParser integration", () => {
       expect(paragraph.type).toBe("paragraph");
       expect(paragraph.content[0]).toEqual({
         type: "inline-link",
-        content: "hi",
+        content: [{ type: "inline-text", content: "hi" }],
         url: "https://example.com",
       });
     }

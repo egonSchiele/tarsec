@@ -59,7 +59,13 @@ describe("resolveReferences", () => {
     expect(resolveReferences(ast)).toEqual([
       {
         type: "paragraph",
-        content: [{ type: "inline-link", content: "hi", url: "https://x" }],
+        content: [
+          {
+            type: "inline-link",
+            content: [{ type: "inline-text", content: "hi" }],
+            url: "https://x",
+          },
+        ],
       },
     ]);
   });

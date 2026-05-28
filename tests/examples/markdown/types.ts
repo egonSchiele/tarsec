@@ -45,7 +45,7 @@ export type InlineHardBreak = {
 
 export type InlineLink = {
   type: "inline-link";
-  content: string;
+  content: InlineMarkdown[];
   url: string;
 };
 

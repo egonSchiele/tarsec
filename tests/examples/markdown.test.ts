@@ -104,7 +104,7 @@ describe("paragraphParser", () => {
         },
         {
           type: "inline-link",
-          content: "nearley",
+          content: [{ type: "inline-text", content: "nearley" }],
           url: "https://nearley.js.org/",
         },
         {
@@ -113,7 +113,7 @@ describe("paragraphParser", () => {
         },
         {
           type: "inline-link",
-          content: "yacc",
+          content: [{ type: "inline-text", content: "yacc" }],
           url: "https://silcnitc.github.io/yacc.html",
         },
         {
@@ -176,7 +176,7 @@ describe("inlineLinkParser", () => {
     const input = "[Link Text](https://example.com)";
     const expected = {
       type: "inline-link",
-      content: "Link Text",
+      content: [{ type: "inline-text", content: "Link Text" }],
       url: "https://example.com",
     };
     expect(inlineLinkParser(input)).toEqual(success(expected, ""));
@@ -236,7 +236,7 @@ describe("inlineMarkdownParser", () => {
     const expected = success(
       {
         type: "inline-link",
-        content: "Link Text",
+        content: [{ type: "inline-text", content: "Link Text" }],
         url: "https://example.com",
       },
       ""

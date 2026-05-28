@@ -75,7 +75,11 @@ export function resolveReferences(ast: unknown[]): unknown[] {
     if (obj.type === "inline-ref-link") {
       const def = linkDefs.get(String(obj.id).toLowerCase());
       if (def) {
-        return { type: "inline-link", content: obj.text, url: def.url };
+        return {
+          type: "inline-link",
+          content: [{ type: "inline-text", content: obj.text }],
+          url: def.url,
+        };
       }
       return { type: "inline-text", content: `[${obj.text}]` };
     }

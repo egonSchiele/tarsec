@@ -261,7 +261,7 @@ describe("autolinks", () => {
     if (res.success)
       expect(res.result).toEqual({
         type: "inline-link",
-        content: "https://example.com",
+        content: [{ type: "inline-text", content: "https://example.com" }],
         url: "https://example.com",
       });
   });
@@ -278,7 +278,7 @@ describe("autolinks", () => {
     if (res.success)
       expect(res.result).toEqual({
         type: "inline-link",
-        content: "a@b.com",
+        content: [{ type: "inline-text", content: "a@b.com" }],
         url: "mailto:a@b.com",
       });
   });
@@ -314,6 +314,26 @@ describe("strikethrough", () => {
             content: [{ type: "inline-text", content: "bold" }],
           },
           { type: "inline-text", content: " gone" },
+        ],
+      });
+    }
+  });
+
+  it("inline-link content carries nested inline nodes", () => {
+    const res = inlineMarkdownParser("[a **b** `c`](u)");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual({
+        type: "inline-link",
+        url: "u",
+        content: [
+          { type: "inline-text", content: "a " },
+          {
+            type: "inline-bold",
+            content: [{ type: "inline-text", content: "b" }],
+          },
+          { type: "inline-text", content: " " },
+          { type: "inline-code", content: "c" },
         ],
       });
     }

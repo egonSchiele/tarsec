@@ -34,9 +34,10 @@ import { optional, between } from "@/lib/combinators";
 
 // Stop inline-text at any single delimiter char OR at a hard-break sequence
 // ("  \n"+). Using many1Till with an `or` of delimiters makes the stop set
-// composable rather than embedded inside a regex.
+// composable rather than embedded inside a regex. `]` is included so that
+// inline-text inside a link-text (`[...]`) terminates at the closing `]`.
 const inlineTextStop: Parser<unknown> = or(
-  oneOf("*_`[!<~\\\n"),
+  oneOf("*_`[]!<~\\\n"),
   str("  ")
 );
 
@@ -83,13 +84,19 @@ export const inlineItalicParser: Parser<InlineItalic> = map(
   ({ content }) => ({ type: "inline-italic" as const, content: content as InlineMarkdown[] })
 );
 
-export const inlineLinkParser: Parser<InlineLink> = seqC(
-  set("type", "inline-link"),
-  str("["),
-  capture(iManyTillStr("]("), "content"),
-  str("]("),
-  capture(iManyTillStr(")"), "url"),
-  str(")")
+export const inlineLinkParser: Parser<InlineLink> = map(
+  seqC(
+    char("["),
+    capture(inlineSeqUntil(char("]")), "content"),
+    str("]("),
+    capture(iManyTillStr(")"), "url"),
+    str(")")
+  ),
+  ({ content, url }) => ({
+    type: "inline-link" as const,
+    content: content as InlineMarkdown[],
+    url,
+  })
 );
 
 export const inlineCodeParser: Parser<InlineCode> = seqC(
@@ -170,16 +177,21 @@ const emailBody = map(
   (parts) => parts.join("")
 );
 
+// Wrap a literal string as the single-text content array used by InlineLink.
+const asTextContent = (s: string): InlineMarkdown[] => [
+  { type: "inline-text", content: s },
+];
+
 export const urlAutolinkParser: Parser<InlineLink> = map(
   seqC(char("<"), capture(urlBody, "url"), char(">")),
-  ({ url }) => ({ type: "inline-link" as const, content: url, url })
+  ({ url }) => ({ type: "inline-link" as const, content: asTextContent(url), url })
 );
 
 export const emailAutolinkParser: Parser<InlineLink> = map(
   seqC(char("<"), capture(emailBody, "email"), char(">")),
   ({ email }) => ({
     type: "inline-link" as const,
-    content: email,
+    content: asTextContent(email),
     url: `mailto:${email}`,
   })
 );
@@ -266,7 +278,7 @@ export const inlineStrikeParser: Parser<InlineStrike> = map(
  *  the paragraph. Matches one of the inline-text stop characters. */
 export const inlineLiteralCharParser: Parser<InlineText> = seqC(
   set("type", "inline-text"),
-  capture(oneOf("*_`[!<~\\"), "content")
+  capture(oneOf("*_`[]!<~\\"), "content")
 );
 
 export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
