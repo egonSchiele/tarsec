@@ -2,18 +2,23 @@ import {
   seqC,
   seqR,
   capture,
+  captureCaptures,
   or,
   not,
   map,
   many,
+  many1,
   many1Till,
   many1WithJoin,
+  manyWithJoin,
   manyTillStr,
   iManyTillStr,
+  count,
+  exactly,
   lazy,
 } from "@/lib/combinators";
-import { str, char, set, oneOf, alphanum, noneOf } from "@/lib/parsers";
-import { Parser } from "@/lib/types";
+import { str, char, eof, set, oneOf, alphanum, noneOf } from "@/lib/parsers";
+import { Parser, success, failure } from "@/lib/types";
 import {
   InlineMarkdown,
   InlineText,
@@ -22,6 +27,7 @@ import {
   InlineBoldItalic,
   InlineStrike,
   InlineHardBreak,
+  InlineSoftBreak,
   InlineLink,
   InlineCode,
   Image,
@@ -84,27 +90,96 @@ export const inlineItalicParser: Parser<InlineItalic> = map(
   ({ content }) => ({ type: "inline-italic" as const, content: content as InlineMarkdown[] })
 );
 
+/* URL + optional title used by both inline-link and inline-image parsers.
+ * `urlToken` is whitespace- and `)`-terminated. Empty destinations (`[a]()`)
+ * are allowed via `manyWithJoin` (zero-or-more). `titleClause` is an
+ * optional leading-space-separated `"..."` or `'...'`. Both are pure
+ * combinator-based so the link/image parsers can share them. */
+const urlToken: Parser<string> = manyWithJoin(noneOf(" \t\n)"));
+
+const titleClause: Parser<string> = map(
+  seqC(
+    many1(char(" ")),
+    captureCaptures(
+      or(
+        seqC(char('"'), capture(manyTillStr('"'), "title"), char('"')),
+        seqC(char("'"), capture(manyTillStr("'"), "title"), char("'"))
+      )
+    )
+  ),
+  ({ title }) => title
+);
+
 export const inlineLinkParser: Parser<InlineLink> = map(
   seqC(
     char("["),
     capture(inlineSeqUntil(char("]")), "content"),
     str("]("),
-    capture(iManyTillStr(")"), "url"),
-    str(")")
+    capture(urlToken, "url"),
+    capture(optional(titleClause), "title"),
+    char(")")
   ),
-  ({ content, url }) => ({
-    type: "inline-link" as const,
-    content: content as InlineMarkdown[],
-    url,
-  })
+  ({ content, url, title }) => {
+    const link: InlineLink = {
+      type: "inline-link",
+      content: content as InlineMarkdown[],
+      url,
+    };
+    if (title != null) link.title = title;
+    return link;
+  }
 );
 
-export const inlineCodeParser: Parser<InlineCode> = seqC(
-  set("type", "inline-code"),
-  str("`"),
-  capture(manyTillStr("`"), "content"),
-  str("`")
-);
+/* Multi-backtick code spans.
+ *
+ *   `foo`            → "foo"
+ *   ``a`b``          → "a`b"       (close on exactly N backticks)
+ *   `` foo ``        → "foo"       (strip one space on each side when both)
+ *   `   `            → "   "       (don't strip if content is all spaces)
+ *
+ * The opener is a run of N backticks; the closer is another run of *exactly*
+ * N backticks. Body atoms are either a single non-tick char or a tick run
+ * whose length is *not* N (so it can't be misread as the closer). The opener
+ * count threads into the closer via a small wrapper — every other piece is
+ * combinator-shaped. */
+const tickRun: Parser<number> = count(char("`"));
+
+const tickRunOf = (n: number): Parser<unknown> =>
+  seqR(exactly(n, char("`")), or(not(char("`")), eof));
+
+const codeBodyAtom = (n: number): Parser<string> =>
+  or(
+    noneOf("`"),
+    map(
+      seqR(not(tickRunOf(n)), many1(char("`"))),
+      (parts) => (parts[1] as string[]).join("")
+    )
+  );
+
+const codeBody = (n: number): Parser<string> =>
+  manyWithJoin(codeBodyAtom(n));
+
+const stripCodeSpan = (s: string): string =>
+  s.length >= 2 && s.startsWith(" ") && s.endsWith(" ") && s.trim().length > 0
+    ? s.slice(1, -1)
+    : s;
+
+export const inlineCodeParser: Parser<InlineCode> = (input) => {
+  const opened = tickRun(input);
+  if (!opened.success) return opened;
+  const n = opened.result;
+  const closed = map(
+    seqR(codeBody(n), tickRunOf(n)),
+    (parts) => stripCodeSpan(parts[0] as string)
+  )(opened.rest);
+  if (!closed.success) {
+    return failure("unmatched code span fence", input);
+  }
+  return success(
+    { type: "inline-code" as const, content: closed.result },
+    closed.rest
+  );
+};
 
 const ESCAPABLE = "\\`*_{}[]()#+-.!~<>|";
 export const inlineEscapeParser: Parser<InlineText> = seqC(
@@ -240,15 +315,23 @@ export const inlineRefImageParser: Parser<InlineRefImage> = map(
   })
 );
 
-/** An inline image: ![alt](url). Lives in `inline.ts` so it can participate
- *  in paragraph parsing without `blocks.ts` becoming a circular dep. */
-export const imageParser: Parser<Image> = seqC(
-  set("type", "image"),
-  str("!["),
-  capture(iManyTillStr("]("), "alt"),
-  str("]("),
-  capture(iManyTillStr(")"), "url"),
-  str(")")
+/** An inline image: ![alt](url) or ![alt](url "title"). Lives in `inline.ts`
+ *  so it can participate in paragraph parsing without `blocks.ts` becoming a
+ *  circular dep. */
+export const imageParser: Parser<Image> = map(
+  seqC(
+    str("!["),
+    capture(iManyTillStr("]("), "alt"),
+    str("]("),
+    capture(urlToken, "url"),
+    capture(optional(titleClause), "title"),
+    char(")")
+  ),
+  ({ alt, url, title }) => {
+    const img: Image = { type: "image", alt, url };
+    if (title != null) img.title = title;
+    return img;
+  }
 );
 
 export const hardBreakParser: Parser<InlineHardBreak> = map(
@@ -259,6 +342,14 @@ export const hardBreakParser: Parser<InlineHardBreak> = map(
     seqR(char("\\"), char("\n"))
   ),
   () => ({ type: "inline-hard-break" as const })
+);
+
+/** A single `\n` that is *not* part of a blank line (which would terminate the
+ *  enclosing paragraph). Hard breaks are matched earlier in `inlineMarkdownParser`'s
+ *  `or` so a "  \n" stays a hard break, never a soft one. */
+export const softBreakParser: Parser<InlineSoftBreak> = map(
+  seqR(char("\n"), not(char("\n"))),
+  () => ({ type: "inline-soft-break" as const })
 );
 
 export const inlineStrikeParser: Parser<InlineStrike> = map(

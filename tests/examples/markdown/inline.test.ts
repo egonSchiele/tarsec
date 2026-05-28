@@ -9,6 +9,9 @@ import {
   inlineItalicUnderscoreParser,
   inlineBoldUnderscoreParser,
   inlineSeqUntil,
+  inlineLinkParser,
+  imageParser,
+  inlineCodeParser,
 } from "./inline";
 
 describe("inlineSeqUntil", () => {
@@ -369,6 +372,118 @@ describe("bold-italic combined", () => {
   it("does not greedily eat ***x*** as bold of '*x*'", () => {
     const res = inlineMarkdownParser("***hey***");
     if (res.success) expect(res.result.type).toBe("inline-bold-italic");
+  });
+});
+
+describe("inlineCodeParser multi-backtick", () => {
+  it("parses a single-backtick code span", () => {
+    expect(inlineCodeParser("`foo`")).toEqual(
+      success({ type: "inline-code", content: "foo" }, "")
+    );
+  });
+
+  it("parses a double-backtick code span containing a single backtick", () => {
+    expect(inlineCodeParser("``a`b``")).toEqual(
+      success({ type: "inline-code", content: "a`b" }, "")
+    );
+  });
+
+  it("strips one leading and trailing space when both sides have one", () => {
+    const res = inlineCodeParser("`` foo ``");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe("foo");
+  });
+
+  it("does not strip when only one side has a space", () => {
+    const res = inlineCodeParser("` foo`");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe(" foo");
+  });
+
+  it("preserves all-space content unchanged", () => {
+    const res = inlineCodeParser("`   `");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe("   ");
+  });
+
+  it("fails on unmatched backtick runs", () => {
+    expect(inlineCodeParser("``foo`").success).toBe(false);
+  });
+});
+
+describe("inline-link titles", () => {
+  it("parses an inline link with an empty destination", () => {
+    const res = inlineLinkParser(`[a]()`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.url).toBe("");
+  });
+
+  it("preserves an explicitly empty title", () => {
+    const res = inlineLinkParser(`[a](u "")`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBe("");
+  });
+
+  it("parses an inline link with a double-quoted title", () => {
+    const res = inlineLinkParser(`[a](u "t")`);
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({
+        type: "inline-link",
+        content: [{ type: "inline-text", content: "a" }],
+        url: "u",
+        title: "t",
+      });
+  });
+
+  it("parses an inline link with a single-quoted title", () => {
+    const res = inlineLinkParser(`[a](u 't')`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBe("t");
+  });
+
+  it("still parses a link without a title", () => {
+    const res = inlineLinkParser(`[a](u)`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBeUndefined();
+  });
+});
+
+describe("image titles", () => {
+  it("parses an image with an empty destination", () => {
+    const res = imageParser(`![alt]()`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.url).toBe("");
+  });
+
+  it("preserves an explicitly empty title", () => {
+    const res = imageParser(`![alt](u "")`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBe("");
+  });
+
+  it("parses an image with a double-quoted title", () => {
+    const res = imageParser(`![alt](u "t")`);
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({
+        type: "image",
+        alt: "alt",
+        url: "u",
+        title: "t",
+      });
+  });
+
+  it("parses an image with a single-quoted title", () => {
+    const res = imageParser(`![alt](u 't')`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBe("t");
+  });
+
+  it("still parses an image without a title", () => {
+    const res = imageParser(`![alt](u)`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBeUndefined();
   });
 });
 

@@ -5,7 +5,8 @@ import {
   optional,
   or,
   manyTillStr,
-  count,
+  many1Till,
+  exactly,
   iManyTillStr,
   many,
   many1,
@@ -42,18 +43,54 @@ import {
 } from "./types";
 import { digit, letter } from "@/lib/parsers";
 import { manyTill } from "@/lib/combinators";
-import { inlineMarkdownParser, imageParser } from "./inline";
+import { inlineMarkdownParser, imageParser, softBreakParser } from "./inline";
 export { imageParser } from "./inline";
 
 const languageChar = or(alphanum, oneOf("_+#.-"));
 const languageTag = many1WithJoin(languageChar);
 
-export const headingParser: Parser<Heading> = seqC(
-  set("type", "heading"),
-  capture(count(char("#")), "level"),
-  spaces,
-  capture(many1(inlineMarkdownParser), "content"),
-  optional(char("\n"))
+/* ATX heading marker: 1–6 consecutive `#`, not followed by another `#`.
+ * Try widest first so `###` doesn't parse as level 1 and leave `##` behind.
+ * `not(char("#"))` rejects 7+ `#` runs (they fall through to a paragraph). */
+const atxMarker: Parser<number> = or(
+  ...[6, 5, 4, 3, 2, 1].map(
+    (n): Parser<number> =>
+      map(seqR(exactly(n, char("#")), not(char("#"))), () => n)
+  )
+);
+
+/* An optional trailing run of `#`s on an ATX heading: at least one separating
+ * space, one or more `#`, optional trailing spaces, then end-of-line. */
+const trailingHashRun: Parser<unknown> = seqR(
+  many1(char(" ")),
+  many1(char("#")),
+  many(char(" ")),
+  or(char("\n"), eof)
+);
+
+/* The heading body — everything up to (but not including) either the line end
+ * or a trailing `#` run. We capture this as a raw string then re-parse it as
+ * inline markdown so the body shape matches ATX/setext headings. */
+const headingBody: Parser<string> = many1Till(or(char("\n"), trailingHashRun));
+
+export const headingParser: Parser<Heading> = map(
+  seqC(
+    capture(atxMarker, "level"),
+    spaces,
+    capture(headingBody, "body"),
+    optional(trailingHashRun),
+    optional(char("\n"))
+  ),
+  ({ level, body }) => {
+    const inner = many1(inlineMarkdownParser)(body as string);
+    return {
+      type: "heading" as const,
+      level: level as number,
+      content: inner.success
+        ? (inner.result as Heading["content"])
+        : [{ type: "inline-text" as const, content: body as string }],
+    };
+  }
 );
 
 export const codeBlockParser: Parser<CodeBlock> = seqC(
@@ -364,8 +401,42 @@ export const horizontalRuleParser: Parser<HorizontalRule> = or(
 // (`blankLine` is declared near `htmlBlockParser` above, since both need it at
 //  module-eval time.)
 
+/* Block-level constructs that, if they would start at the *current* line
+ * position, must interrupt a soft-wrapped paragraph instead of being eaten
+ * as inline content. Setext is intentionally excluded — its underline is
+ * resolved by `setextHeadingParser` running ahead of `paragraphParser` in
+ * the top-level dispatch. */
+const blockInterrupt: Parser<unknown> = or(
+  // ATX heading (1–6 `#` then a space)
+  seqR(atxMarker, char(" ")),
+  // Block quote
+  char(">"),
+  // Fenced code block
+  str("```"),
+  // Horizontal rule (3+ of -, *, or _ with optional intervening spaces)
+  horizontalRuleParser,
+  // List marker (unordered or `<digits>.`) followed by a space
+  seqR(or(oneOf("-*+"), seqR(many1(digit), char("."))), char(" ")),
+  // Table row
+  char("|"),
+  // HTML block opener
+  seqR(char("<"), or(letter, oneOf("/!?")))
+);
+
+/* A paragraph node: an inline node OR a soft line break (single `\n` that
+ * isn't the start of a blank line *and* doesn't precede a block opener).
+ * Hard breaks ("  \n" / "\\\n") win over soft breaks because they're
+ * matched earlier inside `inlineMarkdownParser`'s `or`. */
+const paragraphSoftBreak: Parser<InlineMarkdown> = map(
+  seqR(softBreakParser, not(blockInterrupt)),
+  () => ({ type: "inline-soft-break" as const })
+);
+
 const paragraphInline: Parser<InlineMarkdown> = map(
-  seqC(not(blankLine), capture(inlineMarkdownParser, "node")),
+  seqC(
+    not(blankLine),
+    capture(or(paragraphSoftBreak, inlineMarkdownParser), "node")
+  ),
   ({ node }) => node as InlineMarkdown
 );
 

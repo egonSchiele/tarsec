@@ -1,4 +1,18 @@
 ## Unreleased
+- Markdown example: closes four CommonMark gaps —
+  - ATX headings cap at level 6 (7+ `#` runs fall through to a paragraph)
+    and an optional trailing `#` run (preceded by a space) is stripped
+    from the heading content.
+  - Inline links and images accept an optional `"title"` (or `'title'`),
+    captured into a new optional `title?: string` field on `InlineLink`
+    and `Image`.
+  - Inline code spans support N-backtick fences — ``` ``a`b`` ``` parses
+    as content `` a`b ``, closing only on a run of *exactly* N backticks.
+    One leading and trailing space is stripped when both sides have one
+    (and the content isn't all whitespace).
+  - Paragraphs now consume soft-wrapped lines and emit an
+    `inline-soft-break` between them; blank lines still terminate the
+    paragraph and hard breaks (`"  \n"` / `"\\\n"`) still take precedence.
 - Markdown example: inline emphasis, strikethrough, and inline-link nodes
   now carry `InlineMarkdown[]` content instead of `string`, so nested
   inlines like ``**[link](u)**`` or ``*foo `code` bar*`` round-trip through

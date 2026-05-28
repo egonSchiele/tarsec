@@ -60,6 +60,51 @@ describe("horizontalRuleParser", () => {
   });
 });
 
+describe("ATX heading level cap", () => {
+  it("parses heading levels 1–6", () => {
+    for (let n = 1; n <= 6; n++) {
+      const res = headingParser("#".repeat(n) + " Title");
+      expect(res.success).toBe(true);
+      if (res.success) expect(res.result.level).toBe(n);
+    }
+  });
+
+  it("rejects 7+ '#' as a heading", () => {
+    expect(headingParser("####### Title").success).toBe(false);
+  });
+});
+
+describe("ATX heading trailing '#' stripping", () => {
+  it("strips a trailing '#' run preceded by a space", () => {
+    const res = headingParser("## Heading ##");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "Heading" },
+      ]);
+  });
+
+  it("does not strip when there's no separating space", () => {
+    const res = headingParser("## Heading##");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "Heading##" },
+      ]);
+  });
+
+  it("strips trailing '#' followed by trailing spaces and newline", () => {
+    const res = headingParser("## Heading ###  \nrest");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "Heading" },
+      ]);
+      expect(res.rest).toBe("rest");
+    }
+  });
+});
+
 describe("ATX heading inline content", () => {
   it("parses bold inside a heading", () => {
     const res = headingParser("# hello **world**");
@@ -315,4 +360,66 @@ describe("paragraphParser blank-line termination", () => {
       expect(res.rest).toBe("");
     }
   });
+});
+
+describe("paragraphParser soft-wrapping", () => {
+  it("joins soft-wrapped lines into one paragraph with inline-soft-break", () => {
+    const res = paragraphParser("one\ntwo\nthree");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "one" },
+        { type: "inline-soft-break" },
+        { type: "inline-text", content: "two" },
+        { type: "inline-soft-break" },
+        { type: "inline-text", content: "three" },
+      ]);
+  });
+
+  it("terminates at a blank line, leaving the blank line in rest", () => {
+    const res = paragraphParser("one\ntwo\n\nthree");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "one" },
+        { type: "inline-soft-break" },
+        { type: "inline-text", content: "two" },
+      ]);
+      expect(res.rest).toBe("\n\nthree");
+    }
+  });
+
+  it("does not insert a soft break before a hard break", () => {
+    const res = paragraphParser("one  \ntwo");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "one" },
+        { type: "inline-hard-break" },
+        { type: "inline-text", content: "two" },
+      ]);
+  });
+
+  it.each<[string, string]>([
+    ["para\n# heading", "\n# heading"],
+    ["para\n> quote", "\n> quote"],
+    ["para\n- item", "\n- item"],
+    ["para\n1. item", "\n1. item"],
+    ["para\n```\ncode\n```", "\n```\ncode\n```"],
+    ["para\n---", "\n---"],
+    ["para\n| h | i |", "\n| h | i |"],
+    ["para\n<div>", "\n<div>"],
+  ])(
+    "stops a soft-wrapped paragraph before a block opener (%j)",
+    (input, expectedRest) => {
+      const res = paragraphParser(input);
+      expect(res.success).toBe(true);
+      if (res.success) {
+        expect(res.result.content).toEqual([
+          { type: "inline-text", content: "para" },
+        ]);
+        expect(res.rest).toBe(expectedRest);
+      }
+    }
+  );
 });

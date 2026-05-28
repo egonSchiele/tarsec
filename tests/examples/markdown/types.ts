@@ -2,6 +2,7 @@
 
 export type InlineMarkdown =
   | InlineText
+  | InlineSoftBreak
   | InlineBold
   | InlineItalic
   | InlineBoldItalic
@@ -43,10 +44,15 @@ export type InlineHardBreak = {
   type: "inline-hard-break";
 };
 
+export type InlineSoftBreak = {
+  type: "inline-soft-break";
+};
+
 export type InlineLink = {
   type: "inline-link";
   content: InlineMarkdown[];
   url: string;
+  title?: string;
 };
 
 export type InlineCode = {
@@ -81,6 +87,7 @@ export type Image = {
   type: "image";
   url: string;
   alt: string;
+  title?: string;
 };
 
 export type InlineRefLink = {
