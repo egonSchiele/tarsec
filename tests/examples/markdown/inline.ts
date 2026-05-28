@@ -276,6 +276,65 @@ export const autolinkParser: Parser<InlineLink> = or(
   emailAutolinkParser
 );
 
+/* Bare-URL GFM autolinks: `http(s)://…` without surrounding `<>`. The body
+ * accepts any non-whitespace, non-`<`/`>` character; after parsing, trailing
+ * sentence punctuation (`.,!?;:`) and a *single* unmatched closing `)` are
+ * stripped back into the surrounding text. The scheme + body parse is pure
+ * combinators; the post-strip is an unavoidable escape hatch (Tarsec has no
+ * "give back K characters" combinator and we want paren-balance and
+ * punctuation-trim to leave the trimmed chars in the surrounding stream). */
+const bareUrlScheme: Parser<string> = map(
+  seqC(
+    capture(str("http"), "scheme"),
+    capture(optional(char("s")), "s"),
+    str("://")
+  ),
+  ({ scheme, s }) => scheme + (s ?? "") + "://"
+);
+
+const bareUrlBody: Parser<string> = many1WithJoin(noneOf(" \t\n<>"));
+
+const bareUrlRaw: Parser<string> = map(
+  seqC(capture(bareUrlScheme, "scheme"), capture(bareUrlBody, "body")),
+  ({ scheme, body }) => scheme + body
+);
+
+/* Trim trailing sentence punctuation and unbalanced closing parens. Returns
+ * the kept URL and the number of chars that were trimmed (so the caller can
+ * restore them to the rest pointer). */
+const stripTrailingPunct = (url: string): { kept: string; dropped: number } => {
+  let end = url.length;
+  while (end > 0 && ".,!?;:".includes(url[end - 1])) end--;
+  let opens = 0;
+  let closes = 0;
+  for (let i = 0; i < end; i++) {
+    if (url[i] === "(") opens++;
+    else if (url[i] === ")") closes++;
+  }
+  while (closes > opens && end > 0 && url[end - 1] === ")") {
+    closes--;
+    end--;
+  }
+  return { kept: url.slice(0, end), dropped: url.length - end };
+};
+
+export const bareUrlAutolinkParser: Parser<InlineLink> = (input) => {
+  const parsed = bareUrlRaw(input);
+  if (!parsed.success) return parsed;
+  const { kept, dropped } = stripTrailingPunct(parsed.result);
+  // Restore trimmed trailing chars to the rest pointer. `kept` is a prefix
+  // of `input`, so the resumption offset is exactly `kept.length`.
+  const rest = dropped === 0 ? parsed.rest : input.slice(kept.length);
+  return success(
+    {
+      type: "inline-link" as const,
+      content: [{ type: "inline-text" as const, content: kept }],
+      url: kept,
+    },
+    rest
+  );
+};
+
 // Footnote reference: `[^id]` (id has no `]`, `\n`, or spaces).
 export const inlineFootnoteRefParser: Parser<InlineFootnoteRef> = seqC(
   set("type", "inline-footnote-ref"),
@@ -382,6 +441,7 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineItalicUnderscoreParser,
   inlineStrikeParser,
   autolinkParser,
+  bareUrlAutolinkParser,
   imageParser,
   inlineRefImageParser,
   inlineFootnoteRefParser,
