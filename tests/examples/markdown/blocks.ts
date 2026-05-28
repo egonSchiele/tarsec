@@ -37,6 +37,8 @@ import {
   HorizontalRule,
   List,
   ListItem,
+  Table,
+  Alignment,
 } from "./types";
 import { failure } from "@/lib/types";
 import { digit } from "@/lib/parsers";
@@ -225,6 +227,64 @@ function listParserAt(indent: number): Parser<List> {
 }
 
 export const listParser: Parser<List> = listParserAt(0);
+
+/* Tables.
+ *
+ * Pipe-delimited GFM-style. A table is:
+ *
+ *   | h1 | h2 |     ← header row
+ *   |----|:--:|     ← separator row, with alignment markers
+ *   | a  | b  |     ← one or more data rows
+ *
+ * Each cell is `noneOf("|\n")`. We `map` the captured content to `.trim()`
+ * so headers/rows aren't padded with spaces. */
+const cellContent = map(many1WithJoin(noneOf("|\n")), (s) => s.trim());
+
+const tableRow: Parser<string[]> = map(
+  seqR(
+    char("|"),
+    many1(map(seqR(cellContent, char("|")), (p) => p[0] as string)),
+    or(char("\n"), eof)
+  ),
+  (parts) => parts[1] as string[]
+);
+
+const sepCell: Parser<Alignment> = map(
+  seqR(
+    many(char(" ")),
+    optional(char(":")),
+    many1(char("-")),
+    optional(char(":")),
+    many(char(" "))
+  ),
+  (parts) => {
+    const leftColon = parts[1] !== null;
+    const rightColon = parts[3] !== null;
+    if (leftColon && rightColon) return "center";
+    if (rightColon) return "right";
+    if (leftColon) return "left";
+    return null;
+  }
+);
+
+const sepRow: Parser<Alignment[]> = map(
+  seqR(
+    char("|"),
+    many1(map(seqR(sepCell, char("|")), (p) => p[0] as Alignment)),
+    or(char("\n"), eof)
+  ),
+  (parts) => parts[1] as Alignment[]
+);
+
+export const tableParser: Parser<Table> = map(
+  seqR(tableRow, sepRow, many1(tableRow)),
+  (parts) => ({
+    type: "table",
+    headers: parts[0] as string[],
+    alignments: parts[1] as Alignment[],
+    rows: parts[2] as string[][],
+  })
+);
 
 /* Horizontal rules:  three-or-more of the same `-`, `*`, or `_`,
  * with optional spaces between, ending in newline or eof. */

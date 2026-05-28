@@ -8,6 +8,7 @@ import {
   indentedCodeBlockParser,
   blockQuoteParser,
   listParser,
+  tableParser,
 } from "./blocks";
 
 describe("codeBlockParser language tag", () => {
@@ -54,6 +55,31 @@ describe("horizontalRuleParser", () => {
     const res = horizontalRuleParser("---\nfoo");
     expect(res.success).toBe(true);
     if (res.success) expect(res.rest).toBe("foo");
+  });
+});
+
+describe("tableParser", () => {
+  it("parses a table with header, alignments, and rows", () => {
+    const input =
+      "| h1 | h2 | h3 |\n" +
+      "|:---|---:|:---:|\n" +
+      "| a  | b  | c  |\n" +
+      "| d  | e  | f  |";
+    const res = tableParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.headers).toEqual(["h1", "h2", "h3"]);
+      expect(res.result.alignments).toEqual(["left", "right", "center"]);
+      expect(res.result.rows).toEqual([
+        ["a", "b", "c"],
+        ["d", "e", "f"],
+      ]);
+    }
+  });
+
+  it("fails when the separator row is missing", () => {
+    const input = "| h1 | h2 |\n| a | b |";
+    expect(tableParser(input).success).toBe(false);
   });
 });
 

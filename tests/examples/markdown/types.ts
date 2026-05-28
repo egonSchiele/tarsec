@@ -109,3 +109,12 @@ export type List = {
 export type HorizontalRule = {
   type: "horizontal-rule";
 };
+
+export type Alignment = "left" | "right" | "center" | null;
+
+export type Table = {
+  type: "table";
+  headers: string[];
+  alignments: Alignment[];
+  rows: string[][];
+};
