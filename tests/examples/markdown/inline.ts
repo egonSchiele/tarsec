@@ -17,10 +17,19 @@ import {
   InlineCode,
 } from "./types";
 
-export const inlineTextParser: Parser<InlineText> = seqC(
+import { failure } from "@/lib/types";
+
+const _inlineTextParser = seqC(
   set("type", "inline-text"),
   capture(manyTillOneOf(["*", "`", "[", "\n"]), "content")
 );
+export const inlineTextParser: Parser<InlineText> = (input) => {
+  const res = _inlineTextParser(input);
+  if (res.success && (res.result as InlineText).content === "") {
+    return failure("empty inline text", input);
+  }
+  return res;
+};
 
 export const inlineBoldParser: Parser<InlineBold> = seqC(
   set("type", "inline-bold"),

@@ -1,5 +1,6 @@
 import {
   seqC,
+  seqR,
   capture,
   optional,
   many1Till,
@@ -7,8 +8,11 @@ import {
   manyTillStr,
   count,
   iManyTillStr,
+  many,
   many1,
   many1WithJoin,
+  map,
+  not,
 } from "@/lib/combinators";
 import {
   str,
@@ -20,6 +24,7 @@ import {
   oneOf,
 } from "@/lib/parsers";
 import { Parser, ParserResult, success } from "@/lib/types";
+import { InlineMarkdown } from "./types";
 import {
   Heading,
   CodeBlock,
@@ -64,8 +69,20 @@ export const imageParser: Parser<Image> = seqC(
   str(")")
 );
 
+// "\n" followed by zero or more spaces/tabs followed by another "\n" or end of input.
+export const blankLine: Parser<unknown> = seqR(
+  char("\n"),
+  many(oneOf(" \t")),
+  or(char("\n"), eof)
+);
+
+const paragraphInline: Parser<InlineMarkdown> = map(
+  seqR(not(blankLine), inlineMarkdownParser),
+  (parts) => parts[1] as InlineMarkdown
+);
+
 export function paragraphParser(input: string): ParserResult<Paragraph> {
-  const inline = many1(inlineMarkdownParser)(input);
+  const inline = many1(paragraphInline)(input);
   if (!inline.success) {
     return inline;
   }
