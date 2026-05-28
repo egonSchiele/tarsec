@@ -14,6 +14,7 @@ import {
   InlineText,
   InlineBold,
   InlineItalic,
+  InlineBoldItalic,
   InlineLink,
   InlineCode,
 } from "./types";
@@ -73,6 +74,21 @@ export const inlineEscapeParser: Parser<InlineText> = seqC(
   capture(oneOf(ESCAPABLE), "content")
 );
 
+export const inlineBoldItalicParser: Parser<InlineBoldItalic> = or(
+  seqC(
+    set("type", "inline-bold-italic"),
+    str("***"),
+    capture(manyTillStr("***"), "content"),
+    str("***")
+  ),
+  seqC(
+    set("type", "inline-bold-italic"),
+    str("___"),
+    capture(manyTillStr("___"), "content"),
+    str("___")
+  )
+);
+
 export const inlineBoldUnderscoreParser: Parser<InlineBold> = seqC(
   set("type", "inline-bold"),
   str("__"),
@@ -100,6 +116,7 @@ export const inlineLiteralCharParser: Parser<InlineText> = seqC(
 
 export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineEscapeParser,
+  inlineBoldItalicParser,
   inlineBoldParser,
   inlineItalicParser,
   inlineBoldUnderscoreParser,

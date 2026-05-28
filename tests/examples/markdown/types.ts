@@ -4,6 +4,7 @@ export type InlineMarkdown =
   | InlineText
   | InlineBold
   | InlineItalic
+  | InlineBoldItalic
   | InlineLink
   | InlineCode;
 
@@ -19,6 +20,11 @@ export type InlineBold = {
 
 export type InlineItalic = {
   type: "inline-italic";
+  content: string;
+};
+
+export type InlineBoldItalic = {
+  type: "inline-bold-italic";
   content: string;
 };
 

@@ -112,6 +112,27 @@ describe("underscore emphasis", () => {
   });
 });
 
+describe("bold-italic combined", () => {
+  it("parses ***x*** as bold-italic", () => {
+    const res = inlineMarkdownParser("***hey***");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "inline-bold-italic", content: "hey" });
+  });
+
+  it("parses ___x___ as bold-italic", () => {
+    const res = inlineMarkdownParser("___hey___");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "inline-bold-italic", content: "hey" });
+  });
+
+  it("does not greedily eat ***x*** as bold of '*x*'", () => {
+    const res = inlineMarkdownParser("***hey***");
+    if (res.success) expect(res.result.type).toBe("inline-bold-italic");
+  });
+});
+
 describe("literal-delimiter fallback", () => {
   it("falls back to literal _ when underscore italic does not apply", () => {
     // first take 'snake', then literal '_', then 'case', then '_', then 'word'
