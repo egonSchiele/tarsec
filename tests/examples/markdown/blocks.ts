@@ -31,7 +31,9 @@ import {
   BlockQuote,
   Image,
   Paragraph,
+  HorizontalRule,
 } from "./types";
+import { failure } from "@/lib/types";
 import { inlineMarkdownParser, imageParser } from "./inline";
 export { imageParser } from "./inline";
 
@@ -59,6 +61,34 @@ export const blockQuoteParser: Parser<BlockQuote> = seqC(
   str(">"),
   spaces,
   capture(manyTillStr("\n"), "content")
+);
+
+/* Horizontal rules:  three-or-more of the same `-`, `*`, or `_`,
+ * with optional spaces between, ending in newline or eof. */
+const hrSpaces = many(char(" "));
+const hrOf = (c: string): Parser<number> =>
+  map(
+    seqR(
+      hrSpaces,
+      char(c),
+      count(seqR(hrSpaces, char(c))),
+      hrSpaces,
+      or(char("\n"), eof)
+    ),
+    (parts) => parts[2] as number
+  );
+
+const hrRule = (c: string): Parser<HorizontalRule> => (input) => {
+  const res = hrOf(c)(input);
+  if (!res.success) return res;
+  if (res.result < 2) return failure("need 3+ HR chars", input);
+  return { ...res, result: { type: "horizontal-rule" as const } };
+};
+
+export const horizontalRuleParser: Parser<HorizontalRule> = or(
+  hrRule("-"),
+  hrRule("*"),
+  hrRule("_")
 );
 
 // "\n" followed by zero or more spaces/tabs followed by another "\n" or end of input.

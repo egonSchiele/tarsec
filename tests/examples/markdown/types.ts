@@ -98,3 +98,7 @@ export type List = {
   ordered: boolean;
   items: string[];
 };
+
+export type HorizontalRule = {
+  type: "horizontal-rule";
+};

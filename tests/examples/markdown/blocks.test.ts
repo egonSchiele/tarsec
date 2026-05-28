@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import { success } from "@/lib/types";
-import { codeBlockParser, paragraphParser } from "./blocks";
+import {
+  codeBlockParser,
+  paragraphParser,
+  horizontalRuleParser,
+} from "./blocks";
 
 describe("codeBlockParser language tag", () => {
   it("accepts hyphens, plus, and digits in language", () => {
@@ -21,6 +25,31 @@ describe("codeBlockParser language tag", () => {
   it("accepts ts2", () => {
     const input = "```ts2\nlet x;\n```";
     expect(codeBlockParser(input).success).toBe(true);
+  });
+});
+
+describe("horizontalRuleParser", () => {
+  it.each(["---", "***", "___", "- - -", "* * * *", "  ---  "])(
+    "parses %j as a horizontal rule",
+    (input) => {
+      const res = horizontalRuleParser(input);
+      expect(res.success).toBe(true);
+      if (res.success) expect(res.result).toEqual({ type: "horizontal-rule" });
+    }
+  );
+
+  it("rejects only two hyphens", () => {
+    expect(horizontalRuleParser("--").success).toBe(false);
+  });
+
+  it("rejects -a- (mixed chars)", () => {
+    expect(horizontalRuleParser("-a-").success).toBe(false);
+  });
+
+  it("leaves following input untouched", () => {
+    const res = horizontalRuleParser("---\nfoo");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.rest).toBe("foo");
   });
 });
 
