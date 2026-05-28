@@ -11,6 +11,7 @@ import {
   inlineSeqUntil,
   inlineLinkParser,
   imageParser,
+  inlineCodeParser,
 } from "./inline";
 
 describe("inlineSeqUntil", () => {
@@ -371,6 +372,42 @@ describe("bold-italic combined", () => {
   it("does not greedily eat ***x*** as bold of '*x*'", () => {
     const res = inlineMarkdownParser("***hey***");
     if (res.success) expect(res.result.type).toBe("inline-bold-italic");
+  });
+});
+
+describe("inlineCodeParser multi-backtick", () => {
+  it("parses a single-backtick code span", () => {
+    expect(inlineCodeParser("`foo`")).toEqual(
+      success({ type: "inline-code", content: "foo" }, "")
+    );
+  });
+
+  it("parses a double-backtick code span containing a single backtick", () => {
+    expect(inlineCodeParser("``a`b``")).toEqual(
+      success({ type: "inline-code", content: "a`b" }, "")
+    );
+  });
+
+  it("strips one leading and trailing space when both sides have one", () => {
+    const res = inlineCodeParser("`` foo ``");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe("foo");
+  });
+
+  it("does not strip when only one side has a space", () => {
+    const res = inlineCodeParser("` foo`");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe(" foo");
+  });
+
+  it("preserves all-space content unchanged", () => {
+    const res = inlineCodeParser("`   `");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe("   ");
+  });
+
+  it("fails on unmatched backtick runs", () => {
+    expect(inlineCodeParser("``foo`").success).toBe(false);
   });
 });
 
