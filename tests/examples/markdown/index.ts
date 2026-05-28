@@ -3,8 +3,8 @@ export * from "./inline";
 export * from "./blocks";
 export * from "./references";
 
-import { seq, sepBy, or, optional } from "@/lib/combinators";
-import { spaces } from "@/lib/parsers";
+import { seq, sepBy, or, optional, many1 } from "@/lib/combinators";
+import { spaces, newline } from "@/lib/parsers";
 import {
   headingParser,
   codeBlockParser,
@@ -26,11 +26,17 @@ import {
 
 import { Parser, success } from "@/lib/types";
 
+// Block separator: one or more newlines (with optional trailing horizontal
+// whitespace). Crucially this does NOT consume leading indentation on the
+// next block — so a 4-space indented code block isn't dewhitespaced before
+// indentedCodeBlockParser ever sees it.
+const blockSeparator = many1(newline);
+
 const _markdownParser = seq(
   [
     optional(spaces),
     sepBy(
-      spaces,
+      blockSeparator,
       or(
         setextHeadingParser,
         horizontalRuleParser,
