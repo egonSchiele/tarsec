@@ -112,6 +112,20 @@ describe("underscore emphasis", () => {
   });
 });
 
+describe("strikethrough", () => {
+  it("parses ~~gone~~", () => {
+    const res = inlineMarkdownParser("~~gone~~");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "inline-strike", content: "gone" });
+  });
+
+  it("falls back to literal ~ when not paired", () => {
+    const res = inlineMarkdownParser("~lone");
+    if (res.success) expect(res.result).toEqual({ type: "inline-text", content: "~" });
+  });
+});
+
 describe("bold-italic combined", () => {
   it("parses ***x*** as bold-italic", () => {
     const res = inlineMarkdownParser("***hey***");

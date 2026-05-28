@@ -15,6 +15,7 @@ import {
   InlineBold,
   InlineItalic,
   InlineBoldItalic,
+  InlineStrike,
   InlineLink,
   InlineCode,
 } from "./types";
@@ -106,6 +107,13 @@ export const inlineItalicUnderscoreParser: Parser<InlineItalic> = seqC(
   not(alphanum)
 );
 
+export const inlineStrikeParser: Parser<InlineStrike> = seqC(
+  set("type", "inline-strike"),
+  str("~~"),
+  capture(manyTillStr("~~"), "content"),
+  str("~~")
+);
+
 /** Last-resort: consume a single delimiter char as literal text so unmatched
  *  delimiters (e.g. the `_` in snake_case_word, or a stray `*`) don't crash
  *  the paragraph. Matches one of the inline-text stop characters. */
@@ -121,6 +129,7 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineItalicParser,
   inlineBoldUnderscoreParser,
   inlineItalicUnderscoreParser,
+  inlineStrikeParser,
   inlineLinkParser,
   inlineCodeParser,
   inlineTextParser,
