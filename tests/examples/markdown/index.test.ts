@@ -77,4 +77,37 @@ describe("markdownParser integration", () => {
       });
     }
   });
+
+  it("nested inlines round-trip through markdownParser", () => {
+    const res = markdownParser(
+      "Try **[the docs](https://x.dev)** or *`run --help`* now."
+    );
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual([
+        {
+          type: "paragraph",
+          content: [
+            { type: "inline-text", content: "Try " },
+            {
+              type: "inline-bold",
+              content: [
+                {
+                  type: "inline-link",
+                  url: "https://x.dev",
+                  content: [{ type: "inline-text", content: "the docs" }],
+                },
+              ],
+            },
+            { type: "inline-text", content: " or " },
+            {
+              type: "inline-italic",
+              content: [{ type: "inline-code", content: "run --help" }],
+            },
+            { type: "inline-text", content: " now." },
+          ],
+        },
+      ]);
+    }
+  });
 });
