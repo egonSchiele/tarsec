@@ -2,6 +2,7 @@
 
 export type InlineMarkdown =
   | InlineText
+  | InlineSoftBreak
   | InlineBold
   | InlineItalic
   | InlineBoldItalic
@@ -41,6 +42,10 @@ export type InlineStrike = {
 
 export type InlineHardBreak = {
   type: "inline-hard-break";
+};
+
+export type InlineSoftBreak = {
+  type: "inline-soft-break";
 };
 
 export type InlineLink = {

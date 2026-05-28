@@ -43,7 +43,7 @@ import {
 } from "./types";
 import { digit, letter } from "@/lib/parsers";
 import { manyTill } from "@/lib/combinators";
-import { inlineMarkdownParser, imageParser } from "./inline";
+import { inlineMarkdownParser, imageParser, softBreakParser } from "./inline";
 export { imageParser } from "./inline";
 
 const languageChar = or(alphanum, oneOf("_+#.-"));
@@ -401,8 +401,15 @@ export const horizontalRuleParser: Parser<HorizontalRule> = or(
 // (`blankLine` is declared near `htmlBlockParser` above, since both need it at
 //  module-eval time.)
 
+/* A paragraph node: an inline node OR a soft line break (single `\n` that
+ * isn't the start of a blank line). Hard breaks ("  \n" / "\\\n") win over
+ * soft breaks because they're matched earlier inside `inlineMarkdownParser`'s
+ * `or`. */
 const paragraphInline: Parser<InlineMarkdown> = map(
-  seqC(not(blankLine), capture(inlineMarkdownParser, "node")),
+  seqC(
+    not(blankLine),
+    capture(or(softBreakParser, inlineMarkdownParser), "node")
+  ),
   ({ node }) => node as InlineMarkdown
 );
 

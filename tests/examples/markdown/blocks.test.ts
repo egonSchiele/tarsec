@@ -361,3 +361,42 @@ describe("paragraphParser blank-line termination", () => {
     }
   });
 });
+
+describe("paragraphParser soft-wrapping", () => {
+  it("joins soft-wrapped lines into one paragraph with inline-soft-break", () => {
+    const res = paragraphParser("one\ntwo\nthree");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "one" },
+        { type: "inline-soft-break" },
+        { type: "inline-text", content: "two" },
+        { type: "inline-soft-break" },
+        { type: "inline-text", content: "three" },
+      ]);
+  });
+
+  it("terminates at a blank line, leaving the blank line in rest", () => {
+    const res = paragraphParser("one\ntwo\n\nthree");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "one" },
+        { type: "inline-soft-break" },
+        { type: "inline-text", content: "two" },
+      ]);
+      expect(res.rest).toBe("\n\nthree");
+    }
+  });
+
+  it("does not insert a soft break before a hard break", () => {
+    const res = paragraphParser("one  \ntwo");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result.content).toEqual([
+        { type: "inline-text", content: "one" },
+        { type: "inline-hard-break" },
+        { type: "inline-text", content: "two" },
+      ]);
+  });
+});

@@ -26,6 +26,7 @@ import {
   InlineBoldItalic,
   InlineStrike,
   InlineHardBreak,
+  InlineSoftBreak,
   InlineLink,
   InlineCode,
   Image,
@@ -339,6 +340,14 @@ export const hardBreakParser: Parser<InlineHardBreak> = map(
     seqR(char("\\"), char("\n"))
   ),
   () => ({ type: "inline-hard-break" as const })
+);
+
+/** A single `\n` that is *not* part of a blank line (which would terminate the
+ *  enclosing paragraph). Hard breaks are matched earlier in `inlineMarkdownParser`'s
+ *  `or` so a "  \n" stays a hard break, never a soft one. */
+export const softBreakParser: Parser<InlineSoftBreak> = map(
+  seqR(char("\n"), not(char("\n"))),
+  () => ({ type: "inline-soft-break" as const })
 );
 
 export const inlineStrikeParser: Parser<InlineStrike> = map(
