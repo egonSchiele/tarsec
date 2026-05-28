@@ -9,6 +9,8 @@ import {
   inlineItalicUnderscoreParser,
   inlineBoldUnderscoreParser,
   inlineSeqUntil,
+  inlineLinkParser,
+  imageParser,
 } from "./inline";
 
 describe("inlineSeqUntil", () => {
@@ -369,6 +371,58 @@ describe("bold-italic combined", () => {
   it("does not greedily eat ***x*** as bold of '*x*'", () => {
     const res = inlineMarkdownParser("***hey***");
     if (res.success) expect(res.result.type).toBe("inline-bold-italic");
+  });
+});
+
+describe("inline-link titles", () => {
+  it("parses an inline link with a double-quoted title", () => {
+    const res = inlineLinkParser(`[a](u "t")`);
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({
+        type: "inline-link",
+        content: [{ type: "inline-text", content: "a" }],
+        url: "u",
+        title: "t",
+      });
+  });
+
+  it("parses an inline link with a single-quoted title", () => {
+    const res = inlineLinkParser(`[a](u 't')`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBe("t");
+  });
+
+  it("still parses a link without a title", () => {
+    const res = inlineLinkParser(`[a](u)`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBeUndefined();
+  });
+});
+
+describe("image titles", () => {
+  it("parses an image with a double-quoted title", () => {
+    const res = imageParser(`![alt](u "t")`);
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({
+        type: "image",
+        alt: "alt",
+        url: "u",
+        title: "t",
+      });
+  });
+
+  it("parses an image with a single-quoted title", () => {
+    const res = imageParser(`![alt](u 't')`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBe("t");
+  });
+
+  it("still parses an image without a title", () => {
+    const res = imageParser(`![alt](u)`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBeUndefined();
   });
 });
 

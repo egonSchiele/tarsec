@@ -6,6 +6,7 @@ import {
   not,
   map,
   many,
+  many1,
   many1Till,
   many1WithJoin,
   manyTillStr,
@@ -84,19 +85,43 @@ export const inlineItalicParser: Parser<InlineItalic> = map(
   ({ content }) => ({ type: "inline-italic" as const, content: content as InlineMarkdown[] })
 );
 
+/* URL + optional title used by both inline-link and inline-image parsers.
+ * `urlToken` is whitespace- and `)`-terminated. `titleClause` is an optional
+ * leading-space-separated `"..."` or `'...'`. Both are pure combinator-based
+ * so the link/image parsers can share them without special casing. */
+const urlToken: Parser<string> = many1WithJoin(noneOf(" \t\n)"));
+
+const dqTitle: Parser<string> = map(
+  seqC(char('"'), capture(manyTillStr('"'), "t"), char('"')),
+  ({ t }) => t
+);
+const sqTitle: Parser<string> = map(
+  seqC(char("'"), capture(manyTillStr("'"), "t"), char("'")),
+  ({ t }) => t
+);
+const titleClause: Parser<string> = map(
+  seqC(many1(char(" ")), capture(or(dqTitle, sqTitle), "title")),
+  ({ title }) => title
+);
+
 export const inlineLinkParser: Parser<InlineLink> = map(
   seqC(
     char("["),
     capture(inlineSeqUntil(char("]")), "content"),
     str("]("),
-    capture(iManyTillStr(")"), "url"),
-    str(")")
+    capture(urlToken, "url"),
+    capture(optional(titleClause), "title"),
+    char(")")
   ),
-  ({ content, url }) => ({
-    type: "inline-link" as const,
-    content: content as InlineMarkdown[],
-    url,
-  })
+  ({ content, url, title }) => {
+    const link: InlineLink = {
+      type: "inline-link",
+      content: content as InlineMarkdown[],
+      url,
+    };
+    if (title) link.title = title;
+    return link;
+  }
 );
 
 export const inlineCodeParser: Parser<InlineCode> = seqC(
@@ -240,15 +265,23 @@ export const inlineRefImageParser: Parser<InlineRefImage> = map(
   })
 );
 
-/** An inline image: ![alt](url). Lives in `inline.ts` so it can participate
- *  in paragraph parsing without `blocks.ts` becoming a circular dep. */
-export const imageParser: Parser<Image> = seqC(
-  set("type", "image"),
-  str("!["),
-  capture(iManyTillStr("]("), "alt"),
-  str("]("),
-  capture(iManyTillStr(")"), "url"),
-  str(")")
+/** An inline image: ![alt](url) or ![alt](url "title"). Lives in `inline.ts`
+ *  so it can participate in paragraph parsing without `blocks.ts` becoming a
+ *  circular dep. */
+export const imageParser: Parser<Image> = map(
+  seqC(
+    str("!["),
+    capture(iManyTillStr("]("), "alt"),
+    str("]("),
+    capture(urlToken, "url"),
+    capture(optional(titleClause), "title"),
+    char(")")
+  ),
+  ({ alt, url, title }) => {
+    const img: Image = { type: "image", alt, url };
+    if (title) img.title = title;
+    return img;
+  }
 );
 
 export const hardBreakParser: Parser<InlineHardBreak> = map(

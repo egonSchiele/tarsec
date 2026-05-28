@@ -47,6 +47,7 @@ export type InlineLink = {
   type: "inline-link";
   content: InlineMarkdown[];
   url: string;
+  title?: string;
 };
 
 export type InlineCode = {
@@ -81,6 +82,7 @@ export type Image = {
   type: "image";
   url: string;
   alt: string;
+  title?: string;
 };
 
 export type InlineRefLink = {
