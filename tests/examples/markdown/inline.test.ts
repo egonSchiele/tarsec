@@ -5,6 +5,8 @@ import {
   inlineItalicParser,
   inlineTextParser,
   inlineEscapeParser,
+  inlineItalicUnderscoreParser,
+  inlineBoldUnderscoreParser,
 } from "./inline";
 
 describe("bold vs italic ordering", () => {
@@ -74,5 +76,47 @@ describe("inlineEscapeParser", () => {
     const res = inlineMarkdownParser("\\*not bold");
     expect(res.success).toBe(true);
     if (res.success) expect(res.result).toEqual({ type: "inline-text", content: "*" });
+  });
+});
+
+describe("underscore emphasis", () => {
+  it("parses _x_ as italic", () => {
+    const res = inlineItalicUnderscoreParser("_x_");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "inline-italic", content: "x" });
+  });
+
+  it("parses __x__ as bold", () => {
+    const res = inlineBoldUnderscoreParser("__x__");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "inline-bold", content: "x" });
+  });
+
+  it("dispatches _x_ via inlineMarkdownParser", () => {
+    const res = inlineMarkdownParser("_hi_");
+    if (res.success) expect(res.result.type).toBe("inline-italic");
+  });
+
+  it("dispatches __x__ via inlineMarkdownParser as bold", () => {
+    const res = inlineMarkdownParser("__hi__");
+    if (res.success) expect(res.result.type).toBe("inline-bold");
+  });
+
+  it("does NOT italicize the middle of snake_case_word", () => {
+    // first match should be plain inline-text 'snake', not italic
+    const res = inlineMarkdownParser("snake_case_word");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result).toEqual({ type: "inline-text", content: "snake" });
+  });
+});
+
+describe("literal-delimiter fallback", () => {
+  it("falls back to literal _ when underscore italic does not apply", () => {
+    // first take 'snake', then literal '_', then 'case', then '_', then 'word'
+    const res = inlineMarkdownParser("_word");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result).toEqual({ type: "inline-text", content: "_" });
   });
 });
