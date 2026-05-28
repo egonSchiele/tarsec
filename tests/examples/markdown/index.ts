@@ -2,6 +2,7 @@ export * from "./types";
 export * from "./inline";
 export * from "./blocks";
 export * from "./references";
+export * from "./frontmatter";
 
 import { seq, sepBy, or, optional, many1 } from "@/lib/combinators";
 import { spaces, newline } from "@/lib/parsers";
@@ -23,6 +24,8 @@ import {
   footnoteDefinitionParser,
   resolveReferences,
 } from "./references";
+import { frontmatterParser } from "./frontmatter";
+import { Frontmatter } from "./types";
 
 import { Parser, success } from "@/lib/types";
 
@@ -34,6 +37,7 @@ const blockSeparator = many1(newline);
 
 const _markdownParser = seq(
   [
+    optional(frontmatterParser),
     optional(spaces),
     sepBy(
       blockSeparator,
@@ -55,7 +59,11 @@ const _markdownParser = seq(
     ),
     optional(spaces),
   ],
-  (r) => r[1]
+  (r) => {
+    const fm = r[0] as Frontmatter | null;
+    const blocks = r[2] as unknown[];
+    return fm ? [fm, ...blocks] : blocks;
+  }
 );
 
 // Resolve [id]: url definitions across the AST after parsing.

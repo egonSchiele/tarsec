@@ -144,3 +144,15 @@ export type HTMLBlock = {
   type: "html-block";
   content: string;
 };
+
+export type FrontmatterValue =
+  | string
+  | number
+  | boolean
+  | null
+  | FrontmatterValue[];
+
+export type Frontmatter = {
+  type: "frontmatter";
+  data: Record<string, FrontmatterValue>;
+};

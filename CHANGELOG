@@ -13,6 +13,9 @@
   - Reference resolution: `[id]: url` link definitions and `[^id]: …`
     footnote definitions are collected and resolved in a post-parse pass over
     the AST.
+  - VitePress-style YAML frontmatter: an optional `---`-delimited block at the
+    top of the document. Supports `key: value` entries with bare/quoted
+    strings, integers, floats, booleans, `null`/`~`, and inline flow lists.
   - Fixes: code-block language tags now accept hyphens / digits / `+`,
     paragraphs terminate at a blank line, bold-vs-italic precedence is correct,
     and inline text's stop set covers all the new delimiters.
