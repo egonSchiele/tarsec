@@ -2,11 +2,12 @@ import {
   seqC,
   capture,
   or,
+  not,
   manyTillStr,
   iManyTillStr,
   manyTillOneOf,
 } from "@/lib/combinators";
-import { str, set } from "@/lib/parsers";
+import { str, char, set } from "@/lib/parsers";
 import { Parser } from "@/lib/types";
 import {
   InlineMarkdown,
@@ -40,9 +41,10 @@ export const inlineBoldParser: Parser<InlineBold> = seqC(
 
 export const inlineItalicParser: Parser<InlineItalic> = seqC(
   set("type", "inline-italic"),
-  str("*"),
+  not(str("**")),
+  char("*"),
   capture(manyTillStr("*"), "content"),
-  str("*")
+  char("*")
 );
 
 export const inlineLinkParser: Parser<InlineLink> = seqC(
