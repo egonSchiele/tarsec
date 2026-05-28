@@ -1,7 +1,7 @@
 ## Unreleased
 - Markdown example: inline emphasis, strikethrough, and inline-link nodes
   now carry `InlineMarkdown[]` content instead of `string`, so nested
-  inlines like `**[link](u)**` or `*foo `code` bar*` round-trip through
+  inlines like ``**[link](u)**`` or ``*foo `code` bar*`` round-trip through
   the AST. A new `inlineSeqUntil(stop)` helper handles node-level
   recursion via `lazy`; code spans, autolinks, and image alt-text stay
   string-typed (they aren't nestable per CommonMark). `]` is added to the
