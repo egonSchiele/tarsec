@@ -412,6 +412,18 @@ describe("inlineCodeParser multi-backtick", () => {
 });
 
 describe("inline-link titles", () => {
+  it("parses an inline link with an empty destination", () => {
+    const res = inlineLinkParser(`[a]()`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.url).toBe("");
+  });
+
+  it("preserves an explicitly empty title", () => {
+    const res = inlineLinkParser(`[a](u "")`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBe("");
+  });
+
   it("parses an inline link with a double-quoted title", () => {
     const res = inlineLinkParser(`[a](u "t")`);
     expect(res.success).toBe(true);
@@ -438,6 +450,18 @@ describe("inline-link titles", () => {
 });
 
 describe("image titles", () => {
+  it("parses an image with an empty destination", () => {
+    const res = imageParser(`![alt]()`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.url).toBe("");
+  });
+
+  it("preserves an explicitly empty title", () => {
+    const res = imageParser(`![alt](u "")`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.title).toBe("");
+  });
+
   it("parses an image with a double-quoted title", () => {
     const res = imageParser(`![alt](u "t")`);
     expect(res.success).toBe(true);

@@ -2,6 +2,7 @@ import {
   seqC,
   seqR,
   capture,
+  captureCaptures,
   or,
   not,
   map,
@@ -90,21 +91,22 @@ export const inlineItalicParser: Parser<InlineItalic> = map(
 );
 
 /* URL + optional title used by both inline-link and inline-image parsers.
- * `urlToken` is whitespace- and `)`-terminated. `titleClause` is an optional
- * leading-space-separated `"..."` or `'...'`. Both are pure combinator-based
- * so the link/image parsers can share them without special casing. */
-const urlToken: Parser<string> = many1WithJoin(noneOf(" \t\n)"));
+ * `urlToken` is whitespace- and `)`-terminated. Empty destinations (`[a]()`)
+ * are allowed via `manyWithJoin` (zero-or-more). `titleClause` is an
+ * optional leading-space-separated `"..."` or `'...'`. Both are pure
+ * combinator-based so the link/image parsers can share them. */
+const urlToken: Parser<string> = manyWithJoin(noneOf(" \t\n)"));
 
-const dqTitle: Parser<string> = map(
-  seqC(char('"'), capture(manyTillStr('"'), "t"), char('"')),
-  ({ t }) => t
-);
-const sqTitle: Parser<string> = map(
-  seqC(char("'"), capture(manyTillStr("'"), "t"), char("'")),
-  ({ t }) => t
-);
 const titleClause: Parser<string> = map(
-  seqC(many1(char(" ")), capture(or(dqTitle, sqTitle), "title")),
+  seqC(
+    many1(char(" ")),
+    captureCaptures(
+      or(
+        seqC(char('"'), capture(manyTillStr('"'), "title"), char('"')),
+        seqC(char("'"), capture(manyTillStr("'"), "title"), char("'"))
+      )
+    )
+  ),
   ({ title }) => title
 );
 
@@ -123,7 +125,7 @@ export const inlineLinkParser: Parser<InlineLink> = map(
       content: content as InlineMarkdown[],
       url,
     };
-    if (title) link.title = title;
+    if (title != null) link.title = title;
     return link;
   }
 );
@@ -327,7 +329,7 @@ export const imageParser: Parser<Image> = map(
   ),
   ({ alt, url, title }) => {
     const img: Image = { type: "image", alt, url };
-    if (title) img.title = title;
+    if (title != null) img.title = title;
     return img;
   }
 );
