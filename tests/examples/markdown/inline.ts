@@ -73,12 +73,14 @@ export const inlineBoldParser: Parser<InlineBold> = map(
   ({ content }) => ({ type: "inline-bold" as const, content: content as InlineMarkdown[] })
 );
 
-export const inlineItalicParser: Parser<InlineItalic> = seqC(
-  set("type", "inline-italic"),
-  not(str("**")),
-  char("*"),
-  capture(manyTillStr("*"), "content"),
-  char("*")
+export const inlineItalicParser: Parser<InlineItalic> = map(
+  seqC(
+    not(str("**")),
+    char("*"),
+    capture(inlineSeqUntil(char("*")), "content"),
+    char("*")
+  ),
+  ({ content }) => ({ type: "inline-italic" as const, content: content as InlineMarkdown[] })
 );
 
 export const inlineLinkParser: Parser<InlineLink> = seqC(
@@ -129,13 +131,15 @@ export const inlineBoldUnderscoreParser: Parser<InlineBold> = map(
   ({ content }) => ({ type: "inline-bold" as const, content: content as InlineMarkdown[] })
 );
 
-export const inlineItalicUnderscoreParser: Parser<InlineItalic> = seqC(
-  set("type", "inline-italic"),
-  not(str("__")),
-  char("_"),
-  capture(manyTillStr("_"), "content"),
-  char("_"),
-  not(alphanum)
+export const inlineItalicUnderscoreParser: Parser<InlineItalic> = map(
+  seqC(
+    not(str("__")),
+    char("_"),
+    capture(inlineSeqUntil(char("_")), "content"),
+    char("_"),
+    not(alphanum)
+  ),
+  ({ content }) => ({ type: "inline-italic" as const, content: content as InlineMarkdown[] })
 );
 
 // URL body inside <...>: http(s)://<non-space, non-< or >>

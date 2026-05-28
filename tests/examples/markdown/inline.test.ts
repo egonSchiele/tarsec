@@ -67,9 +67,26 @@ describe("bold vs italic ordering", () => {
         type: "inline-bold",
         content: [
           { type: "inline-text", content: "a " },
-          { type: "inline-italic", content: "b" },
+          {
+            type: "inline-italic",
+            content: [{ type: "inline-text", content: "b" }],
+          },
           { type: "inline-text", content: " " },
           { type: "inline-code", content: "c" },
+        ],
+      });
+    }
+  });
+
+  it("italic content carries nested inline nodes (code)", () => {
+    const res = inlineMarkdownParser("*see `here`*");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual({
+        type: "inline-italic",
+        content: [
+          { type: "inline-text", content: "see " },
+          { type: "inline-code", content: "here" },
         ],
       });
     }
@@ -141,7 +158,10 @@ describe("underscore emphasis", () => {
     const res = inlineItalicUnderscoreParser("_x_");
     expect(res.success).toBe(true);
     if (res.success)
-      expect(res.result).toEqual({ type: "inline-italic", content: "x" });
+      expect(res.result).toEqual({
+        type: "inline-italic",
+        content: [{ type: "inline-text", content: "x" }],
+      });
   });
 
   it("parses __x__ as bold", () => {

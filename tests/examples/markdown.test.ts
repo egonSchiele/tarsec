@@ -165,7 +165,7 @@ describe("inlineItalicParser", () => {
     const input = "*This is italic text*";
     const expected = {
       type: "inline-italic",
-      content: "This is italic text",
+      content: [{ type: "inline-text", content: "This is italic text" }],
     };
     expect(inlineItalicParser(input)).toEqual(success(expected, ""));
   });
@@ -224,7 +224,7 @@ describe("inlineMarkdownParser", () => {
     const expected = success(
       {
         type: "inline-italic",
-        content: "This is italic text",
+        content: [{ type: "inline-text", content: "This is italic text" }],
       },
       ""
     );
