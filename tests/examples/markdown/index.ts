@@ -13,6 +13,7 @@ import {
   imageParser,
   horizontalRuleParser,
   setextHeadingParser,
+  indentedCodeBlockParser,
 } from "./blocks";
 
 export const markdownParser = seq(
@@ -25,6 +26,7 @@ export const markdownParser = seq(
         horizontalRuleParser,
         headingParser,
         codeBlockParser,
+        indentedCodeBlockParser,
         blockQuoteParser,
         paragraphParser,
         imageParser

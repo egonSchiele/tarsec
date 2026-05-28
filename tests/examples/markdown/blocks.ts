@@ -64,6 +64,23 @@ export const blockQuoteParser: Parser<BlockQuote> = seqC(
   capture(manyTillStr("\n"), "content")
 );
 
+/* Indented code block: one or more consecutive lines beginning with 4 spaces
+ * or a tab. The indent is stripped from each line. */
+const indentPrefix = or(str("    "), char("\t"));
+const indentedLine: Parser<string> = map(
+  seqR(indentPrefix, manyTillStr("\n"), or(char("\n"), eof)),
+  (parts) => (parts[1] as string) + "\n"
+);
+
+export const indentedCodeBlockParser: Parser<CodeBlock> = map(
+  many1(indentedLine),
+  (lines) => ({
+    type: "code-block" as const,
+    language: null,
+    content: (lines as string[]).join(""),
+  })
+);
+
 /* Setext-style headings: a line of content followed by an underline of `=`
  * (level 1) or `-` (level 2), terminated by `\n` or end-of-input. */
 const setextLine = many1WithJoin(noneOf("\n"));

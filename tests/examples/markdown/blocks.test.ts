@@ -5,6 +5,7 @@ import {
   paragraphParser,
   horizontalRuleParser,
   setextHeadingParser,
+  indentedCodeBlockParser,
 } from "./blocks";
 
 describe("codeBlockParser language tag", () => {
@@ -51,6 +52,28 @@ describe("horizontalRuleParser", () => {
     const res = horizontalRuleParser("---\nfoo");
     expect(res.success).toBe(true);
     if (res.success) expect(res.rest).toBe("foo");
+  });
+});
+
+describe("indentedCodeBlockParser", () => {
+  it("parses an indented code block", () => {
+    const input = "    let x = 1;\n    let y = 2;\nrest";
+    expect(indentedCodeBlockParser(input)).toEqual(
+      success(
+        { type: "code-block", language: null, content: "let x = 1;\nlet y = 2;\n" },
+        "rest"
+      )
+    );
+  });
+
+  it("rejects when first line has fewer than 4 spaces", () => {
+    expect(indentedCodeBlockParser("   x\n").success).toBe(false);
+  });
+
+  it("accepts tab as the indent", () => {
+    const res = indentedCodeBlockParser("\tabc\n");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe("abc\n");
   });
 });
 
