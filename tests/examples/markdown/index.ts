@@ -17,8 +17,11 @@ import {
   listParser,
   tableParser,
 } from "./blocks";
+import { linkDefinitionParser, resolveReferences } from "./references";
 
-export const markdownParser = seq(
+import { Parser, success } from "@/lib/types";
+
+const _markdownParser = seq(
   [
     optional(spaces),
     sepBy(
@@ -32,6 +35,7 @@ export const markdownParser = seq(
         tableParser,
         blockQuoteParser,
         listParser,
+        linkDefinitionParser,
         paragraphParser,
         imageParser
       )
@@ -40,3 +44,10 @@ export const markdownParser = seq(
   ],
   (r) => r[1]
 );
+
+// Resolve [id]: url definitions across the AST after parsing.
+export const markdownParser: Parser<unknown[]> = (input) => {
+  const res = _markdownParser(input);
+  if (!res.success) return res;
+  return success(resolveReferences(res.result as unknown[]), res.rest);
+};

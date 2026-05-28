@@ -118,3 +118,10 @@ export type Table = {
   alignments: Alignment[];
   rows: string[][];
 };
+
+export type LinkDef = {
+  type: "link-definition";
+  id: string;
+  url: string;
+  title?: string;
+};
