@@ -3,7 +3,6 @@ import {
   seqR,
   capture,
   optional,
-  many1Till,
   or,
   manyTillStr,
   count,
@@ -25,7 +24,7 @@ import {
   oneOf,
   noneOf,
 } from "@/lib/parsers";
-import { Parser, ParserResult, success } from "@/lib/types";
+import { Parser } from "@/lib/types";
 import { InlineMarkdown } from "./types";
 import {
   Heading,
@@ -41,7 +40,6 @@ import {
   Alignment,
   HTMLBlock,
 } from "./types";
-import { failure } from "@/lib/types";
 import { digit, letter } from "@/lib/parsers";
 import { manyTill } from "@/lib/combinators";
 import { inlineMarkdownParser, imageParser } from "./inline";
@@ -75,13 +73,13 @@ export const codeBlockParser: Parser<CodeBlock> = seqC(
  *
  *  `lazy` defers the self-reference so we can recurse for nesting. */
 const blockQuoteLine: Parser<string> = map(
-  seqR(
+  seqC(
     char(">"),
     optional(char(" ")),
-    manyTillStr("\n"),
+    capture(manyTillStr("\n"), "line"),
     or(char("\n"), eof)
   ),
-  (parts) => parts[2] as string
+  ({ line }) => line
 );
 
 // Inside the joined inner text, accept either a nested blockquote (possibly
@@ -91,38 +89,55 @@ const softNewline: Parser<InlineMarkdown> = map(
   () => ({ type: "inline-text" as const, content: " " })
 );
 
-const blockQuoteContent: Parser<unknown> = lazy(() =>
-  or(
-    map(seqR(many(char("\n")), blockQuoteParser), (parts) => parts[1] as BlockQuote),
-    softNewline,
-    inlineMarkdownParser
+const nestedBlockQuote: Parser<BlockQuote> = lazy(() =>
+  map(
+    seqC(many(char("\n")), capture(blockQuoteParser, "quote")),
+    ({ quote }) => quote
   )
 );
 
-export const blockQuoteParser: Parser<BlockQuote> = (input) => {
-  const lines = many1(blockQuoteLine)(input);
-  if (!lines.success) return lines;
-  const innerText = (lines.result as string[]).join("\n");
+const blockQuoteContent: Parser<BlockQuoteContent> = or(
+  nestedBlockQuote,
+  softNewline,
+  inlineMarkdownParser
+);
+
+// Re-parse the joined inner text as a sequence of blockquote-content nodes.
+// (We have to round-trip through a string because the `>` prefixes need to be
+//  stripped before nested blockquotes can be recognised.)
+const reparseInner = (innerText: string): BlockQuoteContent[] => {
   const inner = many1(blockQuoteContent)(innerText);
-  const content = inner.success ? (inner.result as BlockQuoteContent[]) : [];
-  return success({ type: "block-quote", content }, lines.rest);
+  return inner.success ? (inner.result as BlockQuoteContent[]) : [];
 };
+
+export const blockQuoteParser: Parser<BlockQuote> = map(
+  many1(blockQuoteLine),
+  (lines) => ({
+    type: "block-quote",
+    content: reparseInner((lines as string[]).join("\n")),
+  })
+);
 
 /* Indented code block: one or more consecutive lines beginning with 4 spaces
  * or a tab. The indent is stripped from each line. */
 const indentPrefix = or(str("    "), char("\t"));
 const indentedLine: Parser<string> = map(
-  seqR(indentPrefix, manyTillStr("\n"), or(char("\n"), eof)),
-  (parts) => (parts[1] as string) + "\n"
+  seqC(
+    indentPrefix,
+    capture(manyTillStr("\n"), "line"),
+    or(char("\n"), eof)
+  ),
+  ({ line }) => line + "\n"
 );
 
-export const indentedCodeBlockParser: Parser<CodeBlock> = map(
-  many1(indentedLine),
-  (lines) => ({
-    type: "code-block" as const,
-    language: null,
-    content: (lines as string[]).join(""),
-  })
+const indentedLines: Parser<string> = map(many1(indentedLine), (lines) =>
+  lines.join("")
+);
+
+export const indentedCodeBlockParser: Parser<CodeBlock> = seqC(
+  set("type", "code-block"),
+  set("language", null),
+  capture(indentedLines, "content")
 );
 
 /* Setext-style headings: a line of content followed by an underline of `=`
@@ -157,12 +172,15 @@ export const setextHeadingParser: Parser<Heading> = map(
 
 /* Lists.
  *
- * `listParserAt(indent)` parses a list whose items are indented by `indent`
- * spaces. Each item is `marker + " " + line content + \n`. Markers are
- * unordered (`-`, `*`, `+`) or ordered (`<digits>.`). After parsing an item,
- * we recursively try to parse a sublist at `indent + 2`. If we find one,
- * it becomes that item's `sublist`. The marker type of the first item locks
- * in `ordered`; a marker-type switch ends the list. */
+ * Each item is `marker + " " + line content + \n`. Markers are unordered
+ * (`-`, `*`, `+`) or ordered (`<digits>.`). After parsing an item, we
+ * recursively try to parse a sublist at `indent + 2`. The marker type of the
+ * first item (ordered vs unordered) locks in the whole list; a marker-type
+ * switch ends the list.
+ *
+ * We build two list parsers — one parameterised by `unorderedMarker`, one
+ * by `orderedMarker` — and `or` them. That way the marker-type lock falls
+ * out of `seqC` naturally; no manual loop / state needed. */
 type Marker = { ord: boolean; start: number };
 
 const unorderedMarker: Parser<Marker> = map(
@@ -171,79 +189,69 @@ const unorderedMarker: Parser<Marker> = map(
 );
 
 const orderedMarker: Parser<Marker> = map(
-  seqR(many1WithJoin(digit), char(".")),
-  (parts) => ({ ord: true, start: parseInt(parts[0] as string, 10) })
+  seqC(capture(many1WithJoin(digit), "digits"), char(".")),
+  ({ digits }) => ({ ord: true, start: parseInt(digits, 10) })
 );
-
-const itemMarker: Parser<Marker> = or(unorderedMarker, orderedMarker);
 
 const indentOf = (n: number): Parser<unknown> =>
   n > 0 ? str(" ".repeat(n)) : str("");
 
-const itemHead = (indent: number): Parser<{ marker: Marker; line: string }> =>
+type RawItem = { marker: Marker; line: string };
+
+const itemHeadOf = (
+  indent: number,
+  markerParser: Parser<Marker>
+): Parser<RawItem> =>
+  seqC(
+    indentOf(indent),
+    capture(markerParser, "marker"),
+    char(" "),
+    capture(manyTillStr("\n"), "line"),
+    or(char("\n"), eof)
+  );
+
+const parseInline = (line: string): InlineMarkdown[] => {
+  const inline = many1(inlineMarkdownParser)(line);
+  return inline.success ? (inline.result as InlineMarkdown[]) : [];
+};
+
+// One list item: an item-head followed by an optional sublist at +2 indent.
+const itemWithSublist = (
+  indent: number,
+  markerParser: Parser<Marker>
+): Parser<{ marker: Marker; item: ListItem }> =>
   map(
-    seqR(
-      indentOf(indent),
-      itemMarker,
-      char(" "),
-      manyTillStr("\n"),
-      or(char("\n"), eof)
+    seqC(
+      capture(itemHeadOf(indent, markerParser), "raw"),
+      capture(optional(lazy(() => listParserAt(indent + 2))), "sublist")
     ),
-    (parts) => ({
-      marker: parts[1] as Marker,
-      line: parts[3] as string,
+    ({ raw, sublist }) => {
+      const item: ListItem = { content: parseInline(raw.line) };
+      if (sublist) item.sublist = sublist;
+      return { marker: raw.marker, item };
+    }
+  );
+
+// A list of one or more items that all share a marker family.
+const listOf = (
+  indent: number,
+  markerParser: Parser<Marker>
+): Parser<List> =>
+  map(
+    seqC(
+      capture(itemWithSublist(indent, markerParser), "first"),
+      capture(many(itemWithSublist(indent, markerParser)), "rest")
+    ),
+    ({ first, rest }) => ({
+      type: "list",
+      ordered: first.marker.ord,
+      start: first.marker.start,
+      items: [first.item, ...rest.map((r) => r.item)],
     })
   );
 
-function listParserAt(indent: number): Parser<List> {
-  return (input) => {
-    const items: ListItem[] = [];
-    let rest = input;
-    let firstMarker: Marker | null = null;
-
-    while (rest.length > 0) {
-      const it = itemHead(indent)(rest);
-      if (!it.success) break;
-
-      const m = it.result.marker;
-      if (firstMarker === null) {
-        firstMarker = m;
-      } else if (firstMarker.ord !== m.ord) {
-        break;
-      }
-
-      const inline = many1(inlineMarkdownParser)(it.result.line);
-      const content = inline.success
-        ? (inline.result as ListItem["content"])
-        : [];
-
-      const item: ListItem = { content };
-      rest = it.rest;
-
-      // Try to recurse for a sublist at +2 indentation.
-      const sub = listParserAt(indent + 2)(rest);
-      if (sub.success && sub.rest.length < rest.length) {
-        item.sublist = sub.result;
-        rest = sub.rest;
-      }
-
-      items.push(item);
-    }
-
-    if (items.length === 0 || firstMarker === null) {
-      return failure("expected a list item", input);
-    }
-    return success(
-      {
-        type: "list",
-        ordered: firstMarker.ord,
-        start: firstMarker.start,
-        items,
-      },
-      rest
-    );
-  };
-}
+const listParserAt = (indent: number): Parser<List> =>
+  or(listOf(indent, unorderedMarker), listOf(indent, orderedMarker));
 
 export const listParser: Parser<List> = listParserAt(0);
 
@@ -259,26 +267,27 @@ export const listParser: Parser<List> = listParserAt(0);
  * so headers/rows aren't padded with spaces. */
 const cellContent = map(many1WithJoin(noneOf("|\n")), (s) => s.trim());
 
+const cellThenBar: Parser<string> = map(
+  seqC(capture(cellContent, "cell"), char("|")),
+  ({ cell }) => cell
+);
+
 const tableRow: Parser<string[]> = map(
-  seqR(
-    char("|"),
-    many1(map(seqR(cellContent, char("|")), (p) => p[0] as string)),
-    or(char("\n"), eof)
-  ),
-  (parts) => parts[1] as string[]
+  seqC(char("|"), capture(many1(cellThenBar), "cells"), or(char("\n"), eof)),
+  ({ cells }) => cells as string[]
 );
 
 const sepCell: Parser<Alignment> = map(
-  seqR(
+  seqC(
     many(char(" ")),
-    optional(char(":")),
+    capture(optional(char(":")), "left"),
     many1(char("-")),
-    optional(char(":")),
+    capture(optional(char(":")), "right"),
     many(char(" "))
   ),
-  (parts) => {
-    const leftColon = parts[1] !== null;
-    const rightColon = parts[3] !== null;
+  ({ left, right }) => {
+    const leftColon = left !== null;
+    const rightColon = right !== null;
     if (leftColon && rightColon) return "center";
     if (rightColon) return "right";
     if (leftColon) return "left";
@@ -286,13 +295,14 @@ const sepCell: Parser<Alignment> = map(
   }
 );
 
+const sepCellThenBar: Parser<Alignment> = map(
+  seqC(capture(sepCell, "cell"), char("|")),
+  ({ cell }) => cell
+);
+
 const sepRow: Parser<Alignment[]> = map(
-  seqR(
-    char("|"),
-    many1(map(seqR(sepCell, char("|")), (p) => p[0] as Alignment)),
-    or(char("\n"), eof)
-  ),
-  (parts) => parts[1] as Alignment[]
+  seqC(char("|"), capture(many1(sepCellThenBar), "cells"), or(char("\n"), eof)),
+  ({ cells }) => cells as Alignment[]
 );
 
 /* HTML blocks (passthrough subset).
@@ -304,55 +314,6 @@ const sepRow: Parser<Alignment[]> = map(
  * renderer untouched. */
 const htmlBlockOpen: Parser<unknown> = seqR(char("<"), or(letter, oneOf("/!?")));
 
-export const htmlBlockParser: Parser<HTMLBlock> = (input) => {
-  const peek = htmlBlockOpen(input);
-  if (!peek.success) return peek;
-  const consume = manyTill(or(blankLine, eof))(input);
-  if (!consume.success) return consume;
-  return success(
-    { type: "html-block", content: consume.result as string },
-    consume.rest
-  );
-};
-
-export const tableParser: Parser<Table> = map(
-  seqR(tableRow, sepRow, many1(tableRow)),
-  (parts) => ({
-    type: "table",
-    headers: parts[0] as string[],
-    alignments: parts[1] as Alignment[],
-    rows: parts[2] as string[][],
-  })
-);
-
-/* Horizontal rules:  three-or-more of the same `-`, `*`, or `_`,
- * with optional spaces between, ending in newline or eof. */
-const hrSpaces = many(char(" "));
-const hrOf = (c: string): Parser<number> =>
-  map(
-    seqR(
-      hrSpaces,
-      char(c),
-      count(seqR(hrSpaces, char(c))),
-      hrSpaces,
-      or(char("\n"), eof)
-    ),
-    (parts) => parts[2] as number
-  );
-
-const hrRule = (c: string): Parser<HorizontalRule> => (input) => {
-  const res = hrOf(c)(input);
-  if (!res.success) return res;
-  if (res.result < 2) return failure("need 3+ HR chars", input);
-  return { ...res, result: { type: "horizontal-rule" as const } };
-};
-
-export const horizontalRuleParser: Parser<HorizontalRule> = or(
-  hrRule("-"),
-  hrRule("*"),
-  hrRule("_")
-);
-
 // "\n" followed by zero or more spaces/tabs followed by another "\n" or end of input.
 export const blankLine: Parser<unknown> = seqR(
   char("\n"),
@@ -360,21 +321,55 @@ export const blankLine: Parser<unknown> = seqR(
   or(char("\n"), eof)
 );
 
-const paragraphInline: Parser<InlineMarkdown> = map(
-  seqR(not(blankLine), inlineMarkdownParser),
-  (parts) => parts[1] as InlineMarkdown
+// Peek at the opening (`not(not(...))` is a non-consuming lookahead), then
+// consume everything up to the next blank line or eof.
+export const htmlBlockParser: Parser<HTMLBlock> = seqC(
+  set("type", "html-block"),
+  not(not(htmlBlockOpen)),
+  capture(manyTill(or(blankLine, eof)), "content")
 );
 
-export function paragraphParser(input: string): ParserResult<Paragraph> {
-  const inline = many1(paragraphInline)(input);
-  if (!inline.success) {
-    return inline;
-  }
-  return success(
-    {
-      type: "paragraph",
-      content: inline.result,
-    },
-    inline.rest
+export const tableParser: Parser<Table> = seqC(
+  set("type", "table"),
+  capture(tableRow, "headers"),
+  capture(sepRow, "alignments"),
+  capture(many1(tableRow), "rows")
+);
+
+/* Horizontal rules:  three-or-more of the same `-`, `*`, or `_`,
+ * with optional spaces between, ending in newline or eof. The "three or
+ * more" rule is expressed structurally — three explicit `char(c)`s followed
+ * by `many` more — so no count-and-validate wrapper is needed. */
+const hrSpaces = many(char(" "));
+const hrOf = (c: string): Parser<HorizontalRule> =>
+  map(
+    seqR(
+      hrSpaces,
+      char(c), hrSpaces,
+      char(c), hrSpaces,
+      char(c), hrSpaces,
+      many(seqR(char(c), hrSpaces)),
+      or(char("\n"), eof)
+    ),
+    () => ({ type: "horizontal-rule" as const })
   );
-}
+
+export const horizontalRuleParser: Parser<HorizontalRule> = or(
+  hrOf("-"),
+  hrOf("*"),
+  hrOf("_")
+);
+
+// "\n" followed by zero or more spaces/tabs followed by another "\n" or end of input.
+// (`blankLine` is declared near `htmlBlockParser` above, since both need it at
+//  module-eval time.)
+
+const paragraphInline: Parser<InlineMarkdown> = map(
+  seqC(not(blankLine), capture(inlineMarkdownParser, "node")),
+  ({ node }) => node as InlineMarkdown
+);
+
+export const paragraphParser: Parser<Paragraph> = map(
+  many1(paragraphInline),
+  (content) => ({ type: "paragraph", content: content as InlineMarkdown[] })
+);

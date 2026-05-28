@@ -24,8 +24,8 @@ const urlChars = many1WithJoin(noneOf(" \t\n"));
 const titleChars = many1WithJoin(noneOf('"\n'));
 
 const titleParser: Parser<string> = map(
-  seqR(spaces, char('"'), titleChars, char('"')),
-  (parts) => parts[2] as string
+  seqC(spaces, char('"'), capture(titleChars, "title"), char('"')),
+  ({ title }) => title
 );
 
 export const linkDefinitionParser: Parser<LinkDef> = seqC(

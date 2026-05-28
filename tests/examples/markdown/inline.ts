@@ -133,19 +133,17 @@ const emailBody = map(
 );
 
 export const urlAutolinkParser: Parser<InlineLink> = map(
-  seqR(char("<"), urlBody, char(">")),
-  (parts) => {
-    const url = parts[1] as string;
-    return { type: "inline-link", content: url, url };
-  }
+  seqC(char("<"), capture(urlBody, "url"), char(">")),
+  ({ url }) => ({ type: "inline-link" as const, content: url, url })
 );
 
 export const emailAutolinkParser: Parser<InlineLink> = map(
-  seqR(char("<"), emailBody, char(">")),
-  (parts) => {
-    const email = parts[1] as string;
-    return { type: "inline-link", content: email, url: `mailto:${email}` };
-  }
+  seqC(char("<"), capture(emailBody, "email"), char(">")),
+  ({ email }) => ({
+    type: "inline-link" as const,
+    content: email,
+    url: `mailto:${email}`,
+  })
 );
 
 export const autolinkParser: Parser<InlineLink> = or(
@@ -154,9 +152,11 @@ export const autolinkParser: Parser<InlineLink> = or(
 );
 
 // Footnote reference: `[^id]` (id has no `]`, `\n`, or spaces).
-export const inlineFootnoteRefParser: Parser<InlineFootnoteRef> = map(
-  seqR(str("[^"), many1WithJoin(noneOf("] \n\t")), char("]")),
-  (parts) => ({ type: "inline-footnote-ref", id: parts[1] as string })
+export const inlineFootnoteRefParser: Parser<InlineFootnoteRef> = seqC(
+  set("type", "inline-footnote-ref"),
+  str("[^"),
+  capture(many1WithJoin(noneOf("] \n\t")), "id"),
+  char("]")
 );
 
 // `[...]` where ... is one or more characters that aren't `]` or newline.
@@ -164,32 +164,30 @@ const bracketed = between(char("["), char("]"), noneOf("]\n"));
 const bracketedAsString = map(bracketed, (chars) => (chars as string[]).join(""));
 
 export const inlineRefLinkParser: Parser<InlineRefLink> = map(
-  seqR(
-    bracketedAsString, // text
-    optional(bracketedAsString), // optional [id]
+  seqC(
+    capture(bracketedAsString, "text"),
+    capture(optional(bracketedAsString), "rawId"),
     not(char("(")) // disambiguate from inline link
   ),
-  (parts) => {
-    const text = parts[0] as string;
-    const rawId = parts[1] as string | null;
-    const id = rawId && rawId.length > 0 ? rawId : text;
-    return { type: "inline-ref-link", text, id };
-  }
+  ({ text, rawId }) => ({
+    type: "inline-ref-link" as const,
+    text,
+    id: rawId && rawId.length > 0 ? rawId : text,
+  })
 );
 
 export const inlineRefImageParser: Parser<InlineRefImage> = map(
-  seqR(
+  seqC(
     char("!"),
-    bracketedAsString, // alt
-    optional(bracketedAsString), // optional [id]
+    capture(bracketedAsString, "alt"),
+    capture(optional(bracketedAsString), "rawId"),
     not(char("("))
   ),
-  (parts) => {
-    const alt = parts[1] as string;
-    const rawId = parts[2] as string | null;
-    const id = rawId && rawId.length > 0 ? rawId : alt;
-    return { type: "inline-ref-image", alt, id };
-  }
+  ({ alt, rawId }) => ({
+    type: "inline-ref-image" as const,
+    alt,
+    id: rawId && rawId.length > 0 ? rawId : alt,
+  })
 );
 
 /** An inline image: ![alt](url). Lives in `inline.ts` so it can participate

@@ -15,11 +15,13 @@
  */
 
 import {
+  capture,
   many,
   many1WithJoin,
   map,
   optional,
   or,
+  seqC,
   seqR,
   sepBy,
 } from "@/lib/combinators";
@@ -86,19 +88,19 @@ const bareValueInList: Parser<FrontmatterValue> = map(
 
 // One element of a flow list: optional leading whitespace, then quoted or bare.
 const listElement: Parser<FrontmatterValue> = map(
-  seqR(hSpaces, or(quotedScalar, bareValueInList)),
-  (parts) => parts[1] as FrontmatterValue
+  seqC(hSpaces, capture(or(quotedScalar, bareValueInList), "value")),
+  ({ value }) => value as FrontmatterValue
 );
 
 // Inline flow list: `[a, b, "c d"]`
 const flowList: Parser<FrontmatterValue[]> = map(
-  seqR(
+  seqC(
     char("["),
-    sepBy(char(","), listElement),
+    capture(sepBy(char(","), listElement), "items"),
     hSpaces,
     char("]")
   ),
-  (parts) => parts[1] as FrontmatterValue[]
+  ({ items }) => items as FrontmatterValue[]
 );
 
 // Any value: prefer flow list, then quoted, then bare.
@@ -112,18 +114,19 @@ const yamlValue: Parser<FrontmatterValue> = or(
 
 // `key: value` — gap between `:` and value may include horizontal whitespace.
 const yamlEntry: Parser<[string, FrontmatterValue]> = map(
-  seqR(yamlKey, char(":"), hSpaces, yamlValue),
-  (parts) =>
-    [parts[0] as string, parts[3] as FrontmatterValue] as [
-      string,
-      FrontmatterValue,
-    ]
+  seqC(
+    capture(yamlKey, "key"),
+    char(":"),
+    hSpaces,
+    capture(yamlValue, "value")
+  ),
+  ({ key, value }) => [key, value] as [string, FrontmatterValue]
 );
 
 // One terminated entry: `key: value\n` (or eof-terminated).
 const entryLine: Parser<[string, FrontmatterValue]> = map(
-  seqR(yamlEntry, newlineOrEof),
-  (parts) => parts[0] as [string, FrontmatterValue]
+  seqC(capture(yamlEntry, "entry"), newlineOrEof),
+  ({ entry }) => entry as [string, FrontmatterValue]
 );
 
 const yamlBody: Parser<[string, FrontmatterValue][]> = many(entryLine);
@@ -139,9 +142,8 @@ const closingFence: Parser<unknown> = seqR(fence, optional(hSpaces), newlineOrEo
  * of a Markdown file.
  */
 export const frontmatterParser: Parser<Frontmatter> = map(
-  seqR(fenceLine, yamlBody, closingFence),
-  (parts) => {
-    const entries = parts[1] as [string, FrontmatterValue][];
+  seqC(fenceLine, capture(yamlBody, "entries"), closingFence),
+  ({ entries }) => {
     const data: Record<string, FrontmatterValue> = {};
     for (const [k, v] of entries) data[k] = v;
     return { type: "frontmatter" as const, data };
