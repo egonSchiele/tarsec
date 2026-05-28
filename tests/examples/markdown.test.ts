@@ -154,7 +154,7 @@ describe("inlineBoldParser", () => {
     const input = "**This is bold text**";
     const expected = {
       type: "inline-bold",
-      content: "This is bold text",
+      content: [{ type: "inline-text", content: "This is bold text" }],
     };
     expect(inlineBoldParser(input)).toEqual(success(expected, ""));
   });
@@ -212,7 +212,7 @@ describe("inlineMarkdownParser", () => {
     const expected = success(
       {
         type: "inline-bold",
-        content: "This is bold text",
+        content: [{ type: "inline-text", content: "This is bold text" }],
       },
       ""
     );

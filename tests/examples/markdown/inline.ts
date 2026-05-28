@@ -45,11 +45,32 @@ export const inlineTextParser: Parser<InlineText> = map(
   (content) => ({ type: "inline-text", content })
 );
 
-export const inlineBoldParser: Parser<InlineBold> = seqC(
-  set("type", "inline-bold"),
-  str("**"),
-  capture(manyTillStr("**"), "content"),
-  str("**")
+/**
+ * Run `inlineMarkdownParser` repeatedly until `stop` would match at the
+ * current position. The `stop` parser is a lookahead — it is *not* consumed.
+ * Returns the list of inline nodes collected before `stop`.
+ *
+ * Used by every delimited inline parser (bold, italic, strike, link, …) so
+ * that the content between delimiters is a sequence of inline nodes rather
+ * than a flat string.
+ */
+export const inlineSeqUntil = (
+  stop: Parser<unknown>
+): Parser<InlineMarkdown[]> =>
+  many(
+    map(
+      seqC(not(stop), capture(lazy(() => inlineMarkdownParser), "node")),
+      ({ node }) => node as InlineMarkdown
+    )
+  );
+
+export const inlineBoldParser: Parser<InlineBold> = map(
+  seqC(
+    str("**"),
+    capture(inlineSeqUntil(str("**")), "content"),
+    str("**")
+  ),
+  ({ content }) => ({ type: "inline-bold" as const, content: content as InlineMarkdown[] })
 );
 
 export const inlineItalicParser: Parser<InlineItalic> = seqC(
@@ -98,12 +119,14 @@ export const inlineBoldItalicParser: Parser<InlineBoldItalic> = or(
   )
 );
 
-export const inlineBoldUnderscoreParser: Parser<InlineBold> = seqC(
-  set("type", "inline-bold"),
-  str("__"),
-  capture(manyTillStr("__"), "content"),
-  str("__"),
-  not(alphanum)
+export const inlineBoldUnderscoreParser: Parser<InlineBold> = map(
+  seqC(
+    str("__"),
+    capture(inlineSeqUntil(str("__")), "content"),
+    str("__"),
+    not(alphanum)
+  ),
+  ({ content }) => ({ type: "inline-bold" as const, content: content as InlineMarkdown[] })
 );
 
 export const inlineItalicUnderscoreParser: Parser<InlineItalic> = seqC(
@@ -246,22 +269,3 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineTextParser,
   inlineLiteralCharParser
 );
-
-/**
- * Run `inlineMarkdownParser` repeatedly until `stop` would match at the
- * current position. The `stop` parser is a lookahead — it is *not* consumed.
- * Returns the list of inline nodes collected before `stop`.
- *
- * Used by every delimited inline parser (bold, italic, strike, link, …) so
- * that the content between delimiters is a sequence of inline nodes rather
- * than a flat string.
- */
-export const inlineSeqUntil = (
-  stop: Parser<unknown>
-): Parser<InlineMarkdown[]> =>
-  many(
-    map(
-      seqC(not(stop), capture(lazy(() => inlineMarkdownParser), "node")),
-      ({ node }) => node as InlineMarkdown
-    )
-  );

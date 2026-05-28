@@ -21,7 +21,7 @@ export type InlineText = {
 
 export type InlineBold = {
   type: "inline-bold";
-  content: string;
+  content: InlineMarkdown[];
 };
 
 export type InlineItalic = {
