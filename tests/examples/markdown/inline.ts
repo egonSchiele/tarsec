@@ -1,13 +1,16 @@
 import {
   seqC,
+  seqR,
   capture,
   or,
   not,
+  map,
+  many1WithJoin,
   manyTillStr,
   iManyTillStr,
   manyTillOneOf,
 } from "@/lib/combinators";
-import { str, char, set, oneOf, alphanum } from "@/lib/parsers";
+import { str, char, set, oneOf, alphanum, noneOf } from "@/lib/parsers";
 import { Parser } from "@/lib/types";
 import {
   InlineMarkdown,
@@ -107,6 +110,45 @@ export const inlineItalicUnderscoreParser: Parser<InlineItalic> = seqC(
   not(alphanum)
 );
 
+// URL body inside <...>: http(s)://<non-space, non-< or >>
+const urlBody = map(
+  seqR(
+    str("http"),
+    or(str("s"), str("")),
+    str("://"),
+    many1WithJoin(noneOf(" \t\n<>"))
+  ),
+  (parts) => parts.join("")
+);
+
+// Email body: local@domain.tld — no spaces, no < > or duplicates of @ inside parts
+const emailPart = many1WithJoin(noneOf(" \t\n<>@."));
+const emailBody = map(
+  seqR(emailPart, char("@"), emailPart, char("."), emailPart),
+  (parts) => parts.join("")
+);
+
+export const urlAutolinkParser: Parser<InlineLink> = map(
+  seqR(char("<"), urlBody, char(">")),
+  (parts) => {
+    const url = parts[1] as string;
+    return { type: "inline-link", content: url, url };
+  }
+);
+
+export const emailAutolinkParser: Parser<InlineLink> = map(
+  seqR(char("<"), emailBody, char(">")),
+  (parts) => {
+    const email = parts[1] as string;
+    return { type: "inline-link", content: email, url: `mailto:${email}` };
+  }
+);
+
+export const autolinkParser: Parser<InlineLink> = or(
+  urlAutolinkParser,
+  emailAutolinkParser
+);
+
 export const inlineStrikeParser: Parser<InlineStrike> = seqC(
   set("type", "inline-strike"),
   str("~~"),
@@ -130,6 +172,7 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineBoldUnderscoreParser,
   inlineItalicUnderscoreParser,
   inlineStrikeParser,
+  autolinkParser,
   inlineLinkParser,
   inlineCodeParser,
   inlineTextParser,

@@ -112,6 +112,43 @@ describe("underscore emphasis", () => {
   });
 });
 
+describe("autolinks", () => {
+  it("parses <https://example.com> as a URL autolink", () => {
+    const res = inlineMarkdownParser("<https://example.com>");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({
+        type: "inline-link",
+        content: "https://example.com",
+        url: "https://example.com",
+      });
+  });
+
+  it("parses <http://x.y> as a URL autolink", () => {
+    const res = inlineMarkdownParser("<http://x.y>");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-link");
+  });
+
+  it("parses <a@b.com> as an email autolink with mailto:", () => {
+    const res = inlineMarkdownParser("<a@b.com>");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({
+        type: "inline-link",
+        content: "a@b.com",
+        url: "mailto:a@b.com",
+      });
+  });
+
+  it("does not consume <not a url> as an autolink", () => {
+    const res = inlineMarkdownParser("<not a url>");
+    // either fails as autolink and gets handled as literal '<', either way success
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).not.toBe("inline-link");
+  });
+});
+
 describe("strikethrough", () => {
   it("parses ~~gone~~", () => {
     const res = inlineMarkdownParser("~~gone~~");
