@@ -360,6 +360,43 @@ describe("bare-URL GFM autolinks", () => {
   });
 });
 
+describe("HTML entities", () => {
+  it.each<[string, string]>([
+    ["&amp;", "&"],
+    ["&lt;", "<"],
+    ["&gt;", ">"],
+    ["&quot;", '"'],
+    ["&apos;", "'"],
+    ["&#33;", "!"],
+    ["&#x21;", "!"],
+    ["&#X21;", "!"],
+  ])("decodes %j as %j", (input, expected) => {
+    const res = inlineMarkdownParser(input);
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({
+        type: "inline-text",
+        content: expected,
+      });
+  });
+
+  it("falls back to literal & on an unknown entity", () => {
+    const res = inlineMarkdownParser("&unknown;");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({
+        type: "inline-text",
+        content: "&",
+      });
+  });
+
+  it("stops inline text before an entity-leading &", () => {
+    const res = inlineTextParser("abc&amp;");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe("abc");
+  });
+});
+
 describe("strikethrough", () => {
   it("parses ~~gone~~", () => {
     const res = inlineMarkdownParser("~~gone~~");

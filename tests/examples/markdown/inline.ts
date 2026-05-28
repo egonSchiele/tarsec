@@ -17,7 +17,7 @@ import {
   exactly,
   lazy,
 } from "@/lib/combinators";
-import { str, char, eof, set, oneOf, alphanum, noneOf } from "@/lib/parsers";
+import { str, char, eof, set, oneOf, alphanum, noneOf, digit } from "@/lib/parsers";
 import { Parser, success, failure } from "@/lib/types";
 import {
   InlineMarkdown,
@@ -43,7 +43,7 @@ import { optional, between } from "@/lib/combinators";
 // composable rather than embedded inside a regex. `]` is included so that
 // inline-text inside a link-text (`[...]`) terminates at the closing `]`.
 const inlineTextStop: Parser<unknown> = or(
-  oneOf("*_`[]!<~\\\n"),
+  oneOf("*_`[]!<~\\&\n"),
   str("  ")
 );
 
@@ -423,12 +423,47 @@ export const inlineStrikeParser: Parser<InlineStrike> = map(
   })
 );
 
+/* HTML entities. Decodes:
+ *   - the five XML-core named entities (`&amp;`, `&lt;`, `&gt;`, `&quot;`,
+ *     `&apos;`) into their literal characters,
+ *   - decimal numeric references (`&#NN;`),
+ *   - hexadecimal numeric references (`&#xNN;` / `&#XNN;`).
+ *
+ * Unknown named entities (e.g. `&unknown;`) fail this parser and fall
+ * through to `inlineLiteralCharParser`, which emits a literal `&`. */
+const namedEntity: Parser<string> = or(
+  map(str("&amp;"), () => "&"),
+  map(str("&lt;"), () => "<"),
+  map(str("&gt;"), () => ">"),
+  map(str("&quot;"), () => '"'),
+  map(str("&apos;"), () => "'")
+);
+
+const decimalEntity: Parser<string> = map(
+  seqC(str("&#"), capture(many1WithJoin(digit), "digits"), char(";")),
+  ({ digits }) => String.fromCodePoint(parseInt(digits, 10))
+);
+
+const hexEntity: Parser<string> = map(
+  seqC(
+    or(str("&#x"), str("&#X")),
+    capture(many1WithJoin(oneOf("0123456789abcdefABCDEF")), "digits"),
+    char(";")
+  ),
+  ({ digits }) => String.fromCodePoint(parseInt(digits, 16))
+);
+
+export const htmlEntityParser: Parser<InlineText> = map(
+  or(hexEntity, decimalEntity, namedEntity),
+  (content) => ({ type: "inline-text" as const, content })
+);
+
 /** Last-resort: consume a single delimiter char as literal text so unmatched
  *  delimiters (e.g. the `_` in snake_case_word, or a stray `*`) don't crash
  *  the paragraph. Matches one of the inline-text stop characters. */
 export const inlineLiteralCharParser: Parser<InlineText> = seqC(
   set("type", "inline-text"),
-  capture(oneOf("*_`[]!<~\\"), "content")
+  capture(oneOf("*_`[]!<~\\&"), "content")
 );
 
 export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
@@ -448,6 +483,7 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineLinkParser,
   inlineRefLinkParser,
   inlineCodeParser,
+  htmlEntityParser,
   inlineTextParser,
   inlineLiteralCharParser
 );
