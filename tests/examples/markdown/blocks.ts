@@ -401,14 +401,41 @@ export const horizontalRuleParser: Parser<HorizontalRule> = or(
 // (`blankLine` is declared near `htmlBlockParser` above, since both need it at
 //  module-eval time.)
 
+/* Block-level constructs that, if they would start at the *current* line
+ * position, must interrupt a soft-wrapped paragraph instead of being eaten
+ * as inline content. Setext is intentionally excluded — its underline is
+ * resolved by `setextHeadingParser` running ahead of `paragraphParser` in
+ * the top-level dispatch. */
+const blockInterrupt: Parser<unknown> = or(
+  // ATX heading (1–6 `#` then a space)
+  seqR(atxMarker, char(" ")),
+  // Block quote
+  char(">"),
+  // Fenced code block
+  str("```"),
+  // Horizontal rule (3+ of -, *, or _ with optional intervening spaces)
+  horizontalRuleParser,
+  // List marker (unordered or `<digits>.`) followed by a space
+  seqR(or(oneOf("-*+"), seqR(many1(digit), char("."))), char(" ")),
+  // Table row
+  char("|"),
+  // HTML block opener
+  seqR(char("<"), or(letter, oneOf("/!?")))
+);
+
 /* A paragraph node: an inline node OR a soft line break (single `\n` that
- * isn't the start of a blank line). Hard breaks ("  \n" / "\\\n") win over
- * soft breaks because they're matched earlier inside `inlineMarkdownParser`'s
- * `or`. */
+ * isn't the start of a blank line *and* doesn't precede a block opener).
+ * Hard breaks ("  \n" / "\\\n") win over soft breaks because they're
+ * matched earlier inside `inlineMarkdownParser`'s `or`. */
+const paragraphSoftBreak: Parser<InlineMarkdown> = map(
+  seqR(softBreakParser, not(blockInterrupt)),
+  () => ({ type: "inline-soft-break" as const })
+);
+
 const paragraphInline: Parser<InlineMarkdown> = map(
   seqC(
     not(blankLine),
-    capture(or(softBreakParser, inlineMarkdownParser), "node")
+    capture(or(paragraphSoftBreak, inlineMarkdownParser), "node")
   ),
   ({ node }) => node as InlineMarkdown
 );

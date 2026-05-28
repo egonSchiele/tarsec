@@ -399,4 +399,27 @@ describe("paragraphParser soft-wrapping", () => {
         { type: "inline-text", content: "two" },
       ]);
   });
+
+  it.each<[string, string]>([
+    ["para\n# heading", "\n# heading"],
+    ["para\n> quote", "\n> quote"],
+    ["para\n- item", "\n- item"],
+    ["para\n1. item", "\n1. item"],
+    ["para\n```\ncode\n```", "\n```\ncode\n```"],
+    ["para\n---", "\n---"],
+    ["para\n| h | i |", "\n| h | i |"],
+    ["para\n<div>", "\n<div>"],
+  ])(
+    "stops a soft-wrapped paragraph before a block opener (%j)",
+    (input, expectedRest) => {
+      const res = paragraphParser(input);
+      expect(res.success).toBe(true);
+      if (res.success) {
+        expect(res.result.content).toEqual([
+          { type: "inline-text", content: "para" },
+        ]);
+        expect(res.rest).toBe(expectedRest);
+      }
+    }
+  );
 });
