@@ -15,7 +15,7 @@ describe("markdownParser", () => {
     const expected = [
       {
         type: "heading",
-        content: "Install",
+        content: [{ type: "inline-text", content: "Install" }],
         level: 2,
       },
       {
