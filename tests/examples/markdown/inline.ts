@@ -22,7 +22,10 @@ import { failure } from "@/lib/types";
 
 const _inlineTextParser = seqC(
   set("type", "inline-text"),
-  capture(manyTillOneOf(["*", "`", "[", "\n"]), "content")
+  capture(
+    manyTillOneOf(["*", "_", "`", "[", "!", "<", "~", "\\", "\n"]),
+    "content"
+  )
 );
 export const inlineTextParser: Parser<InlineText> = (input) => {
   const res = _inlineTextParser(input);
