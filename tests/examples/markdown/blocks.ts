@@ -22,6 +22,7 @@ import {
   set,
   alphanum,
   oneOf,
+  noneOf,
 } from "@/lib/parsers";
 import { Parser, ParserResult, success } from "@/lib/types";
 import { InlineMarkdown } from "./types";
@@ -61,6 +62,20 @@ export const blockQuoteParser: Parser<BlockQuote> = seqC(
   str(">"),
   spaces,
   capture(manyTillStr("\n"), "content")
+);
+
+/* Setext-style headings: a line of content followed by an underline of `=`
+ * (level 1) or `-` (level 2), terminated by `\n` or end-of-input. */
+const setextLine = many1WithJoin(noneOf("\n"));
+const setextH1Underline = map(many1(char("=")), () => 1 as const);
+const setextH2Underline = map(many1(char("-")), () => 2 as const);
+
+export const setextHeadingParser: Parser<Heading> = seqC(
+  set("type", "heading"),
+  capture(setextLine, "content"),
+  char("\n"),
+  capture(or(setextH1Underline, setextH2Underline), "level"),
+  or(char("\n"), eof)
 );
 
 /* Horizontal rules:  three-or-more of the same `-`, `*`, or `_`,

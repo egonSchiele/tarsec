@@ -4,6 +4,7 @@ import {
   codeBlockParser,
   paragraphParser,
   horizontalRuleParser,
+  setextHeadingParser,
 } from "./blocks";
 
 describe("codeBlockParser language tag", () => {
@@ -50,6 +51,30 @@ describe("horizontalRuleParser", () => {
     const res = horizontalRuleParser("---\nfoo");
     expect(res.success).toBe(true);
     if (res.success) expect(res.rest).toBe("foo");
+  });
+});
+
+describe("setextHeadingParser", () => {
+  it("parses setext H1", () => {
+    const res = setextHeadingParser("Title\n=====");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "heading", level: 1, content: "Title" });
+  });
+
+  it("parses setext H2", () => {
+    const res = setextHeadingParser("Title\n--");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({ type: "heading", level: 2, content: "Title" });
+  });
+
+  it("rejects when the underline contains other chars", () => {
+    expect(setextHeadingParser("Title\n==x").success).toBe(false);
+  });
+
+  it("rejects when the underline mixes = and -", () => {
+    expect(setextHeadingParser("Title\n==--").success).toBe(false);
   });
 });
 

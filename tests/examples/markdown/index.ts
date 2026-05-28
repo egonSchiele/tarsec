@@ -12,6 +12,7 @@ import {
   paragraphParser,
   imageParser,
   horizontalRuleParser,
+  setextHeadingParser,
 } from "./blocks";
 
 export const markdownParser = seq(
@@ -20,6 +21,7 @@ export const markdownParser = seq(
     sepBy(
       spaces,
       or(
+        setextHeadingParser,
         horizontalRuleParser,
         headingParser,
         codeBlockParser,
