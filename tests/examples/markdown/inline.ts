@@ -23,6 +23,7 @@ import {
   InlineHardBreak,
   InlineLink,
   InlineCode,
+  Image,
 } from "./types";
 
 // Stop inline-text at any single delimiter char OR at a hard-break sequence
@@ -147,6 +148,17 @@ export const autolinkParser: Parser<InlineLink> = or(
   emailAutolinkParser
 );
 
+/** An inline image: ![alt](url). Lives in `inline.ts` so it can participate
+ *  in paragraph parsing without `blocks.ts` becoming a circular dep. */
+export const imageParser: Parser<Image> = seqC(
+  set("type", "image"),
+  str("!["),
+  capture(iManyTillStr("]("), "alt"),
+  str("]("),
+  capture(iManyTillStr(")"), "url"),
+  str(")")
+);
+
 export const hardBreakParser: Parser<InlineHardBreak> = map(
   or(
     // two-or-more trailing spaces then newline
@@ -182,6 +194,7 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineItalicUnderscoreParser,
   inlineStrikeParser,
   autolinkParser,
+  imageParser,
   inlineLinkParser,
   inlineCodeParser,
   inlineTextParser,

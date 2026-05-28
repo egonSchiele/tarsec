@@ -8,7 +8,8 @@ export type InlineMarkdown =
   | InlineStrike
   | InlineHardBreak
   | InlineLink
-  | InlineCode;
+  | InlineCode
+  | Image;
 
 export type InlineText = {
   type: "inline-text";

@@ -32,7 +32,8 @@ import {
   Image,
   Paragraph,
 } from "./types";
-import { inlineMarkdownParser } from "./inline";
+import { inlineMarkdownParser, imageParser } from "./inline";
+export { imageParser } from "./inline";
 
 const languageChar = or(alphanum, oneOf("_+#.-"));
 const languageTag = many1WithJoin(languageChar);
@@ -58,15 +59,6 @@ export const blockQuoteParser: Parser<BlockQuote> = seqC(
   str(">"),
   spaces,
   capture(manyTillStr("\n"), "content")
-);
-
-export const imageParser: Parser<Image> = seqC(
-  set("type", "image"),
-  str("!["),
-  capture(iManyTillStr("]("), "alt"),
-  str("]("),
-  capture(iManyTillStr(")"), "url"),
-  str(")")
 );
 
 // "\n" followed by zero or more spaces/tabs followed by another "\n" or end of input.
