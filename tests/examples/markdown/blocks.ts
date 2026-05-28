@@ -233,18 +233,37 @@ const orderedMarker: Parser<Marker> = map(
 const indentOf = (n: number): Parser<unknown> =>
   n > 0 ? str(" ".repeat(n)) : str("");
 
-type RawItem = { marker: Marker; line: string };
+/* GFM task-list checkbox: `[ ]` (unchecked), `[x]` or `[X]` (checked).
+ * Must be followed by a single space (consumed) to count as a checkbox. */
+const taskCheckbox: Parser<boolean> = map(
+  seqC(
+    char("["),
+    capture(or(char(" "), char("x"), char("X")), "mark"),
+    str("] ")
+  ),
+  ({ mark }) => mark !== " "
+);
+
+type RawItem = { marker: Marker; line: string; checked?: boolean };
 
 const itemHeadOf = (
   indent: number,
   markerParser: Parser<Marker>
 ): Parser<RawItem> =>
-  seqC(
-    indentOf(indent),
-    capture(markerParser, "marker"),
-    char(" "),
-    capture(manyTillStr("\n"), "line"),
-    or(char("\n"), eof)
+  map(
+    seqC(
+      indentOf(indent),
+      capture(markerParser, "marker"),
+      char(" "),
+      capture(optional(taskCheckbox), "checked"),
+      capture(manyTillStr("\n"), "line"),
+      or(char("\n"), eof)
+    ),
+    ({ marker, checked, line }) => {
+      const raw: RawItem = { marker, line };
+      if (checked !== null) raw.checked = checked;
+      return raw;
+    }
   );
 
 const parseInline = (line: string): InlineMarkdown[] => {
@@ -265,6 +284,7 @@ const itemWithSublist = (
     ({ raw, sublist }) => {
       const item: ListItem = { content: parseInline(raw.line) };
       if (sublist) item.sublist = sublist;
+      if (raw.checked !== undefined) item.checked = raw.checked;
       return { marker: raw.marker, item };
     }
   );
