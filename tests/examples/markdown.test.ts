@@ -64,7 +64,7 @@ describe("blockQuoteParser", () => {
     const input = "> Blockquote";
     const expected = {
       type: "block-quote",
-      content: "Blockquote",
+      content: [{ type: "inline-text", content: "Blockquote" }],
     };
     expect(blockQuoteParser(input)).toEqual(success(expected, ""));
   });

@@ -6,6 +6,7 @@ import {
   horizontalRuleParser,
   setextHeadingParser,
   indentedCodeBlockParser,
+  blockQuoteParser,
 } from "./blocks";
 
 describe("codeBlockParser language tag", () => {
@@ -52,6 +53,36 @@ describe("horizontalRuleParser", () => {
     const res = horizontalRuleParser("---\nfoo");
     expect(res.success).toBe(true);
     if (res.success) expect(res.rest).toBe("foo");
+  });
+});
+
+describe("blockQuoteParser multi-line and nested", () => {
+  it("parses a multi-line block quote into one node", () => {
+    const input = "> line 1\n> line 2";
+    const out = blockQuoteParser(input);
+    expect(out.success).toBe(true);
+    if (out.success) {
+      expect(out.result.type).toBe("block-quote");
+      expect(Array.isArray(out.result.content)).toBe(true);
+      // some inline-text node must mention "line 1" and "line 2"
+      const allText = (out.result.content as any[])
+        .filter((x) => x.type === "inline-text")
+        .map((x) => x.content)
+        .join("");
+      expect(allText).toContain("line 1");
+      expect(allText).toContain("line 2");
+    }
+  });
+
+  it("parses a nested block quote", () => {
+    const out = blockQuoteParser("> outer\n> > inner");
+    expect(out.success).toBe(true);
+    if (out.success) {
+      const nested = (out.result.content as any[]).find(
+        (x) => x && x.type === "block-quote"
+      );
+      expect(nested).toBeDefined();
+    }
   });
 });
 

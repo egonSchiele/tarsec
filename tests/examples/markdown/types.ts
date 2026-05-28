@@ -70,9 +70,10 @@ export type CodeBlock = {
   language: string | null;
 };
 
+export type BlockQuoteContent = InlineMarkdown | BlockQuote;
 export type BlockQuote = {
   type: "block-quote";
-  content: string;
+  content: BlockQuoteContent[];
 };
 
 export type Image = {

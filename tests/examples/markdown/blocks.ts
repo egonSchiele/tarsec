@@ -13,6 +13,7 @@ import {
   many1WithJoin,
   map,
   not,
+  lazy,
 } from "@/lib/combinators";
 import {
   str,
@@ -57,12 +58,46 @@ export const codeBlockParser: Parser<CodeBlock> = seqC(
   str("```")
 );
 
-export const blockQuoteParser: Parser<BlockQuote> = seqC(
-  set("type", "block-quote"),
-  str(">"),
-  spaces,
-  capture(manyTillStr("\n"), "content")
+/* Multi-line and nested block quotes.
+ *
+ *  - Consume consecutive lines beginning with "> " (the space is optional).
+ *  - Join their stripped content with newlines.
+ *  - Recursively re-parse the inner text: a sub-blockquote OR inline markdown.
+ *
+ *  `lazy` defers the self-reference so we can recurse for nesting. */
+const blockQuoteLine: Parser<string> = map(
+  seqR(
+    char(">"),
+    optional(char(" ")),
+    manyTillStr("\n"),
+    or(char("\n"), eof)
+  ),
+  (parts) => parts[2] as string
 );
+
+// Inside the joined inner text, accept either a nested blockquote (possibly
+// after a leading newline), a soft newline between lines, or any inline node.
+const softNewline: Parser<InlineMarkdown> = map(
+  char("\n"),
+  () => ({ type: "inline-text" as const, content: " " })
+);
+
+const blockQuoteContent: Parser<unknown> = lazy(() =>
+  or(
+    map(seqR(many(char("\n")), blockQuoteParser), (parts) => parts[1] as BlockQuote),
+    softNewline,
+    inlineMarkdownParser
+  )
+);
+
+export const blockQuoteParser: Parser<BlockQuote> = (input) => {
+  const lines = many1(blockQuoteLine)(input);
+  if (!lines.success) return lines;
+  const innerText = (lines.result as string[]).join("\n");
+  const inner = many1(blockQuoteContent)(innerText);
+  const content = inner.success ? (inner.result as BlockQuoteContent[]) : [];
+  return success({ type: "block-quote", content }, lines.rest);
+};
 
 /* Indented code block: one or more consecutive lines beginning with 4 spaces
  * or a tab. The indent is stripped from each line. */
