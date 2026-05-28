@@ -113,6 +113,46 @@ describe("resolveReferences", () => {
     });
   });
 
+  it("forwards LinkDef.title onto the resolved inline-link", () => {
+    const ast = [
+      { type: "link-definition", id: "x", url: "https://x", title: "T" },
+      {
+        type: "paragraph",
+        content: [{ type: "inline-ref-link", text: "hi", id: "x" }],
+      },
+    ];
+    expect(resolveReferences(ast)).toEqual([
+      {
+        type: "paragraph",
+        content: [
+          {
+            type: "inline-link",
+            content: [{ type: "inline-text", content: "hi" }],
+            url: "https://x",
+            title: "T",
+          },
+        ],
+      },
+    ]);
+  });
+
+  it("forwards LinkDef.title onto the resolved image", () => {
+    const ast = [
+      { type: "link-definition", id: "img", url: "u.png", title: "alt-title" },
+      {
+        type: "paragraph",
+        content: [{ type: "inline-ref-image", alt: "alt", id: "img" }],
+      },
+    ];
+    const out = resolveReferences(ast) as any[];
+    expect(out[0].content[0]).toEqual({
+      type: "image",
+      url: "u.png",
+      alt: "alt",
+      title: "alt-title",
+    });
+  });
+
   it("case-insensitive id matching", () => {
     const ast = [
       { type: "link-definition", id: "FOO", url: "https://x" },

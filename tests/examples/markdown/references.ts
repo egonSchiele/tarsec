@@ -75,11 +75,13 @@ export function resolveReferences(ast: unknown[]): unknown[] {
     if (obj.type === "inline-ref-link") {
       const def = linkDefs.get(String(obj.id).toLowerCase());
       if (def) {
-        return {
+        const link: Record<string, unknown> = {
           type: "inline-link",
           content: [{ type: "inline-text", content: String(obj.text) }],
           url: def.url,
         };
+        if (def.title != null) link.title = def.title;
+        return link;
       }
       return { type: "inline-text", content: `[${obj.text}]` };
     }
@@ -87,7 +89,13 @@ export function resolveReferences(ast: unknown[]): unknown[] {
     if (obj.type === "inline-ref-image") {
       const def = linkDefs.get(String(obj.id).toLowerCase());
       if (def) {
-        return { type: "image", url: def.url, alt: obj.alt };
+        const img: Record<string, unknown> = {
+          type: "image",
+          url: def.url,
+          alt: obj.alt,
+        };
+        if (def.title != null) img.title = def.title;
+        return img;
       }
       return { type: "inline-text", content: `![${obj.alt}]` };
     }
