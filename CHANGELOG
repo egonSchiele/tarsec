@@ -1,46 +1,14 @@
-## Unreleased
-- Markdown example: closes four CommonMark gaps —
-  - ATX headings cap at level 6 (7+ `#` runs fall through to a paragraph)
-    and an optional trailing `#` run (preceded by a space) is stripped
-    from the heading content.
-  - Inline links and images accept an optional `"title"` (or `'title'`),
-    captured into a new optional `title?: string` field on `InlineLink`
-    and `Image`.
-  - Inline code spans support N-backtick fences — ``` ``a`b`` ``` parses
-    as content `` a`b ``, closing only on a run of *exactly* N backticks.
-    One leading and trailing space is stripped when both sides have one
-    (and the content isn't all whitespace).
-  - Paragraphs now consume soft-wrapped lines and emit an
-    `inline-soft-break` between them; blank lines still terminate the
-    paragraph and hard breaks (`"  \n"` / `"\\\n"`) still take precedence.
-- Markdown example: inline emphasis, strikethrough, and inline-link nodes
-  now carry `InlineMarkdown[]` content instead of `string`, so nested
-  inlines like ``**[link](u)**`` or ``*foo `code` bar*`` round-trip through
-  the AST. A new `inlineSeqUntil(stop)` helper handles node-level
-  recursion via `lazy`; code spans, autolinks, and image alt-text stay
-  string-typed (they aren't nestable per CommonMark). `]` is added to the
-  inline-text stop set and literal-char fallback so stray `]` outside a
-  link still renders.
-- Markdown example: rewritten as a small package under `tests/examples/markdown/`
-  (`types.ts`, `inline.ts`, `blocks.ts`, `references.ts`, `index.ts`) and brought
-  to near-CommonMark coverage, all built from Tarsec combinators:
-  - Inline: escape sequences, `*`/`_` italic, `**`/`__` bold, combined
-    `***bold-italic***`, `~~strikethrough~~`, autolinks (`<http(s)://…>` and
-    `<email>`), hard line breaks (two trailing spaces or `\`), inline images,
-    and deferred reference-style links / images.
-  - Blocks: ATX headings, setext headings, fenced code blocks (with
-    `objective-c` / `c++` / `ts2` style language tags), indented code blocks,
-    multi-line and nested block quotes, unordered / ordered / nested lists,
-    pipe tables with alignment, horizontal rules, and HTML block passthrough.
-  - Reference resolution: `[id]: url` link definitions and `[^id]: …`
-    footnote definitions are collected and resolved in a post-parse pass over
-    the AST.
-  - VitePress-style YAML frontmatter: an optional `---`-delimited block at the
-    top of the document. Supports `key: value` entries with bare/quoted
-    strings, integers, floats, booleans, `null`/`~`, and inline flow lists.
-  - Fixes: code-block language tags now accept hyphens / digits / `+`,
-    paragraphs terminate at a blank line, bold-vs-italic precedence is correct,
-    and inline text's stop set covers all the new delimiters.
+## May 28 2026 — v0.3.0
+- New: `tarsec/parsers/markdown` subpath export — a CommonMark-ish markdown parser built entirely from Tarsec combinators, with ATX/setext headings, lists (incl. GFM `- [ ]` task items), tables, block quotes, autolinks (angled and bare-URL), inline HTML (open/close/self-closing tags and comments), HTML entity decoding, reference-style links / footnotes, frontmatter, and a nested-inline AST that round-trips constructs like ``**[link](u)**`` and ``*a `code` b*``.
+
+## Apr 15 2026 — v0.2.2
+- `quotedString` now allows backslash-escaping the inner quote — e.g. `"a \"b\" c"` parses as one quoted string of length 9.
+
+## Apr 13 2026 — v0.2.1
+- `quote` / `quotedString` accept backticks in addition to `'` and `"`, and the closing quote must match the opener (so a single-quoted string can freely contain `"` and backticks, etc.).
+
+## Apr 2 2026 — v0.2.0
+- Better parse-error reporting via rightmost-failure tracking — diagnostics surface the deepest failure across alternatives, with line/column info and a pretty rendered message.
 
 ## v0.0.19
 - adds `captureCaptures`
