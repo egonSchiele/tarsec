@@ -78,6 +78,25 @@ describe("markdownParser integration", () => {
     }
   });
 
+  it("rounds-trips inline HTML inside a paragraph", () => {
+    const res = markdownParser(`Hello <span class="hi">world</span>!`);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result).toEqual([
+        {
+          type: "paragraph",
+          content: [
+            { type: "inline-text", content: "Hello " },
+            { type: "inline-html", content: `<span class="hi">` },
+            { type: "inline-text", content: "world" },
+            { type: "inline-html", content: "</span>" },
+            { type: "inline-text", content: "!" },
+          ],
+        },
+      ]);
+    }
+  });
+
   it("nested inlines round-trip through markdownParser", () => {
     const res = markdownParser(
       "Try **[the docs](https://x.dev)** or *`run --help`* now."
