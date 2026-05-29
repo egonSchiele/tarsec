@@ -497,6 +497,17 @@ export const htmlCommentParser: Parser<InlineHTML> = map(
   })
 );
 
+/* Inline HTML dispatch. `htmlCommentParser` runs first so `<!--…-->` isn't
+ * stolen by `htmlOpenTagParser` (which would otherwise see `<!` and bail).
+ * `htmlCloseTagParser` runs before `htmlOpenTagParser` because the open-tag
+ * parser would accept `<` followed by a tag name and we want `</a>` to win
+ * over an attempted `<` + `/a` (which isn't a valid attribute shape anyway). */
+export const htmlInlineParser: Parser<InlineHTML> = or(
+  htmlCommentParser,
+  htmlCloseTagParser,
+  htmlOpenTagParser
+);
+
 // Footnote reference: `[^id]` (id has no `]`, `\n`, or spaces).
 export const inlineFootnoteRefParser: Parser<InlineFootnoteRef> = seqC(
   set("type", "inline-footnote-ref"),
@@ -639,6 +650,7 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineStrikeParser,
   autolinkParser,
   bareUrlAutolinkParser,
+  htmlInlineParser,
   imageParser,
   inlineRefImageParser,
   inlineFootnoteRefParser,

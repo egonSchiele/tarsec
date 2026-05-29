@@ -666,3 +666,41 @@ describe("htmlCommentParser", () => {
     expect(htmlCommentParser("<!-- a>-->").success).toBe(false);
   });
 });
+
+describe("inline HTML dispatched via inlineMarkdownParser", () => {
+  it("parses an inline tag mid-paragraph", () => {
+    const res = inlineMarkdownParser(`<span class="x">`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-html");
+  });
+
+  it("parses a self-closing <br/> mid-paragraph", () => {
+    const res = inlineMarkdownParser("<br/>");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-html");
+  });
+
+  it("parses a close tag mid-paragraph", () => {
+    const res = inlineMarkdownParser("</span>");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-html");
+  });
+
+  it("parses a comment mid-paragraph", () => {
+    const res = inlineMarkdownParser("<!-- hi -->");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-html");
+  });
+
+  it("does NOT steal <https://x.y> from autolinkParser", () => {
+    const res = inlineMarkdownParser("<https://x.y>");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-link");
+  });
+
+  it("does NOT steal <a@b.com> from emailAutolinkParser", () => {
+    const res = inlineMarkdownParser("<a@b.com>");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-link");
+  });
+});
