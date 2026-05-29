@@ -24,7 +24,7 @@ import {
   seqC,
   seqR,
   sepBy,
-} from "@/lib/combinators";
+} from "../../combinators.js";
 import {
   alphanum,
   char,
@@ -33,9 +33,9 @@ import {
   oneOf,
   quotedString,
   str,
-} from "@/lib/parsers";
-import { Parser } from "@/lib/types";
-import { Frontmatter, FrontmatterValue } from "./types";
+} from "../../parsers.js";
+import { Parser } from "../../types.js";
+import { Frontmatter, FrontmatterValue } from "./types.js";
 
 // --- helpers -----------------------------------------------------------------
 

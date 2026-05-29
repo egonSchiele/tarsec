@@ -5,11 +5,11 @@ import {
   optional,
   many1WithJoin,
   map,
-} from "@/lib/combinators";
-import { char, str, set, noneOf, spaces } from "@/lib/parsers";
-import { manyTillStr, many1Till } from "@/lib/combinators";
-import { Parser } from "@/lib/types";
-import { LinkDef, FootnoteDef } from "./types";
+} from "../../combinators.js";
+import { char, str, set, noneOf, spaces } from "../../parsers.js";
+import { manyTillStr, many1Till } from "../../combinators.js";
+import { Parser } from "../../types.js";
+import { LinkDef, FootnoteDef } from "./types.js";
 
 /* Reference link definitions.
  *

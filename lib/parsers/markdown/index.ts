@@ -1,11 +1,11 @@
-export * from "./types";
-export * from "./inline";
-export * from "./blocks";
-export * from "./references";
-export * from "./frontmatter";
+export * from "./types.js";
+export * from "./inline.js";
+export * from "./blocks.js";
+export * from "./references.js";
+export * from "./frontmatter.js";
 
-import { seq, sepBy, or, optional, many1, map } from "@/lib/combinators";
-import { spaces, newline } from "@/lib/parsers";
+import { seq, sepBy, or, optional, many1, map } from "../../combinators.js";
+import { spaces, newline } from "../../parsers.js";
 import {
   headingParser,
   codeBlockParser,
@@ -18,16 +18,16 @@ import {
   listParser,
   tableParser,
   htmlBlockParser,
-} from "./blocks";
+} from "./blocks.js";
 import {
   linkDefinitionParser,
   footnoteDefinitionParser,
   resolveReferences,
-} from "./references";
-import { frontmatterParser } from "./frontmatter";
-import { Frontmatter } from "./types";
+} from "./references.js";
+import { frontmatterParser } from "./frontmatter.js";
+import { Frontmatter } from "./types.js";
 
-import { Parser } from "@/lib/types";
+import { Parser } from "../../types.js";
 
 // Block separator: one or more newlines (with optional trailing horizontal
 // whitespace). Crucially this does NOT consume leading indentation on the

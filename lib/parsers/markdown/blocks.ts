@@ -14,7 +14,7 @@ import {
   map,
   not,
   lazy,
-} from "@/lib/combinators";
+} from "../../combinators.js";
 import {
   str,
   spaces,
@@ -24,9 +24,9 @@ import {
   alphanum,
   oneOf,
   noneOf,
-} from "@/lib/parsers";
-import { Parser } from "@/lib/types";
-import { InlineMarkdown } from "./types";
+} from "../../parsers.js";
+import { Parser } from "../../types.js";
+import { InlineMarkdown } from "./types.js";
 import {
   Heading,
   CodeBlock,
@@ -40,11 +40,11 @@ import {
   Table,
   Alignment,
   HTMLBlock,
-} from "./types";
-import { digit, letter } from "@/lib/parsers";
-import { manyTill } from "@/lib/combinators";
-import { inlineMarkdownParser, imageParser, softBreakParser } from "./inline";
-export { imageParser } from "./inline";
+} from "./types.js";
+import { digit, letter } from "../../parsers.js";
+import { manyTill } from "../../combinators.js";
+import { inlineMarkdownParser, imageParser, softBreakParser } from "./inline.js";
+export { imageParser } from "./inline.js";
 
 const languageChar = or(alphanum, oneOf("_+#.-"));
 const languageTag = many1WithJoin(languageChar);
