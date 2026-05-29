@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { success } from "@/lib/types";
-import { frontmatterParser } from "./frontmatter";
-import { markdownParser } from "./index";
+import { frontmatterParser } from "@/lib/parsers/markdown/frontmatter";
+import { markdownParser } from "@/lib/parsers/markdown/index";
 
 describe("frontmatterParser", () => {
   it("parses the VitePress example with a string and a boolean", () => {

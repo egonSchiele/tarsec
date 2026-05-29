@@ -1,6 +1,6 @@
 import { success } from "@/lib/types";
 import { describe, it, expect } from "vitest";
-import { markdownParser, headingParser } from "../markdown";
+import { markdownParser, headingParser } from "@/lib/parsers/markdown/index";
 
 const input = `
 ## Install

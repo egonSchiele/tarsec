@@ -4,7 +4,7 @@ import {
   linkDefinitionParser,
   footnoteDefinitionParser,
   resolveReferences,
-} from "./references";
+} from "@/lib/parsers/markdown/references";
 
 describe("linkDefinitionParser", () => {
   it("parses [id]: url", () => {

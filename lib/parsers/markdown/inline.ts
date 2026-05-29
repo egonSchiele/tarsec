@@ -16,9 +16,9 @@ import {
   count,
   exactly,
   lazy,
-} from "@/lib/combinators";
-import { str, char, eof, set, oneOf, alphanum, noneOf, digit, letter, anyChar } from "@/lib/parsers";
-import { Parser, success, failure } from "@/lib/types";
+} from "../../combinators.js";
+import { str, char, eof, set, oneOf, alphanum, noneOf, digit, letter, anyChar } from "../../parsers.js";
+import { Parser, success, failure } from "../../types.js";
 import {
   InlineMarkdown,
   InlineText,
@@ -35,9 +35,9 @@ import {
   InlineRefImage,
   InlineFootnoteRef,
   InlineHTML,
-} from "./types";
+} from "./types.js";
 
-import { optional, between } from "@/lib/combinators";
+import { optional, between } from "../../combinators.js";
 
 // Stop inline-text at any single delimiter char OR at a hard-break sequence
 // ("  \n"+). Using many1Till with an `or` of delimiters makes the stop set

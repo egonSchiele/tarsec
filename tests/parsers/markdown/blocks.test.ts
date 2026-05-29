@@ -11,7 +11,7 @@ import {
   tableParser,
   htmlBlockParser,
   headingParser,
-} from "./blocks";
+} from "@/lib/parsers/markdown/blocks";
 
 describe("codeBlockParser language tag", () => {
   it("accepts hyphens, plus, and digits in language", () => {

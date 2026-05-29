@@ -15,7 +15,7 @@ import {
   htmlOpenTagParser,
   htmlCloseTagParser,
   htmlCommentParser,
-} from "./inline";
+} from "@/lib/parsers/markdown/inline";
 
 describe("inlineSeqUntil", () => {
   it("collects inline nodes up to (but not including) the stop", () => {

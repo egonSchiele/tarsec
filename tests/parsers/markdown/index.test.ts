@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { markdownParser } from "./index";
+import { markdownParser } from "@/lib/parsers/markdown/index";
 
 describe("markdownParser integration", () => {
   it("parses a mixed-feature document end-to-end", () => {
