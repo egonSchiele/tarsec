@@ -105,6 +105,8 @@ export type InlineRefImage = {
 export type ListItem = {
   content: InlineMarkdown[];
   sublist?: List;
+  /** GFM task-list state: `true` for `[x]`/`[X]`, `false` for `[ ]`, absent for plain items. */
+  checked?: boolean;
 };
 
 export type List = {

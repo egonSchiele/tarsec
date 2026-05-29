@@ -211,6 +211,41 @@ describe("listParser ordered", () => {
   });
 });
 
+describe("task list items (GFM)", () => {
+  it.each<[string, boolean]>([
+    ["- [ ] todo", false],
+    ["- [x] done", true],
+    ["- [X] done", true],
+    ["* [ ] asterisk", false],
+    ["+ [x] plus", true],
+    ["1. [ ] ordered", false],
+  ])("parses %j as checked=%s", (input, checked) => {
+    const res = listParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.items[0].checked).toBe(checked);
+    }
+  });
+
+  it("leaves `checked` undefined on a plain item", () => {
+    const res = listParser("- foo");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.items[0].checked).toBeUndefined();
+    }
+  });
+
+  it("requires a space after the checkbox", () => {
+    // `- [ ]foo` (no space) treats the brackets as inline content (a ref-link),
+    // not a task-list checkbox.
+    const res = listParser("- [ ]foo");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.items[0].checked).toBeUndefined();
+    }
+  });
+});
+
 describe("listParser nested", () => {
   it("parses a nested unordered list", () => {
     const input = "- a\n  - a1\n  - a2\n- b";

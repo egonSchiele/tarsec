@@ -17,7 +17,7 @@ import {
   exactly,
   lazy,
 } from "@/lib/combinators";
-import { str, char, eof, set, oneOf, alphanum, noneOf } from "@/lib/parsers";
+import { str, char, eof, set, oneOf, alphanum, noneOf, digit } from "@/lib/parsers";
 import { Parser, success, failure } from "@/lib/types";
 import {
   InlineMarkdown,
@@ -43,7 +43,7 @@ import { optional, between } from "@/lib/combinators";
 // composable rather than embedded inside a regex. `]` is included so that
 // inline-text inside a link-text (`[...]`) terminates at the closing `]`.
 const inlineTextStop: Parser<unknown> = or(
-  oneOf("*_`[]!<~\\\n"),
+  oneOf("*_`[]!<~\\&\n"),
   str("  ")
 );
 
@@ -276,6 +276,71 @@ export const autolinkParser: Parser<InlineLink> = or(
   emailAutolinkParser
 );
 
+/* Bare-URL GFM autolinks: `http(s)://…` without surrounding `<>`. The body
+ * is built from three kinds of atom so the punctuation/paren-balance rules
+ * fall out of combinator composition:
+ *   - `bareUrlParenGroup` — a balanced `(...)` (recursive via `lazy`), so
+ *     Wikipedia-style URLs like `…Lisp_(programming_language)` keep their
+ *     parens and an unmatched trailing `)` falls through to the surrounding
+ *     text;
+ *   - `bareUrlPunctMidway` — one of `.,!?;:` accepted *only* when at least
+ *     one non-punct atom follows, so trailing sentence punctuation stays
+ *     in the surrounding text (a `not(...)` lookahead does the work);
+ *   - `bareUrlNormalChar` — any other URL char.
+ *
+ * `urlBodyStop` is the lookahead set that ends a URL outside a paren group:
+ * whitespace, `<`, `>`, `)`, or end-of-input. */
+const bareUrlScheme: Parser<string> = map(
+  seqC(
+    capture(str("http"), "scheme"),
+    capture(optional(char("s")), "s"),
+    str("://")
+  ),
+  ({ scheme, s }) => scheme + (s ?? "") + "://"
+);
+
+const urlBodyStop: Parser<unknown> = or(oneOf(" \t\n<>)"), eof);
+const urlTrailingPunct: Parser<string> = oneOf(".,!?;:");
+
+const bareUrlNormalChar: Parser<string> = noneOf(" \t\n<>().,!?;:");
+
+const bareUrlPunctMidway: Parser<string> = map(
+  seqC(
+    capture(urlTrailingPunct, "p"),
+    // Reject if the remainder is just more punct then a URL stop — that
+    // would mean this `.` (or `,`/`!`/etc) is part of a trailing run.
+    not(seqR(many(urlTrailingPunct), urlBodyStop))
+  ),
+  ({ p }) => p
+);
+
+const bareUrlAtom: Parser<string> = lazy(() =>
+  or(bareUrlParenGroup, bareUrlPunctMidway, bareUrlNormalChar)
+);
+
+const bareUrlParenGroup: Parser<string> = map(
+  seqC(
+    capture(char("("), "open"),
+    capture(manyWithJoin(bareUrlAtom), "inner"),
+    capture(char(")"), "close")
+  ),
+  ({ open, inner, close }) => open + inner + close
+);
+
+const bareUrlBody: Parser<string> = many1WithJoin(bareUrlAtom);
+
+export const bareUrlAutolinkParser: Parser<InlineLink> = map(
+  seqC(capture(bareUrlScheme, "scheme"), capture(bareUrlBody, "body")),
+  ({ scheme, body }) => {
+    const url = scheme + body;
+    return {
+      type: "inline-link" as const,
+      content: [{ type: "inline-text" as const, content: url }],
+      url,
+    };
+  }
+);
+
 // Footnote reference: `[^id]` (id has no `]`, `\n`, or spaces).
 export const inlineFootnoteRefParser: Parser<InlineFootnoteRef> = seqC(
   set("type", "inline-footnote-ref"),
@@ -364,12 +429,47 @@ export const inlineStrikeParser: Parser<InlineStrike> = map(
   })
 );
 
+/* HTML entities. Decodes:
+ *   - the five XML-core named entities (`&amp;`, `&lt;`, `&gt;`, `&quot;`,
+ *     `&apos;`) into their literal characters,
+ *   - decimal numeric references (`&#NN;`),
+ *   - hexadecimal numeric references (`&#xNN;` / `&#XNN;`).
+ *
+ * Unknown named entities (e.g. `&unknown;`) fail this parser and fall
+ * through to `inlineLiteralCharParser`, which emits a literal `&`. */
+const namedEntity: Parser<string> = or(
+  map(str("&amp;"), () => "&"),
+  map(str("&lt;"), () => "<"),
+  map(str("&gt;"), () => ">"),
+  map(str("&quot;"), () => '"'),
+  map(str("&apos;"), () => "'")
+);
+
+const decimalEntity: Parser<string> = map(
+  seqC(str("&#"), capture(many1WithJoin(digit), "digits"), char(";")),
+  ({ digits }) => String.fromCodePoint(parseInt(digits, 10))
+);
+
+const hexEntity: Parser<string> = map(
+  seqC(
+    or(str("&#x"), str("&#X")),
+    capture(many1WithJoin(oneOf("0123456789abcdefABCDEF")), "digits"),
+    char(";")
+  ),
+  ({ digits }) => String.fromCodePoint(parseInt(digits, 16))
+);
+
+export const htmlEntityParser: Parser<InlineText> = map(
+  or(hexEntity, decimalEntity, namedEntity),
+  (content) => ({ type: "inline-text" as const, content })
+);
+
 /** Last-resort: consume a single delimiter char as literal text so unmatched
  *  delimiters (e.g. the `_` in snake_case_word, or a stray `*`) don't crash
  *  the paragraph. Matches one of the inline-text stop characters. */
 export const inlineLiteralCharParser: Parser<InlineText> = seqC(
   set("type", "inline-text"),
-  capture(oneOf("*_`[]!<~\\"), "content")
+  capture(oneOf("*_`[]!<~\\&"), "content")
 );
 
 export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
@@ -382,12 +482,14 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineItalicUnderscoreParser,
   inlineStrikeParser,
   autolinkParser,
+  bareUrlAutolinkParser,
   imageParser,
   inlineRefImageParser,
   inlineFootnoteRefParser,
   inlineLinkParser,
   inlineRefLinkParser,
   inlineCodeParser,
+  htmlEntityParser,
   inlineTextParser,
   inlineLiteralCharParser
 );

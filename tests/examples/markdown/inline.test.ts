@@ -294,6 +294,109 @@ describe("autolinks", () => {
   });
 });
 
+describe("bare-URL GFM autolinks", () => {
+  it("parses https://example.com as an autolink", () => {
+    const res = inlineMarkdownParser("https://example.com");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({
+        type: "inline-link",
+        content: [{ type: "inline-text", content: "https://example.com" }],
+        url: "https://example.com",
+      });
+  });
+
+  it("parses http://x.y as an autolink", () => {
+    const res = inlineMarkdownParser("http://x.y");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-link");
+  });
+
+  it("excludes a trailing period from the URL", () => {
+    const res = inlineMarkdownParser("https://example.com.");
+    expect(res.success).toBe(true);
+    if (res.success && res.result.type === "inline-link") {
+      expect(res.result.url).toBe("https://example.com");
+      expect(res.rest).toBe(".");
+    }
+  });
+
+  it("includes balanced parens (Wikipedia-style)", () => {
+    const url = "https://en.wikipedia.org/wiki/Lisp_(programming_language)";
+    const res = inlineMarkdownParser(url);
+    expect(res.success).toBe(true);
+    if (res.success && res.result.type === "inline-link")
+      expect(res.result.url).toBe(url);
+  });
+
+  it("does not consume an unmatched trailing )", () => {
+    // The opener `(` is outside the URL, so the trailing `)` must stay
+    // outside too. We invoke the bare-URL parser directly on the URL-leading
+    // substring so we can assert on the rest pointer.
+    const res = inlineMarkdownParser("https://example.com)");
+    expect(res.success).toBe(true);
+    if (res.success && res.result.type === "inline-link") {
+      expect(res.result.url).toBe("https://example.com");
+      expect(res.rest).toBe(")");
+    }
+  });
+
+  it("stops at whitespace", () => {
+    const res = inlineMarkdownParser("https://example.com next");
+    expect(res.success).toBe(true);
+    if (res.success && res.result.type === "inline-link") {
+      expect(res.result.url).toBe("https://example.com");
+      expect(res.rest).toBe(" next");
+    }
+  });
+
+  it("still prefers the angled form <https://x.y>", () => {
+    const res = inlineMarkdownParser("<https://x.y>");
+    expect(res.success).toBe(true);
+    if (res.success && res.result.type === "inline-link") {
+      expect(res.result.url).toBe("https://x.y");
+      expect(res.rest).toBe("");
+    }
+  });
+});
+
+describe("HTML entities", () => {
+  it.each<[string, string]>([
+    ["&amp;", "&"],
+    ["&lt;", "<"],
+    ["&gt;", ">"],
+    ["&quot;", '"'],
+    ["&apos;", "'"],
+    ["&#33;", "!"],
+    ["&#x21;", "!"],
+    ["&#X21;", "!"],
+  ])("decodes %j as %j", (input, expected) => {
+    const res = inlineMarkdownParser(input);
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({
+        type: "inline-text",
+        content: expected,
+      });
+  });
+
+  it("falls back to literal & on an unknown entity", () => {
+    const res = inlineMarkdownParser("&unknown;");
+    expect(res.success).toBe(true);
+    if (res.success)
+      expect(res.result).toEqual({
+        type: "inline-text",
+        content: "&",
+      });
+  });
+
+  it("stops inline text before an entity-leading &", () => {
+    const res = inlineTextParser("abc&amp;");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe("abc");
+  });
+});
+
 describe("strikethrough", () => {
   it("parses ~~gone~~", () => {
     const res = inlineMarkdownParser("~~gone~~");
