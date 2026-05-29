@@ -12,6 +12,9 @@ import {
   inlineLinkParser,
   imageParser,
   inlineCodeParser,
+  htmlOpenTagParser,
+  htmlCloseTagParser,
+  htmlCommentParser,
 } from "./inline";
 
 describe("inlineSeqUntil", () => {
@@ -596,5 +599,108 @@ describe("literal-delimiter fallback", () => {
     const res = inlineMarkdownParser("_word");
     expect(res.success).toBe(true);
     if (res.success) expect(res.result).toEqual({ type: "inline-text", content: "_" });
+  });
+});
+
+describe("htmlOpenTagParser", () => {
+  it.each<[string]>([
+    ["<a>"],
+    ["<span>"],
+    ["<a href>"],
+    [`<a href="x">`],
+    [`<a href='x'>`],
+    [`<a href="x" class="y">`],
+    [`<a  href = "x"  >`],
+    ["<br/>"],
+    ["<br />"],
+  ])("parses %j as inline-html", (input) => {
+    const res = htmlOpenTagParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.type).toBe("inline-html");
+      expect(res.result.content).toBe(input);
+    }
+  });
+
+  it("fails on a non-tag", () => {
+    expect(htmlOpenTagParser("<https://x>").success).toBe(false);
+    expect(htmlOpenTagParser("<a@b.com>").success).toBe(false);
+  });
+});
+
+describe("htmlCloseTagParser", () => {
+  it.each<[string]>([
+    ["</a>"],
+    ["</span>"],
+    ["</a >"],
+    ["</a   >"],
+  ])("parses %j as inline-html", (input) => {
+    const res = htmlCloseTagParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe(input);
+  });
+
+  it("fails on a non-tag close", () => {
+    expect(htmlCloseTagParser("< /a>").success).toBe(false);
+  });
+});
+
+describe("htmlCommentParser", () => {
+  it.each<[string]>([
+    ["<!---->"],
+    ["<!-- hi -->"],
+    ["<!-- line1\nline2 -->"],
+    ["<!-- foo > bar -->"],
+  ])("parses %j", (input) => {
+    const res = htmlCommentParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe(input);
+  });
+
+  it("rejects content containing --", () => {
+    expect(htmlCommentParser("<!-- a -- b -->").success).toBe(false);
+  });
+
+  it("rejects content starting or ending with >", () => {
+    expect(htmlCommentParser("<!-->-->").success).toBe(false);
+    expect(htmlCommentParser("<!-- a>-->").success).toBe(false);
+  });
+});
+
+describe("inline HTML dispatched via inlineMarkdownParser", () => {
+  it("parses an inline tag mid-paragraph", () => {
+    const res = inlineMarkdownParser(`<span class="x">`);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-html");
+  });
+
+  it("parses a self-closing <br/> mid-paragraph", () => {
+    const res = inlineMarkdownParser("<br/>");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-html");
+  });
+
+  it("parses a close tag mid-paragraph", () => {
+    const res = inlineMarkdownParser("</span>");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-html");
+  });
+
+  it("parses a comment mid-paragraph", () => {
+    const res = inlineMarkdownParser("<!-- hi -->");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-html");
+  });
+
+  it("does NOT steal <https://x.y> from autolinkParser", () => {
+    const res = inlineMarkdownParser("<https://x.y>");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-link");
+  });
+
+  it("does NOT steal <a@b.com> from emailAutolinkParser", () => {
+    const res = inlineMarkdownParser("<a@b.com>");
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.type).toBe("inline-link");
   });
 });

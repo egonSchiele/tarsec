@@ -17,7 +17,7 @@ import {
   exactly,
   lazy,
 } from "@/lib/combinators";
-import { str, char, eof, set, oneOf, alphanum, noneOf, digit } from "@/lib/parsers";
+import { str, char, eof, set, oneOf, alphanum, noneOf, digit, letter, anyChar } from "@/lib/parsers";
 import { Parser, success, failure } from "@/lib/types";
 import {
   InlineMarkdown,
@@ -34,6 +34,7 @@ import {
   InlineRefLink,
   InlineRefImage,
   InlineFootnoteRef,
+  InlineHTML,
 } from "./types";
 
 import { optional, between } from "@/lib/combinators";
@@ -341,6 +342,172 @@ export const bareUrlAutolinkParser: Parser<InlineLink> = map(
   }
 );
 
+/* Inline HTML passthrough.
+ *
+ * Three CommonMark shapes are supported (each in its own exported parser):
+ *   - open / self-closing tags: `<a>`, `<a href="x">`, `<br/>`,
+ *   - close tags: `</a>`, `</a   >`,
+ *   - comments: `<!-- … -->`.
+ *
+ * The output is always an `InlineHTML` node whose `content` is the raw source
+ * (including the angle brackets), so downstream renderers pass it through
+ * untouched. We do not try to balance opens/closes or sanitise anything.
+ *
+ * The pieces below are shared helpers: `htmlTagName`, `htmlAttribute`,
+ * `htmlAttributes`, `htmlWS`. All built from combinators with named
+ * captures so the reconstructed string mirrors the source exactly. */
+const htmlWS: Parser<string> = manyWithJoin(oneOf(" \t\n"));
+const htmlWS1: Parser<string> = many1WithJoin(oneOf(" \t\n"));
+
+const htmlTagName: Parser<string> = map(
+  seqC(
+    capture(letter, "first"),
+    capture(manyWithJoin(or(alphanum, char("-"))), "rest")
+  ),
+  ({ first, rest }) => first + rest
+);
+
+const htmlAttrName: Parser<string> = map(
+  seqC(
+    capture(or(letter, char("_"), char(":")), "first"),
+    capture(manyWithJoin(or(alphanum, oneOf("_:.-"))), "rest")
+  ),
+  ({ first, rest }) => first + rest
+);
+
+const dqAttrValue: Parser<string> = map(
+  seqC(char('"'), capture(manyTillStr('"'), "v"), char('"')),
+  ({ v }) => `"${v}"`
+);
+
+const sqAttrValue: Parser<string> = map(
+  seqC(char("'"), capture(manyTillStr("'"), "v"), char("'")),
+  ({ v }) => `'${v}'`
+);
+
+const unquotedAttrValue: Parser<string> = many1WithJoin(noneOf(" \t\n\"'=<>`"));
+
+const htmlAttrValue: Parser<string> = or(dqAttrValue, sqAttrValue, unquotedAttrValue);
+
+/* Optional `= value` suffix on an attribute. Whitespace is allowed on both
+ * sides of the `=` per CommonMark. */
+const htmlAttrEq: Parser<string> = map(
+  seqC(
+    capture(htmlWS, "wsBefore"),
+    char("="),
+    capture(htmlWS, "wsAfter"),
+    capture(htmlAttrValue, "v")
+  ),
+  ({ wsBefore, wsAfter, v }) => `${wsBefore}=${wsAfter}${v}`
+);
+
+const htmlAttribute: Parser<string> = map(
+  seqC(
+    capture(htmlAttrName, "name"),
+    capture(optional(htmlAttrEq), "eq")
+  ),
+  ({ name, eq }) => name + (eq ?? "")
+);
+
+/* Zero or more attributes, each separated from the previous token by
+ * at least one whitespace char. Returns the joined source (including the
+ * separating whitespace) so the outer parser can reconstruct the original. */
+const htmlAttributes: Parser<string> = manyWithJoin(
+  map(
+    seqC(capture(htmlWS1, "ws"), capture(htmlAttribute, "attr")),
+    ({ ws, attr }) => ws + attr
+  )
+);
+
+export const htmlOpenTagParser: Parser<InlineHTML> = map(
+  seqC(
+    char("<"),
+    capture(htmlTagName, "name"),
+    capture(htmlAttributes, "attrs"),
+    capture(htmlWS, "ws"),
+    capture(optional(char("/")), "selfClose"),
+    char(">")
+  ),
+  ({ name, attrs, ws, selfClose }) => ({
+    type: "inline-html" as const,
+    content: `<${name}${attrs}${ws}${selfClose ?? ""}>`,
+  })
+);
+
+export const htmlCloseTagParser: Parser<InlineHTML> = map(
+  seqC(
+    str("</"),
+    capture(htmlTagName, "name"),
+    capture(htmlWS, "ws"),
+    char(">")
+  ),
+  ({ name, ws }) => ({
+    type: "inline-html" as const,
+    content: `</${name}${ws}>`,
+  })
+);
+
+/* HTML comments: `<!-- … -->`. CommonMark rules:
+ *   - the body may not contain `--`,
+ *   - the body may not start or end with `>`.
+ *
+ * Expressed as pure combinators by baking the constraints into the body atom:
+ *   - `not(str("-->"))` so we stop cleanly at the closer,
+ *   - `not(str("--"))` rejects a `--` mid-body,
+ *   - `not(seqR(char(">"), str("-->")))` is the "end-of-body `>` " rule —
+ *     a `>` directly before the closer is rejected, since accepting it
+ *     would let the comment end on `>`.
+ *
+ * The start-of-body `>` rule is enforced with one `not(char(">"))` placed
+ * before the body's `many1`. An empty body falls through to `optional`'s
+ * null branch, which leaves the input unconsumed so the closer can match
+ * immediately. */
+const commentBodyChar: Parser<string> = map(
+  seqC(
+    not(str("-->")),
+    not(str("--")),
+    not(seqR(char(">"), str("-->"))),
+    capture(anyChar, "c")
+  ),
+  ({ c }) => c
+);
+
+const commentBody: Parser<string> = map(
+  optional(
+    map(
+      seqC(
+        not(char(">")),
+        capture(many1WithJoin(commentBodyChar), "body")
+      ),
+      ({ body }) => body
+    )
+  ),
+  (body) => body ?? ""
+);
+
+export const htmlCommentParser: Parser<InlineHTML> = map(
+  seqC(
+    str("<!--"),
+    capture(commentBody, "body"),
+    str("-->")
+  ),
+  ({ body }) => ({
+    type: "inline-html" as const,
+    content: `<!--${body}-->`,
+  })
+);
+
+/* Inline HTML dispatch. `htmlCommentParser` runs first so `<!--…-->` isn't
+ * stolen by `htmlOpenTagParser` (which would otherwise see `<!` and bail).
+ * `htmlCloseTagParser` runs before `htmlOpenTagParser` because the open-tag
+ * parser would accept `<` followed by a tag name and we want `</a>` to win
+ * over an attempted `<` + `/a` (which isn't a valid attribute shape anyway). */
+export const htmlInlineParser: Parser<InlineHTML> = or(
+  htmlCommentParser,
+  htmlCloseTagParser,
+  htmlOpenTagParser
+);
+
 // Footnote reference: `[^id]` (id has no `]`, `\n`, or spaces).
 export const inlineFootnoteRefParser: Parser<InlineFootnoteRef> = seqC(
   set("type", "inline-footnote-ref"),
@@ -483,6 +650,7 @@ export const inlineMarkdownParser: Parser<InlineMarkdown> = or(
   inlineStrikeParser,
   autolinkParser,
   bareUrlAutolinkParser,
+  htmlInlineParser,
   imageParser,
   inlineRefImageParser,
   inlineFootnoteRefParser,

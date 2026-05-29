@@ -13,7 +13,14 @@ export type InlineMarkdown =
   | Image
   | InlineRefLink
   | InlineRefImage
-  | InlineFootnoteRef;
+  | InlineFootnoteRef
+  | InlineHTML;
+
+export type InlineHTML = {
+  type: "inline-html";
+  /** Raw passthrough source including angle brackets. */
+  content: string;
+};
 
 export type InlineText = {
   type: "inline-text";
