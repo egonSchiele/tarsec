@@ -14,6 +14,7 @@ import {
   inlineCodeParser,
   htmlOpenTagParser,
   htmlCloseTagParser,
+  htmlCommentParser,
 } from "./inline";
 
 describe("inlineSeqUntil", () => {
@@ -641,5 +642,27 @@ describe("htmlCloseTagParser", () => {
 
   it("fails on a non-tag close", () => {
     expect(htmlCloseTagParser("< /a>").success).toBe(false);
+  });
+});
+
+describe("htmlCommentParser", () => {
+  it.each<[string]>([
+    ["<!---->"],
+    ["<!-- hi -->"],
+    ["<!-- line1\nline2 -->"],
+    ["<!-- foo > bar -->"],
+  ])("parses %j", (input) => {
+    const res = htmlCommentParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe(input);
+  });
+
+  it("rejects content containing --", () => {
+    expect(htmlCommentParser("<!-- a -- b -->").success).toBe(false);
+  });
+
+  it("rejects content starting or ending with >", () => {
+    expect(htmlCommentParser("<!-->-->").success).toBe(false);
+    expect(htmlCommentParser("<!-- a>-->").success).toBe(false);
   });
 });

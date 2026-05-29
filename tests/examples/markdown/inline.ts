@@ -17,7 +17,7 @@ import {
   exactly,
   lazy,
 } from "@/lib/combinators";
-import { str, char, eof, set, oneOf, alphanum, noneOf, digit, letter } from "@/lib/parsers";
+import { str, char, eof, set, oneOf, alphanum, noneOf, digit, letter, anyChar } from "@/lib/parsers";
 import { Parser, success, failure } from "@/lib/types";
 import {
   InlineMarkdown,
@@ -444,6 +444,56 @@ export const htmlCloseTagParser: Parser<InlineHTML> = map(
   ({ name, ws }) => ({
     type: "inline-html" as const,
     content: `</${name}${ws}>`,
+  })
+);
+
+/* HTML comments: `<!-- … -->`. CommonMark rules:
+ *   - the body may not contain `--`,
+ *   - the body may not start or end with `>`.
+ *
+ * Expressed as pure combinators by baking the constraints into the body atom:
+ *   - `not(str("-->"))` so we stop cleanly at the closer,
+ *   - `not(str("--"))` rejects a `--` mid-body,
+ *   - `not(seqR(char(">"), str("-->")))` is the "end-of-body `>` " rule —
+ *     a `>` directly before the closer is rejected, since accepting it
+ *     would let the comment end on `>`.
+ *
+ * The start-of-body `>` rule is enforced with one `not(char(">"))` placed
+ * before the body's `many1`. An empty body falls through to `optional`'s
+ * null branch, which leaves the input unconsumed so the closer can match
+ * immediately. */
+const commentBodyChar: Parser<string> = map(
+  seqC(
+    not(str("-->")),
+    not(str("--")),
+    not(seqR(char(">"), str("-->"))),
+    capture(anyChar, "c")
+  ),
+  ({ c }) => c
+);
+
+const commentBody: Parser<string> = map(
+  optional(
+    map(
+      seqC(
+        not(char(">")),
+        capture(many1WithJoin(commentBodyChar), "body")
+      ),
+      ({ body }) => body
+    )
+  ),
+  (body) => body ?? ""
+);
+
+export const htmlCommentParser: Parser<InlineHTML> = map(
+  seqC(
+    str("<!--"),
+    capture(commentBody, "body"),
+    str("-->")
+  ),
+  ({ body }) => ({
+    type: "inline-html" as const,
+    content: `<!--${body}-->`,
   })
 );
 
