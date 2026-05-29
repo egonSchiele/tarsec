@@ -1,16 +1,4 @@
 ## Unreleased
-- Markdown example: four small CommonMark / GFM additions —
-  - GFM task list items: `- [ ] foo` / `- [x] foo` set `ListItem.checked`
-    (`true` for `[x]`/`[X]`, `false` for `[ ]`, absent for plain items).
-  - Bare-URL autolinks for `http(s)://…` without surrounding `<>`,
-    with sensible trailing-punctuation and paren-balance handling
-    (e.g. `https://example.com.` keeps the dot in the surrounding text,
-    `…wiki/Lisp_(programming_language)` keeps the balanced parens).
-  - HTML entities (`&amp;`, `&lt;`, `&gt;`, `&quot;`, `&apos;`,
-    `&#NN;`, `&#xNN;`) decode into the inline-text stream; unknown
-    named entities fall back to literal `&`.
-  - `resolveReferences` now forwards `title` from a link definition
-    onto the resolved `inline-link` / `image`.
 - Markdown example: closes four CommonMark gaps —
   - ATX headings cap at level 6 (7+ `#` runs fall through to a paragraph)
     and an optional trailing `#` run (preceded by a space) is stripped
