@@ -434,6 +434,19 @@ export const htmlOpenTagParser: Parser<InlineHTML> = map(
   })
 );
 
+export const htmlCloseTagParser: Parser<InlineHTML> = map(
+  seqC(
+    str("</"),
+    capture(htmlTagName, "name"),
+    capture(htmlWS, "ws"),
+    char(">")
+  ),
+  ({ name, ws }) => ({
+    type: "inline-html" as const,
+    content: `</${name}${ws}>`,
+  })
+);
+
 // Footnote reference: `[^id]` (id has no `]`, `\n`, or spaces).
 export const inlineFootnoteRefParser: Parser<InlineFootnoteRef> = seqC(
   set("type", "inline-footnote-ref"),

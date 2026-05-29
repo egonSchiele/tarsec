@@ -13,6 +13,7 @@ import {
   imageParser,
   inlineCodeParser,
   htmlOpenTagParser,
+  htmlCloseTagParser,
 } from "./inline";
 
 describe("inlineSeqUntil", () => {
@@ -623,5 +624,22 @@ describe("htmlOpenTagParser", () => {
   it("fails on a non-tag", () => {
     expect(htmlOpenTagParser("<https://x>").success).toBe(false);
     expect(htmlOpenTagParser("<a@b.com>").success).toBe(false);
+  });
+});
+
+describe("htmlCloseTagParser", () => {
+  it.each<[string]>([
+    ["</a>"],
+    ["</span>"],
+    ["</a >"],
+    ["</a   >"],
+  ])("parses %j as inline-html", (input) => {
+    const res = htmlCloseTagParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) expect(res.result.content).toBe(input);
+  });
+
+  it("fails on a non-tag close", () => {
+    expect(htmlCloseTagParser("< /a>").success).toBe(false);
   });
 });
