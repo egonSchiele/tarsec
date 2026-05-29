@@ -12,6 +12,7 @@ import {
   inlineLinkParser,
   imageParser,
   inlineCodeParser,
+  htmlOpenTagParser,
 } from "./inline";
 
 describe("inlineSeqUntil", () => {
@@ -596,5 +597,31 @@ describe("literal-delimiter fallback", () => {
     const res = inlineMarkdownParser("_word");
     expect(res.success).toBe(true);
     if (res.success) expect(res.result).toEqual({ type: "inline-text", content: "_" });
+  });
+});
+
+describe("htmlOpenTagParser", () => {
+  it.each<[string]>([
+    ["<a>"],
+    ["<span>"],
+    ["<a href>"],
+    [`<a href="x">`],
+    [`<a href='x'>`],
+    [`<a href="x" class="y">`],
+    [`<a  href = "x"  >`],
+    ["<br/>"],
+    ["<br />"],
+  ])("parses %j as inline-html", (input) => {
+    const res = htmlOpenTagParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.type).toBe("inline-html");
+      expect(res.result.content).toBe(input);
+    }
+  });
+
+  it("fails on a non-tag", () => {
+    expect(htmlOpenTagParser("<https://x>").success).toBe(false);
+    expect(htmlOpenTagParser("<a@b.com>").success).toBe(false);
   });
 });

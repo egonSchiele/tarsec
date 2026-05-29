@@ -17,7 +17,7 @@ import {
   exactly,
   lazy,
 } from "@/lib/combinators";
-import { str, char, eof, set, oneOf, alphanum, noneOf, digit } from "@/lib/parsers";
+import { str, char, eof, set, oneOf, alphanum, noneOf, digit, letter } from "@/lib/parsers";
 import { Parser, success, failure } from "@/lib/types";
 import {
   InlineMarkdown,
@@ -34,6 +34,7 @@ import {
   InlineRefLink,
   InlineRefImage,
   InlineFootnoteRef,
+  InlineHTML,
 } from "./types";
 
 import { optional, between } from "@/lib/combinators";
@@ -339,6 +340,98 @@ export const bareUrlAutolinkParser: Parser<InlineLink> = map(
       url,
     };
   }
+);
+
+/* Inline HTML passthrough.
+ *
+ * Three CommonMark shapes are supported (each in its own exported parser):
+ *   - open / self-closing tags: `<a>`, `<a href="x">`, `<br/>`,
+ *   - close tags: `</a>`, `</a   >`,
+ *   - comments: `<!-- … -->`.
+ *
+ * The output is always an `InlineHTML` node whose `content` is the raw source
+ * (including the angle brackets), so downstream renderers pass it through
+ * untouched. We do not try to balance opens/closes or sanitise anything.
+ *
+ * The pieces below are shared helpers: `htmlTagName`, `htmlAttribute`,
+ * `htmlAttributes`, `htmlWS`. All built from combinators with named
+ * captures so the reconstructed string mirrors the source exactly. */
+const htmlWS: Parser<string> = manyWithJoin(oneOf(" \t\n"));
+const htmlWS1: Parser<string> = many1WithJoin(oneOf(" \t\n"));
+
+const htmlTagName: Parser<string> = map(
+  seqC(
+    capture(letter, "first"),
+    capture(manyWithJoin(or(alphanum, char("-"))), "rest")
+  ),
+  ({ first, rest }) => first + rest
+);
+
+const htmlAttrName: Parser<string> = map(
+  seqC(
+    capture(or(letter, char("_"), char(":")), "first"),
+    capture(manyWithJoin(or(alphanum, oneOf("_:.-"))), "rest")
+  ),
+  ({ first, rest }) => first + rest
+);
+
+const dqAttrValue: Parser<string> = map(
+  seqC(char('"'), capture(manyTillStr('"'), "v"), char('"')),
+  ({ v }) => `"${v}"`
+);
+
+const sqAttrValue: Parser<string> = map(
+  seqC(char("'"), capture(manyTillStr("'"), "v"), char("'")),
+  ({ v }) => `'${v}'`
+);
+
+const unquotedAttrValue: Parser<string> = many1WithJoin(noneOf(" \t\n\"'=<>`"));
+
+const htmlAttrValue: Parser<string> = or(dqAttrValue, sqAttrValue, unquotedAttrValue);
+
+/* Optional `= value` suffix on an attribute. Whitespace is allowed on both
+ * sides of the `=` per CommonMark. */
+const htmlAttrEq: Parser<string> = map(
+  seqC(
+    capture(htmlWS, "wsBefore"),
+    char("="),
+    capture(htmlWS, "wsAfter"),
+    capture(htmlAttrValue, "v")
+  ),
+  ({ wsBefore, wsAfter, v }) => `${wsBefore}=${wsAfter}${v}`
+);
+
+const htmlAttribute: Parser<string> = map(
+  seqC(
+    capture(htmlAttrName, "name"),
+    capture(optional(htmlAttrEq), "eq")
+  ),
+  ({ name, eq }) => name + (eq ?? "")
+);
+
+/* Zero or more attributes, each separated from the previous token by
+ * at least one whitespace char. Returns the joined source (including the
+ * separating whitespace) so the outer parser can reconstruct the original. */
+const htmlAttributes: Parser<string> = manyWithJoin(
+  map(
+    seqC(capture(htmlWS1, "ws"), capture(htmlAttribute, "attr")),
+    ({ ws, attr }) => ws + attr
+  )
+);
+
+export const htmlOpenTagParser: Parser<InlineHTML> = map(
+  seqC(
+    char("<"),
+    capture(htmlTagName, "name"),
+    capture(htmlAttributes, "attrs"),
+    capture(htmlWS, "ws"),
+    capture(optional(char("/")), "selfClose"),
+    char(">")
+  ),
+  ({ name, attrs, ws, selfClose }) => ({
+    type: "inline-html" as const,
+    content: `<${name}${attrs}${ws}${selfClose ?? ""}>`,
+  })
 );
 
 // Footnote reference: `[^id]` (id has no `]`, `\n`, or spaces).
