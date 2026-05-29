@@ -277,12 +277,19 @@ export const autolinkParser: Parser<InlineLink> = or(
 );
 
 /* Bare-URL GFM autolinks: `http(s)://…` without surrounding `<>`. The body
- * accepts any non-whitespace, non-`<`/`>` character; after parsing, trailing
- * sentence punctuation (`.,!?;:`) and a *single* unmatched closing `)` are
- * stripped back into the surrounding text. The scheme + body parse is pure
- * combinators; the post-strip is an unavoidable escape hatch (Tarsec has no
- * "give back K characters" combinator and we want paren-balance and
- * punctuation-trim to leave the trimmed chars in the surrounding stream). */
+ * is built from three kinds of atom so the punctuation/paren-balance rules
+ * fall out of combinator composition:
+ *   - `bareUrlParenGroup` — a balanced `(...)` (recursive via `lazy`), so
+ *     Wikipedia-style URLs like `…Lisp_(programming_language)` keep their
+ *     parens and an unmatched trailing `)` falls through to the surrounding
+ *     text;
+ *   - `bareUrlPunctMidway` — one of `.,!?;:` accepted *only* when at least
+ *     one non-punct atom follows, so trailing sentence punctuation stays
+ *     in the surrounding text (a `not(...)` lookahead does the work);
+ *   - `bareUrlNormalChar` — any other URL char.
+ *
+ * `urlBodyStop` is the lookahead set that ends a URL outside a paren group:
+ * whitespace, `<`, `>`, `)`, or end-of-input. */
 const bareUrlScheme: Parser<string> = map(
   seqC(
     capture(str("http"), "scheme"),
@@ -292,48 +299,47 @@ const bareUrlScheme: Parser<string> = map(
   ({ scheme, s }) => scheme + (s ?? "") + "://"
 );
 
-const bareUrlBody: Parser<string> = many1WithJoin(noneOf(" \t\n<>"));
+const urlBodyStop: Parser<unknown> = or(oneOf(" \t\n<>)"), eof);
+const urlTrailingPunct: Parser<string> = oneOf(".,!?;:");
 
-const bareUrlRaw: Parser<string> = map(
-  seqC(capture(bareUrlScheme, "scheme"), capture(bareUrlBody, "body")),
-  ({ scheme, body }) => scheme + body
+const bareUrlNormalChar: Parser<string> = noneOf(" \t\n<>().,!?;:");
+
+const bareUrlPunctMidway: Parser<string> = map(
+  seqC(
+    capture(urlTrailingPunct, "p"),
+    // Reject if the remainder is just more punct then a URL stop — that
+    // would mean this `.` (or `,`/`!`/etc) is part of a trailing run.
+    not(seqR(many(urlTrailingPunct), urlBodyStop))
+  ),
+  ({ p }) => p
 );
 
-/* Trim trailing sentence punctuation and unbalanced closing parens. Returns
- * the kept URL and the number of chars that were trimmed (so the caller can
- * restore them to the rest pointer). */
-const stripTrailingPunct = (url: string): { kept: string; dropped: number } => {
-  let end = url.length;
-  while (end > 0 && ".,!?;:".includes(url[end - 1])) end--;
-  let opens = 0;
-  let closes = 0;
-  for (let i = 0; i < end; i++) {
-    if (url[i] === "(") opens++;
-    else if (url[i] === ")") closes++;
-  }
-  while (closes > opens && end > 0 && url[end - 1] === ")") {
-    closes--;
-    end--;
-  }
-  return { kept: url.slice(0, end), dropped: url.length - end };
-};
+const bareUrlAtom: Parser<string> = lazy(() =>
+  or(bareUrlParenGroup, bareUrlPunctMidway, bareUrlNormalChar)
+);
 
-export const bareUrlAutolinkParser: Parser<InlineLink> = (input) => {
-  const parsed = bareUrlRaw(input);
-  if (!parsed.success) return parsed;
-  const { kept, dropped } = stripTrailingPunct(parsed.result);
-  // Restore trimmed trailing chars to the rest pointer. `kept` is a prefix
-  // of `input`, so the resumption offset is exactly `kept.length`.
-  const rest = dropped === 0 ? parsed.rest : input.slice(kept.length);
-  return success(
-    {
+const bareUrlParenGroup: Parser<string> = map(
+  seqC(
+    capture(char("("), "open"),
+    capture(manyWithJoin(bareUrlAtom), "inner"),
+    capture(char(")"), "close")
+  ),
+  ({ open, inner, close }) => open + inner + close
+);
+
+const bareUrlBody: Parser<string> = many1WithJoin(bareUrlAtom);
+
+export const bareUrlAutolinkParser: Parser<InlineLink> = map(
+  seqC(capture(bareUrlScheme, "scheme"), capture(bareUrlBody, "body")),
+  ({ scheme, body }) => {
+    const url = scheme + body;
+    return {
       type: "inline-link" as const,
-      content: [{ type: "inline-text" as const, content: kept }],
-      url: kept,
-    },
-    rest
-  );
-};
+      content: [{ type: "inline-text" as const, content: url }],
+      url,
+    };
+  }
+);
 
 // Footnote reference: `[^id]` (id has no `]`, `\n`, or spaces).
 export const inlineFootnoteRefParser: Parser<InlineFootnoteRef> = seqC(
