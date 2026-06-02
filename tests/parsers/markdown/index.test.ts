@@ -97,6 +97,16 @@ describe("markdownParser integration", () => {
     }
   });
 
+  it("parses a heading directly followed by a list (no blank line)", () => {
+    const res = markdownParser("## H\n- item");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.rest).toBe("");
+      const types = (res.result as any[]).map((b) => b.type);
+      expect(types).toEqual(["heading", "list"]);
+    }
+  });
+
   it("nested inlines round-trip through markdownParser", () => {
     const res = markdownParser(
       "Try **[the docs](https://x.dev)** or *`run --help`* now."
