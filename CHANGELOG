@@ -1,3 +1,6 @@
+## June 2 2026 — v0.3.1
+- Fix: Markdown parser now parses markdown if headers don't have a blank line after them.
+
 ## May 28 2026 — v0.3.0
 - New: `tarsec/parsers/markdown` subpath export — a CommonMark-ish markdown parser built entirely from Tarsec combinators, with ATX/setext headings, lists (incl. GFM `- [ ]` task items), tables, block quotes, autolinks (angled and bare-URL), inline HTML (open/close/self-closing tags and comments), HTML entity decoding, reference-style links / footnotes, frontmatter, and a nested-inline AST that round-trips constructs like ``**[link](u)**`` and ``*a `code` b*``.
 
