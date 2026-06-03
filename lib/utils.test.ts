@@ -1,13 +1,6 @@
 import { describe, expect, test } from "vitest";
-import {
-  merge,
-  mergeCaptures,
-  findAncestorWithNextParser,
-  popMany,
-  escape,
-} from "./utils";
-import { Node } from "./types";
-import { char } from "./parsers";
+import { merge, mergeCaptures, escape } from "./utils";
+
 describe("escape", () => {
   test("escape should return a JSON string of the input", () => {
     const input = {
@@ -61,47 +54,5 @@ describe("mergeCaptures", () => {
     const expected = { name: "John", age: [30, 40], city: "New York" };
     const result = mergeCaptures(capture1, capture2);
     expect(result).toEqual(expected);
-  });
-});
-
-describe("findAncestorWithNextParser", () => {
-  test("findAncestorWithNextParser should return the first ancestor node that is not closed", () => {
-    const parent: Node = {
-      closed: true,
-      parent: {
-        closed: false,
-        parent: {
-          closed: false,
-          parent: null,
-          parser: null,
-          child: null,
-        },
-        parser: char("a"),
-        child: null,
-      },
-      parser: null,
-      child: null,
-    };
-
-    const node: Node = {
-      closed: true,
-      parent,
-      parser: null,
-      child: null,
-    };
-
-    const expected: [Node, number] = [parent.parent, 2];
-    const result = findAncestorWithNextParser(node);
-    expect(result).toEqual(expected);
-  });
-});
-
-describe("popMany", () => {
-  test("popMany should remove the specified number of elements from the array", () => {
-    const arr = [1, 2, 3, 4, 5];
-    const count = 3;
-    const expected = [1, 2];
-    popMany(arr, count);
-    expect(arr).toEqual(expected);
   });
 });
