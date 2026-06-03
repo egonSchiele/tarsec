@@ -4,7 +4,7 @@ export * from "./blocks.js";
 export * from "./references.js";
 export * from "./frontmatter.js";
 
-import { seq, sepBy, or, optional, many1, map } from "../../combinators.js";
+import { seq, or, optional, many, capture, seqC, map } from "../../combinators.js";
 import { spaces, newline } from "../../parsers.js";
 import {
   headingParser,
@@ -29,34 +29,37 @@ import { Frontmatter } from "./types.js";
 
 import { Parser } from "../../types.js";
 
-// Block separator: one or more newlines (with optional trailing horizontal
-// whitespace). Crucially this does NOT consume leading indentation on the
-// next block — so a 4-space indented code block isn't dewhitespaced before
-// indentedCodeBlockParser ever sees it.
-const blockSeparator = many1(newline);
+const blockAlt = or(
+  setextHeadingParser,
+  horizontalRuleParser,
+  headingParser,
+  codeBlockParser,
+  indentedCodeBlockParser,
+  tableParser,
+  blockQuoteParser,
+  listParser,
+  htmlBlockParser,
+  linkDefinitionParser,
+  footnoteDefinitionParser,
+  paragraphParser,
+  imageParser
+);
+
+// A block followed by zero-or-more trailing newlines. Blocks differ in whether
+// they consume their own terminating "\n" (e.g. headingParser does, codeBlock
+// doesn't), so we can't use sepBy(many1(newline), block) — it would fail to
+// separate two blocks when the first already ate its newline (e.g. a heading
+// directly followed by a list with no intervening blank line).
+const blockEntry = map(
+  seqC(capture(blockAlt, "b"), many(newline)),
+  ({ b }) => b
+);
 
 const _markdownParser = seq(
   [
     optional(frontmatterParser),
     optional(spaces),
-    sepBy(
-      blockSeparator,
-      or(
-        setextHeadingParser,
-        horizontalRuleParser,
-        headingParser,
-        codeBlockParser,
-        indentedCodeBlockParser,
-        tableParser,
-        blockQuoteParser,
-        listParser,
-        htmlBlockParser,
-        linkDefinitionParser,
-        footnoteDefinitionParser,
-        paragraphParser,
-        imageParser
-      )
-    ),
+    many(blockEntry),
     optional(spaces),
   ],
   (r) => {
