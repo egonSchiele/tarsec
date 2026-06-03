@@ -27,9 +27,7 @@ import {
 import { frontmatterParser } from "./frontmatter.js";
 import { Frontmatter } from "./types.js";
 
-import { Parser, ParserFailure } from "../../types.js";
-import { TarsecError } from "../../tarsecError.js";
-import { getDiagnostics } from "../../trace.js";
+import { Parser } from "../../types.js";
 
 const blockAlt = or(
   setextHeadingParser,
@@ -71,26 +69,8 @@ const _markdownParser = seq(
   }
 );
 
-// Resolve [id]: url definitions across the AST after parsing. Throws
-// TarsecError on parse failure or if the input isn't fully consumed.
-export const markdownParser: Parser<unknown[]> = (input) => {
-  const result = _markdownParser(input);
-  if (!result.success) {
-    throw new TarsecError(getDiagnostics(result, input));
-  }
-  if (result.rest.length > 0) {
-    const failure: ParserFailure = {
-      success: false,
-      message: "markdownParser did not consume the full input",
-      rest: result.rest,
-    };
-    throw new TarsecError(
-      getDiagnostics(failure, result.rest, failure.message)
-    );
-  }
-  return {
-    success: true,
-    result: resolveReferences(result.result as unknown[]),
-    rest: result.rest,
-  };
-};
+// Resolve [id]: url definitions across the AST after parsing.
+export const markdownParser: Parser<unknown[]> = map(
+  _markdownParser,
+  (nodes) => resolveReferences(nodes as unknown[])
+);
