@@ -39,20 +39,24 @@ import {
 
 import { optional, between } from "../../combinators.js";
 
-// Stop inline-text at any single delimiter char OR at the start of a hard-break
-// sequence (two-or-more spaces immediately followed by `\n`). The hard-break
-// stop is a *full* lookahead — checking only `"  "` would let arbitrary
-// double-spaces (e.g. a 2-space line indent inside a list-item continuation)
-// terminate inline-text and leave the surrounding paragraph stuck. `]` is
-// included so inline-text inside a link-text (`[...]`) ends at the `]`.
-const hardBreakLookahead: Parser<unknown> = seqR(
+// The "two-or-more trailing spaces then `\n`" half of a hard break. Shared
+// between `hardBreakParser` (which emits the hard-break node) and
+// `inlineTextStop` (which uses it to know where to stop). Keeping these in
+// sync matters: if the run pattern here disagreed with what `hardBreakParser`
+// accepts, inline-text could either swallow a real hard break or — as the
+// previous `str("  ")` did — stop on any incidental double-space (e.g. a
+// 2-space line indent inside a list-item continuation) and freeze the
+// surrounding paragraph at zero progress.
+const hardBreakSpaces: Parser<unknown> = seqR(
   str("  "),
   many(char(" ")),
   char("\n")
 );
+
+// `]` is included so inline-text inside a link-text (`[...]`) ends at the `]`.
 const inlineTextStop: Parser<unknown> = or(
   oneOf("*_`[]!<~\\&\n"),
-  hardBreakLookahead
+  hardBreakSpaces
 );
 
 export const inlineTextParser: Parser<InlineText> = map(
@@ -576,7 +580,7 @@ export const imageParser: Parser<Image> = map(
 export const hardBreakParser: Parser<InlineHardBreak> = map(
   or(
     // two-or-more trailing spaces then newline
-    seqR(str("  "), many(char(" ")), char("\n")),
+    hardBreakSpaces,
     // backslash then newline
     seqR(char("\\"), char("\n"))
   ),

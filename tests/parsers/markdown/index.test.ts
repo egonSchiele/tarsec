@@ -114,7 +114,10 @@ describe("markdownParser integration", () => {
     if (res.success) {
       expect(res.rest).toBe("");
       const types = (res.result as any[]).map((b) => b.type);
-      expect(types).toContain("heading");
+      // The indented fence isn't dedented — its body falls through to a
+      // paragraph between the list and the next heading. The important
+      // invariant is that nothing is dropped on the floor.
+      expect(types).toEqual(["list", "paragraph", "heading"]);
     }
   });
 
