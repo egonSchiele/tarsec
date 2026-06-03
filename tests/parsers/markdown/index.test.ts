@@ -97,6 +97,30 @@ describe("markdownParser integration", () => {
     }
   });
 
+  it("parses a list item followed by a 2-space-indented fenced code block", () => {
+    // Standard markdown list-item-continuation shape. The indented fence isn't
+    // recognised as a real code block (we don't dedent), but the parser must
+    // still consume the indented lines so `rest` ends up empty.
+    const input = [
+      "- Use the command:",
+      "  ```bash",
+      "  pnpm install agency-lang",
+      "  ```",
+      "",
+      "### After",
+    ].join("\n");
+    const res = markdownParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.rest).toBe("");
+      const types = (res.result as any[]).map((b) => b.type);
+      // The indented fence isn't dedented — its body falls through to a
+      // paragraph between the list and the next heading. The important
+      // invariant is that nothing is dropped on the floor.
+      expect(types).toEqual(["list", "paragraph", "heading"]);
+    }
+  });
+
   it("parses a heading directly followed by a list (no blank line)", () => {
     const res = markdownParser("## H\n- item");
     expect(res.success).toBe(true);
