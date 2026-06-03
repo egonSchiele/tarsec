@@ -39,13 +39,20 @@ import {
 
 import { optional, between } from "../../combinators.js";
 
-// Stop inline-text at any single delimiter char OR at a hard-break sequence
-// ("  \n"+). Using many1Till with an `or` of delimiters makes the stop set
-// composable rather than embedded inside a regex. `]` is included so that
-// inline-text inside a link-text (`[...]`) terminates at the closing `]`.
+// Stop inline-text at any single delimiter char OR at the start of a hard-break
+// sequence (two-or-more spaces immediately followed by `\n`). The hard-break
+// stop is a *full* lookahead — checking only `"  "` would let arbitrary
+// double-spaces (e.g. a 2-space line indent inside a list-item continuation)
+// terminate inline-text and leave the surrounding paragraph stuck. `]` is
+// included so inline-text inside a link-text (`[...]`) ends at the `]`.
+const hardBreakLookahead: Parser<unknown> = seqR(
+  str("  "),
+  many(char(" ")),
+  char("\n")
+);
 const inlineTextStop: Parser<unknown> = or(
   oneOf("*_`[]!<~\\&\n"),
-  str("  ")
+  hardBreakLookahead
 );
 
 export const inlineTextParser: Parser<InlineText> = map(
