@@ -246,6 +246,42 @@ export function not(parser: Parser<any>): Parser<null> {
 }
 
 /**
+ * Positive lookahead. Runs the given parser without consuming any input.
+ * On success, returns the parser's result with `rest` set to the original input.
+ * On failure, returns the underlying failure (also with `rest` reset to the original input).
+ *
+ * Useful for disambiguating alternatives without backtracking:
+ *
+ * ```ts
+ * const parser = or(
+ *   seqR(peek(str("hello!")), str("hello!")),
+ *   str("hello"),
+ * );
+ * ```
+ *
+ * The `peek` decides which branch to commit to; the real parser then consumes.
+ * Captures are preserved when the inner parser is a `CaptureParser`.
+ *
+ * @param parser - parser to look ahead with
+ * @returns - a parser that runs the given parser without consuming input
+ */
+export function peek<T>(parser: Parser<T>): Parser<T>;
+export function peek<T, C extends PlainObject>(
+  parser: CaptureParser<T, C>,
+): CaptureParser<T, C>;
+export function peek(
+  parser: GeneralParser<any, any>,
+): GeneralParser<any, any> {
+  return trace("peek", (input: string) => {
+    const result = parser(input);
+    if (!result.success) {
+      return { ...result, rest: input };
+    }
+    return { ...result, rest: input };
+  });
+}
+
+/**
  * Takes three parsers, `open`, `close`, and `parser`.
  * `between` matches multiple instances of `parser`,
  * surrounded by `open` and `close`. It returns the result of `parser`.
