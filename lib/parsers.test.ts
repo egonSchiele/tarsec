@@ -10,6 +10,8 @@ import {
   space,
   spaces,
   str,
+  takeWhile,
+  takeWhile1,
   word,
 } from "./parsers";
 import { failure, success } from "./types.js";
@@ -165,5 +167,71 @@ describe("quote parser", () => {
     const input = "<";
     const result = quote(input);
     expect(result).toEqual(failure('expected one of "\'\\"`", got <', "<"));
+  });
+
+  describe("takeWhile parser", () => {
+    const identChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+
+    test("consumes longest matching prefix", () => {
+      const p = takeWhile(identChars);
+      expect(p("hello world")).toEqual(success("hello", " world"));
+    });
+
+    test("returns empty string when nothing matches (still succeeds)", () => {
+      const p = takeWhile(identChars);
+      expect(p(" hello")).toEqual(success("", " hello"));
+    });
+
+    test("consumes entire input when all characters match", () => {
+      const p = takeWhile(identChars);
+      expect(p("hello")).toEqual(success("hello", ""));
+    });
+
+    test("works with an empty input", () => {
+      const p = takeWhile(identChars);
+      expect(p("")).toEqual(success("", ""));
+    });
+
+    test("accepts a predicate function", () => {
+      const p = takeWhile((code) => code >= 0x30 && code <= 0x39); // digits
+      expect(p("123abc")).toEqual(success("123", "abc"));
+    });
+
+    test("handles non-ASCII characters via Set fallback", () => {
+      const p = takeWhile("αβγ");
+      expect(p("αβγx")).toEqual(success("αβγ", "x"));
+    });
+  });
+
+  describe("takeWhile1 parser", () => {
+    const identChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+
+    test("consumes longest matching prefix", () => {
+      const p = takeWhile1(identChars);
+      expect(p("hello world")).toEqual(success("hello", " world"));
+    });
+
+    test("fails when nothing matches", () => {
+      const p = takeWhile1(identChars, "an identifier");
+      const result = p(" hello");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.message).toContain("an identifier");
+      }
+    });
+
+    test("default expected message uses char class", () => {
+      const p = takeWhile1("0123456789");
+      const result = p("abc");
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.message).toContain("0123456789");
+      }
+    });
+
+    test("succeeds with a single matching character", () => {
+      const p = takeWhile1(identChars);
+      expect(p("a!")).toEqual(success("a", "!"));
+    });
   });
 });

@@ -30,6 +30,8 @@ import { escape } from "./utils.js";
  * { captures: <array of captures> }
  * ```
  *
+ * If you're parsing characters only, prefer `takeWhile` for performance reasons.
+ * 
  * @param parser - parser to run
  * @returns - parser that runs the given parser zero to many times,
  * and returns the result as an array
@@ -72,7 +74,8 @@ export function many<const T extends GeneralParser<any, any>>(
 
 /**
  * Same as `many`, but fails if the parser doesn't match at least once.
- *
+ * If you're parsing characters only, prefer `takeWhile1` for performance reasons.
+ * 
  * @param parser - parser to run
  * @returns a parser that runs the given parser one to many times,
  */

@@ -112,6 +112,161 @@ export function noneOf(chars: string): Parser<string> {
 }
 
 /**
+ * Predicate over a single UTF-16 code unit (the value returned by
+ * `String.prototype.charCodeAt`). Used by `takeWhile` / `takeWhile1`
+ * to test each input character. Return `true` to keep consuming, `false`
+ * to stop.
+ *
+ * ```ts
+ * const isDigit: CharPredicate = (code) => code >= 0x30 && code <= 0x39;
+ * ```
+ */
+export type CharPredicate = (code: number) => boolean;
+
+/**
+ * Compile a string of allowed characters or a user-supplied predicate
+ * into a fast `CharPredicate`. For string inputs whose characters are
+ * all ASCII (code points < 128), the result is a single 128-byte
+ * `Uint8Array` lookup — one array read per character test. Non-ASCII
+ * characters in the string fall back to a `Set<number>` check.
+ * Predicates pass through unchanged.
+ *
+ * @param charsOrPred - a string of allowed characters or a predicate function
+ * @returns - a `CharPredicate` suitable for use in tight scanning loops
+ */
+function compileCharPredicate(
+  charsOrPred: string | CharPredicate
+): CharPredicate {
+  if (typeof charsOrPred === "function") return charsOrPred;
+  const chars = charsOrPred;
+  const ascii = new Uint8Array(128);
+  let nonAscii: Set<number> | null = null;
+  for (let i = 0; i < chars.length; i++) {
+    const code = chars.charCodeAt(i);
+    if (code < 128) {
+      ascii[code] = 1;
+    } else {
+      (nonAscii ??= new Set()).add(code);
+    }
+  }
+  if (nonAscii === null) {
+    return (code: number) => code < 128 && ascii[code] === 1;
+  }
+  const set = nonAscii;
+  return (code: number) =>
+    code < 128 ? ascii[code] === 1 : set.has(code);
+}
+
+/**
+ * A faster version of many/ manyWithJoin for character-class scanning.
+ * 
+ * Consume the longest prefix of `input` whose characters all satisfy
+ * the predicate (or are contained in the given char-class string). Always
+ * succeeds; returns "" when nothing matches.
+ *
+ * This is the fast equivalent of `manyWithJoin(oneOf(chars))` for
+ * character-class scans (identifiers, digit runs, whitespace, etc.). It
+ * runs a tight `charCodeAt` loop and returns a single `slice`, avoiding
+ * the per-char string allocations and final `Array.join` of the
+ * combinator form.
+ *
+ * Useful for scanning runs of characters that don't form their own
+ * grammar — whitespace, identifier bodies, hex digit runs, etc.:
+ *
+ * ```ts
+ * // Skip any spaces/tabs without allocating.
+ * const inlineWs = takeWhile(" \t");
+ *
+ * // Scan an identifier body (caller already matched the first char).
+ * const identTail = takeWhile(
+ *   "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_"
+ * );
+ *
+ * // Predicate form: anything that isn't a quote or backslash.
+ * const stringText = takeWhile(
+ *   (code) => code !== 0x22 && code !== 0x5c
+ * );
+ * ```
+ *
+ * @param charsOrPred - a string of allowed characters, or a `CharPredicate`
+ * @returns - a parser that consumes the matching prefix and always succeeds
+ */
+export function takeWhile(
+  charsOrPred: string | CharPredicate
+): Parser<string> {
+  const pred = compileCharPredicate(charsOrPred);
+  const label =
+    typeof charsOrPred === "string"
+      ? `takeWhile(${escape(charsOrPred)})`
+      : "takeWhile(<predicate>)";
+  return trace(label, (input: string) => {
+    let i = 0;
+    const n = input.length;
+    while (i < n && pred(input.charCodeAt(i))) i++;
+    return success(input.slice(0, i), input.slice(i));
+  });
+}
+
+/**
+ * Like `takeWhile`, but requires at least one matching character. On
+ * empty/no-match input, fails without consuming and records a rightmost-
+ * failure tagged with `expected` so error messages stay meaningful.
+ *
+ * Use this for things like identifier scanning, where an empty result
+ * is a parse error rather than a valid match:
+ *
+ * ```ts
+ * const VAR_CHARS =
+ *   "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_";
+ *
+ * // Replaces the slower `many1WithJoin(varNameChar)`.
+ * const identifier = takeWhile1(VAR_CHARS, "an identifier");
+ *
+ * identifier("foo + bar");   // success("foo", " + bar")
+ * identifier("  hi");        // failure: "expected an identifier"
+ *
+ * // Predicate form with a custom error message.
+ * const hexRun = takeWhile1(
+ *   (code) =>
+ *     (code >= 0x30 && code <= 0x39) || // 0-9
+ *     (code >= 0x41 && code <= 0x46) || // A-F
+ *     (code >= 0x61 && code <= 0x66),   // a-f
+ *   "a hex digit",
+ * );
+ * ```
+ *
+ * @param charsOrPred - a string of allowed characters, or a `CharPredicate`
+ * @param expected - optional human-readable label used in error messages
+ *                   (defaults to `one of "<chars>"` for string inputs)
+ * @returns - a parser that consumes the matching prefix and fails if empty
+ */
+export function takeWhile1(
+  charsOrPred: string | CharPredicate,
+  expected?: string
+): Parser<string> {
+  const pred = compileCharPredicate(charsOrPred);
+  const desc =
+    expected ??
+    (typeof charsOrPred === "string"
+      ? `one of "${charsOrPred}"`
+      : "<predicate>");
+  const label =
+    typeof charsOrPred === "string"
+      ? `takeWhile1(${escape(charsOrPred)})`
+      : "takeWhile1(<predicate>)";
+  return trace(label, (input: string) => {
+    let i = 0;
+    const n = input.length;
+    while (i < n && pred(input.charCodeAt(i))) i++;
+    if (i === 0) {
+      recordFailure(input, desc);
+      return failure(`expected ${desc}`, input);
+    }
+    return success(input.slice(0, i), input.slice(i));
+  });
+}
+
+/**
  * A parser that parses any one character.
  * Fails on empty strings, succeeds otherwise.
  *
