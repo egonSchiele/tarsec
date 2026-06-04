@@ -1,5 +1,3 @@
-import { Node } from "./types.js";
-
 export function escape(str: any) {
   return JSON.stringify(str);
 }
@@ -32,26 +30,6 @@ export function mergeCaptures(
     }
   });
   return result;
-}
-
-export function findAncestorWithNextParser(
-  node: Node,
-  count = 0
-): [Node, number] {
-  if (node === null) return [null, count];
-  if (!node.closed) {
-    return [node, count];
-  }
-  if (node.parent) {
-    return findAncestorWithNextParser(node.parent, count + 1);
-  }
-  return [null, count];
-}
-
-export function popMany(arr: any[], count: number) {
-  for (let i = 0; i < count; i++) {
-    arr.pop();
-  }
 }
 
 export function round(num: number, places = 2) {
