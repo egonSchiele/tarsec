@@ -1152,3 +1152,62 @@ function tryOps<T>(
   }
   return null;
 }
+
+const DEFAULT_MEMO_LIMIT = 10_000;
+
+// Registry of all caches created by `memo`, so callers can clear them
+// between independent parses. This matters when memoized parsers produce
+// results derived from globally-set state (e.g. `withSpan` reads the
+// current input via `setInputStr`): the cached `loc` is only valid for
+// the source it was computed against, so reusing the cache across parses
+// with different sources would return stale positional info.
+const memoCaches: Map<string, ParserResult<any>>[] = [];
+
+/**
+ * Clear every cache created by `memo`. Call this at the start of each
+ * top-level parse if your memoized parsers produce results that depend
+ * on mutable global state (e.g. positional info from `setInputStr`).
+ */
+export function resetMemos(): void {
+  for (const cache of memoCaches) cache.clear();
+}
+
+/**
+ * Wraps a parser with a per-input cache. Useful for parsers that may be invoked
+ * many times at the same position (e.g. recursive grammars where the same
+ * sub-parser is consulted from multiple alternatives).
+ *
+ * Both successes and failures are cached. The cache is keyed by the input
+ * string the parser is called with — because the rest passed between parsers
+ * is value-equal across paths, identical sub-parses share a cache entry.
+ *
+ * `memo` assumes its wrapped parser is a pure function of its input. Don't
+ * memoize parsers that consult mutable external state.
+ *
+ * @param name - optional debug name (shown in `parserDebug` counts/times as `memo(name)`)
+ * @param parser - parser to memoize
+ * @returns - memoized parser
+ */
+export function memo<T>(name: string, parser: Parser<T>): Parser<T>;
+export function memo<T, C extends PlainObject>(
+  name: string,
+  parser: CaptureParser<T, C>,
+): CaptureParser<T, C>;
+export function memo(
+  name: string,
+  parser: GeneralParser<any, any>,
+): GeneralParser<any, any> {
+  const cache = new Map<string, ParserResult<any>>();
+  memoCaches.push(cache);
+  return trace(name ? `memo(${name})` : "memo", (input: string) => {
+    const hit = cache.get(input);
+    if (hit !== undefined) return hit;
+    const result = parser(input);
+    if (cache.size >= DEFAULT_MEMO_LIMIT) {
+      const oldest = cache.keys().next().value;
+      if (oldest !== undefined) cache.delete(oldest);
+    }
+    cache.set(input, result);
+    return result;
+  });
+}

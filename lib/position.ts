@@ -26,6 +26,20 @@ export function buildLineTable(source: string): number[] {
   return lineStarts;
 }
 
+// One-entry cache so `withSpan` / `getPosition` don't rebuild the line
+// table on every invocation. Parses run sequentially with a single
+// `setInputStr` source, so a most-recently-seen cache is sufficient and
+// avoids O(num_calls * source.length) work during a parse.
+let cachedSource: string | null = null;
+let cachedLineTable: number[] = [0];
+
+function getLineTable(source: string): number[] {
+  if (source === cachedSource) return cachedLineTable;
+  cachedSource = source;
+  cachedLineTable = buildLineTable(source);
+  return cachedLineTable;
+}
+
 /**
  * Convert an absolute offset into a line and column using a precomputed line table.
  * Both line and column are 0-based.
@@ -68,7 +82,7 @@ export const getOffset: Parser<number> = (input: string) => {
 export const getPosition: Parser<Position> = (input: string) => {
   const source = getInputStr();
   const offset = source.length - input.length;
-  const lineTable = buildLineTable(source);
+  const lineTable = getLineTable(source);
   return success(offsetToPosition(lineTable, offset), input);
 };
 
@@ -88,7 +102,7 @@ export function withSpan<T>(
 ): Parser<{ value: T; span: Span }> {
   return (input: string) => {
     const source = getInputStr();
-    const lineTable = buildLineTable(source);
+    const lineTable = getLineTable(source);
     const startOffset = source.length - input.length;
     const result = parser(input);
     if (!result.success) return result;

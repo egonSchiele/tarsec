@@ -36,8 +36,6 @@ A parser combinator library for TypeScript, inspired by Parsec.
 - `CaptureParser<T, C>` extends this with a `captures` object for named captures
 - `rest` is the remaining unparsed string — position is derived from `originalInput.length - rest.length`
 - `setInputStr` stores the original input in a module-level variable; `getInputStr` retrieves it. This is used by `getDiagnostics` and the position module for computing offsets
-- `seq` uses a tree-based backtracking system (`createTree`, `ParserNode`) to try alternatives
-- `or` returns a `nextParser` field on success to enable lazy backtracking in `seq`
 - `lazy(() => parser)` enables recursive parser definitions by deferring evaluation
 - `buildExpressionParser(atom, operatorTable)` handles operator precedence and associativity for expression parsing. Operator table is ordered highest-to-lowest precedence. Supports left/right associativity and auto-generates `()`-based paren parsing (overridable via third arg).
 
