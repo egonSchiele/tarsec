@@ -1,3 +1,6 @@
+## June 3 2026 — v0.4.4
+- Add `memo`, cache line table instead of rebuilding it on every call to buildLineTable.
+
 ## June 3 2026 — v0.4.0
 - Remove backtracking support, add `peek` parser combinator for lookaheads.
 
