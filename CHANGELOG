@@ -1,3 +1,6 @@
+## June 3 2026 — v0.4.0
+- Remove backtracking support, add `peek` parser combinator for lookaheads.
+
 ## June 2 2026 — v0.3.1
 - Fix: Markdown parser now parses markdown if headers don't have a blank line after them.
 
