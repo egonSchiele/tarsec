@@ -43,7 +43,7 @@ parser("hello there"); // failure
 - Derived types: tarsec will generate TypeScript types for your parser
 - [Debug mode](/tutorials/debugging.md) that prints what's happening step-by-step
 - Tools to debug your parser's [performance](/tutorials/performance.md)
-- Partial [backtracking](/tutorials/backtracking.md) support
+- `peek` / `not` lookahead for [disambiguating grammars](/tutorials/backtracking.md) without backtracking
 - A way to make your parser more [secure](/tutorials/security.md).
 - [Pretty error messages](/tutorials/pretty-errors.md)
 

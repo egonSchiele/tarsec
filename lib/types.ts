@@ -6,16 +6,14 @@ export type ParserSuccess<T> = {
   success: true;
   result: T;
   rest: string;
-  nextParser?: Parser<any>;
 };
 
-/** Represents a parse success with captures. Notice nextParser is also a CaptureParser. */
+/** Represents a parse success with captures. */
 export type CaptureParserSuccess<T, C extends PlainObject> = {
   success: true;
   result: T;
   rest: string;
   captures: C;
-  nextParser?: CaptureParser<any, any>;
 };
 
 /** Represents a parse failure. */
@@ -170,47 +168,6 @@ export type InferManyReturnType<T extends GeneralParser<any, any>> =
   */
 export type MergedResults<T extends readonly GeneralParser<any, any>[]> =
   ExtractResults<T[number]>;
-
-/** Used to create a parser tree for backtracking. */
-export type Node = ParserNode | EmptyNode;
-export type ParserNode = {
-  parent: Node;
-  parser: GeneralParser<any, any> | null;
-  input?: string;
-  child: Node;
-  closed: boolean;
-};
-export type EmptyNode = null;
-
-/** Convenience function to create a ParserNode. */
-export function createNode(
-  parent: Node | null,
-  parser: GeneralParser<any, any>
-): ParserNode {
-  return {
-    parent,
-    parser,
-    child: null,
-    closed: false,
-  };
-}
-
-/** Convenience function where, given an array of parsers, it creates a tree we can use for backtracking.
- * This tree is what `seq` use. It's used to keep track of the parsers we've tried so far,
- * so we can backtrack if we need to.
- */
-export function createTree(parsers: readonly GeneralParser<any, any>[]): Node {
-  if (parsers.length === 0) {
-    return null;
-  }
-  const rootNode = createNode(null, parsers[0]);
-  let currentNode = rootNode;
-  for (let i = 1; i < parsers.length; i++) {
-    currentNode.child = createNode(currentNode, parsers[i]);
-    currentNode = currentNode.child;
-  }
-  return rootNode;
-}
 
 /** Used by `within`. */
 export type Matched<T> = { type: "matched"; value: T };

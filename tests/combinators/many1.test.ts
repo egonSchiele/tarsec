@@ -30,17 +30,4 @@ describe("many1 with captures", () => {
     };
     compareSuccessCaptures(result, expectedCaptures, "");
   });
-  /* 
-  it("returns captures for the second parser", () => {
-    const result = parser("hi");
-    compareSuccessCaptures(result, { name: "hi" }, "");
-  });
-
-  it("returns a nextParser with captures", () => {
-    const result = parser("123");
-    compareSuccessCaptures(result, { num: "1" }, "23");
-    expect(result.nextParser).toBeDefined();
-    const result2 = result.nextParser("hi");
-    compareSuccessCaptures(result2, { name: "hi" }, "");
-  }); */
 });

@@ -1,4 +1,8 @@
-There are plenty of backtracking issues, and tarsec doesn't solve them all. For example, if you need to backtrack on multiple levels, tarsec will fail.
+# Other tricky cases
+
+Tarsec doesn't backtrack, so any grammar where the first matching branch isn't the right branch will fail. The main tutorial covers the standard fix: reorder the `or`, or guard each branch with `peek`. This page collects a few cases that need more thought.
+
+## Sequenced `or`s
 
 ```ts
     const parser = seq(
@@ -16,39 +20,77 @@ There are plenty of backtracking issues, and tarsec doesn't solve them all. For 
       getResults
     );
 
-      const resultCake = parser("the robot ate the cake- cake!");
+    parser("the robot ate the cake- cake!");
 ```
 
-In this code, TARSEC would first backtrack to OR number 2. That won't fix the issue, so it will backtrack to OR number 1, parse the cake, then go back to OR number 2. Here, it needs to start over on OR number 2 to succeed, but it won't do that.
+Both `or`s have the shorter alternative first, so on this input both will pick the wrong branch. There is no single-`or` reordering that makes this work for every valid sentence.
 
----
-
-A couple examples using many1. Suppose you want to parse a sentence. This parser looks like it will do it.
+The fix is `peek`: each `or` commits to the longer branch only when the full longer match is actually present.
 
 ```ts
-const sentenceParser = seq([
-    many1(or(
+    or(
+      seqR(peek(str("the cake-")), str("the cake-")),
+      str("the"),
+    )
+```
+
+Apply the same pattern to `or #2`.
+
+## `or` inside `many1`
+
+```ts
+    const sentenceParser = seq([
+      many1(or(
         word,
-        seq([word, space], getResults)
-    )),
-    eof], getResults)
-```
-
-Unfortunately it won't. The `or` inside the `many1` will make it choke. On a string like `"once upon a time"`, The many1 will parse `["once"]`, and then fail on the `eof`. Now it needs to know to go back and try the other branch in the OR. But then on its next iteration (since it's a `many1`), what would it do?
-
- You could avoid the issue by just flipping the order of the parsers in the OR.
-
-Here is another problematic one.
-
-```ts
-const aParser = seq([
-    many1(char("a")),
-    char("a")
+        seq([word, space], getResults),
+      )),
+      eof,
     ], getResults);
 ```
 
-This parses a string of character a's. The last `"a"` gets parsed into the `char("a")`. The rest get parsed into the `many1`. Except this doesn't work. The `many1` parser is greedy, so it will parse all the a's and not know to leave one for the last parser to parse.
+On `"once upon a time"`, the `many1` greedily takes each `word` and then fails at `eof` because the trailing space hasn't been consumed. There's no second chance — `many1` keeps the first branch's result and moves on.
+
+Two fixes:
+
+1. **Reorder** so the longer alternative is first:
+
+   ```ts
+   many1(or(
+     seq([word, space], getResults),
+     word,
+   ))
+   ```
+
+2. **Guard with `peek`** if the disambiguator is more complex than just "the longer alternative wins":
+
+   ```ts
+   many1(or(
+     seqR(peek(seq([word, space], getResults)), seq([word, space], getResults)),
+     word,
+   ))
+   ```
+
+## Greedy `many1` swallowing input the next parser needs
+
+```ts
+    const aParser = seq([
+      many1(char("a")),
+      char("a"),
+    ], getResults);
+```
+
+This wants "at least one `a`, followed by an `a`". `many1` is greedy — it consumes every `a` it can — so the final `char("a")` always fails. There's no peek/reorder fix here; this is a grammar problem. You probably want:
+
+```ts
+    const aParser = many1(char("a"));
+```
+
+Or, if you really do need at least two:
+
+```ts
+    const aParser = seq([char("a"), many1(char("a"))], getResults);
+```
 
 ---
 
-I hope this shows that even if it *looks* like your parser will parse something, it's not always clear that it will without testing.
+The pattern in all of these: when the input shape doesn't tell the `or` (or `many1`) which way to go on its first try, give it a `peek` so the choice is correct from the start. When that doesn't work, the grammar itself is wrong.

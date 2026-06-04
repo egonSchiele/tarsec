@@ -1,4 +1,8 @@
-Before we can talk about backtracking, we need to talk about trees. Suppose we are trying to parse the text `"hello world"`. We have a parser like this:
+# Disambiguating grammars without backtracking
+
+Tarsec does **not** backtrack. Each parser is tried once, in order — if it succeeds, the input it consumed is gone, and the next parser picks up from there. This keeps parsers fast and predictable, but it means you have to be a little careful when two alternatives share a prefix.
+
+Suppose we are trying to parse `"hello world"`. We have a parser like this:
 
 ```ts
     const parser = seq([
@@ -7,12 +11,11 @@ Before we can talk about backtracking, we need to talk about trees. Suppose we a
     ], getResults);
 ```
 
- This says, first parse the string `"hello "`, then parse the string `"world"`. Every parser can be represented as a tree. Here is a tree for this hello world parser.
+This says: first parse `"hello "`, then parse `"world"`. Every parser can be represented as a tree:
 
- ![](images/backtracking/simple.png)
+![](images/backtracking/simple.png)
 
-
-It's pretty simple: first we parse `hello`, then we parse `world`. Now, suppose we want `"hello world"` to end in either a question mark or an exclamation mark. The parser would look like this
+Now suppose we want `"hello world"` to end in either a question mark or an exclamation mark:
 
 ```ts
     const parser = seq([
@@ -22,54 +25,77 @@ It's pretty simple: first we parse `hello`, then we parse `world`. Now, suppose 
     ], getResults);
 ```
 
-And the tree would look like this.
+The `or` tries each branch in order and returns the first one that succeeds. There's no ambiguity here — `!` and `?` don't share a prefix, so whichever one is in the input matches cleanly.
 
-![](images/backtracking/branch.png)
+## The shared-prefix problem
 
-After `"world"`, there are two paths we can take: `"hello world!"` or `"hello world?"`. Now, instead of one path through the tree, there are two.
-
-Suppose we try the string `"hello world?"`. Here's the path we would take.
-
-Start with hello, then world, then it's not exclamation mark, but we can try its sibling, question mark.
-
-
-*In this parser tree, we can go down or sideways*. Here's another way to write the same parser.
+Here's where things get interesting. Consider:
 
 ```ts
     const parser = seq([
-        str("hello "),        
+        str("hello "),
         or(str("world"), str("world!")),
-        optional("?")
+        optional(char("?"))
     ], getResults);
 ```
 
-This again parses either `"hello world!"` or `"hello world?"`. Here's the tree:
+Try parsing `"hello world!"`. The `or` tries `str("world")` first — it succeeds and consumes `"world"`. We're now sitting at `"!"`. The `optional(char("?"))` doesn't match, returns `null` without consuming. We never tried `str("world!")`. The parse leaves `"!"` unconsumed.
 
-![](images/backtracking/branch-backtracking.png)
+A backtracking parser would walk back up and try the other branch of the `or`. Tarsec won't. **You need to design the grammar so the first matching branch is the right one.**
 
-Now lets try parsing `"hello world!"`. Here's the path we take:
+There are two ways to fix this:
 
-![](images/backtracking/branch-backtracking-path.png)
+### 1. Put the longest / most specific alternative first
 
-Okay, we're not on the right path. Now what? Well, in this parser we can only go down or sideways, so we have failed. This parser will fail to parse `"hello world!"`, *even though there is a valid path!*
+```ts
+    or(str("world!"), str("world"))
+```
 
-What we really need is the ability to go backward and try another path. This is called **backtracking**.
+If `"world!"` is in the input, it wins. If not, `"world"` is tried next. This is the simplest fix and works for most cases.
 
-Here's another example.
+### 2. Use `peek` as a lookahead guard
+
+When ordering alone isn't enough — for example, when the disambiguating token comes *after* something the branches share — wrap each branch in a `peek` of whatever distinguishes it:
+
+```ts
+    or(
+      seqR(peek(str("world!")), str("world!")),
+      str("world"),
+    )
+```
+
+`peek(p)` runs `p` against the current input but **does not consume any input** on success. It's positive lookahead. Here it lets the `or` commit to the `"world!"` branch only when the full `"world!"` is actually there; otherwise it falls through to plain `"world"`.
+
+`peek` also has a partner: `not(peek(p))` (or just `not(p)`, since `not` is also non-consuming) is negative lookahead — it succeeds only when `p` would fail. Useful for things like "a digit not followed by another digit":
+
+```ts
+    seq([digit, not(peek(digit))], getResults)
+```
+
+## A bigger example
 
 ![](images/backtracking/robot-parser.png)
 
-This parser will parse `"the robot ate the pie"`, but will fail to parse `"the robot ate the cake"`!
+This parser will parse `"the robot ate the pie"`, but will fail on `"the robot ate the cake"` — the `or` commits to `str("the")` and then `str(" pie")` can't match `" cake"`.
 
-The tarsec parser does some backtracking, so it would be able to parse `"the robot ate the cake"`. But it doesn't backtrack fully, due of performance. *Backtracking can make parsers run much slower.*
-
-Generally, you should try to avoid making your parser backtrack. You can do this by making sure:
-
-1. there is no overlap and
-2. the longest option comes first.
-
-In the example above, either of these parsers would have avoided backtracking:
+Two ways to fix it:
 
 ![](images/backtracking/robot-parser-good.png)
 
-Tarsec doesn't always catch backtracking issues, though. Read [this](/tutorials/backtracking/other-backtracking-issues.md) for more examples.
+Either reorder the `or` (`or(str("the cake"), str("the"))`) so the longer match is tried first, or guard with `peek`:
+
+```ts
+    or(
+      seqR(peek(str("the cake")), str("the cake")),
+      str("the"),
+    )
+```
+
+## Rules of thumb
+
+1. **No overlap.** If two alternatives never share a prefix, you don't need to think about this.
+2. **Longest first.** When alternatives share a prefix, put the longer / more specific one first in the `or`.
+3. **Use `peek` when ordering isn't enough.** Particularly when the disambiguating token comes later in the input than the branches' shared prefix.
+4. **Use `not` for "unless".** "Match X but not when followed by Y" → `seq([X, not(peek(Y))], ...)`.
+
+See [other tricky cases](/tutorials/backtracking/other-backtracking-issues.md) for more examples of grammars that need care.
