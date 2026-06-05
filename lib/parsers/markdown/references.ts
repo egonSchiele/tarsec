@@ -108,12 +108,13 @@ export function resolveReferences(ast: unknown[]): unknown[] {
       return { type: "inline-text", content: `[^${obj.id}]` };
     }
 
-    // recurse into known child-bearing fields
+    // recurse into known child-bearing fields. Nested lists now live inside
+    // a list item's `content` (alongside other block children), so no
+    // dedicated `sublist` traversal is needed.
     const out: Record<string, unknown> = { ...obj };
     for (const key of ["content", "items", "rows"]) {
       if (Array.isArray(obj[key])) out[key] = (obj[key] as unknown[]).map(walk);
     }
-    if (obj.sublist) out.sublist = walk(obj.sublist);
     return out;
   }
 

@@ -24,8 +24,9 @@ import {
   alphanum,
   oneOf,
   noneOf,
+  newline,
 } from "../../parsers.js";
-import { Parser } from "../../types.js";
+import { Parser, success, failure } from "../../types.js";
 import { InlineMarkdown } from "./types.js";
 import {
   Heading,
@@ -40,7 +41,12 @@ import {
   Table,
   Alignment,
   HTMLBlock,
+  Block,
 } from "./types.js";
+import {
+  linkDefinitionParser,
+  footnoteDefinitionParser,
+} from "./references.js";
 import { digit, letter } from "../../parsers.js";
 import { manyTill } from "../../combinators.js";
 import { inlineMarkdownParser, imageParser, softBreakParser } from "./inline.js";
@@ -209,26 +215,33 @@ export const setextHeadingParser: Parser<Heading> = map(
 
 /* Lists.
  *
- * Each item is `marker + " " + line content + \n`. Markers are unordered
- * (`-`, `*`, `+`) or ordered (`<digits>.`). After parsing an item, we
- * recursively try to parse a sublist at `indent + 2`. The marker type of the
- * first item (ordered vs unordered) locks in the whole list; a marker-type
- * switch ends the list.
+ * A list item is a container of blocks. Its body spans the first line and any
+ * subsequent lines indented to the continuation column k = c + m + 1, where c
+ * is the marker column and m is the marker width. The marker family (ordered
+ * vs unordered) is locked by the first item; later items whose family doesn't
+ * match end the list.
  *
- * We build two list parsers — one parameterised by `unorderedMarker`, one
- * by `orderedMarker` — and `or` them. That way the marker-type lock falls
- * out of `seqC` naturally; no manual loop / state needed. */
-type Marker = { ord: boolean; start: number };
+ * The body lines are stripped of their k-space indent (via `indentOf(k)`) as
+ * part of the parse, joined, and reparsed through the top-level block
+ * dispatcher (`blockEntry`). Nested lists, code blocks, paragraphs, etc.
+ * inside an item fall out of that reparse — no special case for sublists. */
+type Marker = { ord: boolean; start: number; width: number };
 
 const unorderedMarker: Parser<Marker> = map(
   oneOf("-*+"),
-  () => ({ ord: false, start: 1 })
+  () => ({ ord: false, start: 1, width: 1 })
 );
 
 const orderedMarker: Parser<Marker> = map(
   seqC(capture(many1WithJoin(digit), "digits"), char(".")),
-  ({ digits }) => ({ ord: true, start: parseInt(digits, 10) })
+  ({ digits }) => ({
+    ord: true,
+    start: parseInt(digits, 10),
+    width: digits.length + 1,
+  })
 );
+
+const anyMarker: Parser<Marker> = or(unorderedMarker, orderedMarker);
 
 const indentOf = (n: number): Parser<unknown> =>
   n > 0 ? str(" ".repeat(n)) : str("");
@@ -244,71 +257,138 @@ const taskCheckbox: Parser<boolean> = map(
   ({ mark }) => mark !== " "
 );
 
-type RawItem = { marker: Marker; line: string; checked?: boolean };
+/* The first line of an item's content — everything after the marker+space
+ * (and optional checkbox), up to `\n`. */
+const itemFirstLine: Parser<string> = map(
+  seqC(capture(manyTillStr("\n"), "line"), or(char("\n"), eof)),
+  ({ line }) => line
+);
 
-const itemHeadOf = (
-  indent: number,
-  markerParser: Parser<Marker>
-): Parser<RawItem> =>
+/* A continuation line: exactly k spaces of indent, then the rest of the line.
+ * The strip IS the parse — `indentOf(k)` consumes the leading indent. */
+const continuationLine = (k: number): Parser<string> =>
   map(
-    seqC(
-      indentOf(indent),
-      capture(markerParser, "marker"),
-      char(" "),
-      capture(optional(taskCheckbox), "checked"),
-      capture(manyTillStr("\n"), "line"),
-      or(char("\n"), eof)
-    ),
-    ({ marker, checked, line }) => {
-      const raw: RawItem = { marker, line };
-      if (checked !== null) raw.checked = checked;
-      return raw;
-    }
+    seqC(indentOf(k), capture(manyTillStr("\n"), "line"), or(char("\n"), eof)),
+    ({ line }) => line
   );
 
-const parseInline = (line: string): InlineMarkdown[] => {
-  const inline = many1(inlineMarkdownParser)(line);
-  return inline.success ? (inline.result as InlineMarkdown[]) : [];
+/* A blank line at line-start. `blocks.ts` already defines `blankLine` below,
+ * but that variant starts with `\n` (designed for inter-block separators).
+ * Here we're already past the previous `\n`, so we need a line-start variant.
+ * The matched value isn't used as data; itemBody normalises blanks to "". */
+const blankContinuation: Parser<unknown> = seqR(
+  many(oneOf(" \t")),
+  or(char("\n"), eof)
+);
+
+/* One line of item body (after the first). Heterogeneous return type:
+ *   - continuationLine -> string (the dedented line text)
+ *   - blankContinuation -> unknown (discardable seqR output)
+ * itemBody normalises blanks to "" inline so a wrapper `map` is unnecessary. */
+const itemContentLine = (k: number): Parser<string | unknown> =>
+  or(continuationLine(k), blankContinuation);
+
+/* Reparse an item's collected body as a sequence of blocks via `blockEntry`.
+ *
+ * No silent fallback. CommonMark guarantees any non-empty buffer produces at
+ * least one block (worst case, a paragraph). The only legitimate empty case
+ * is an item whose first line is empty and which has no continuations — we
+ * handle that explicitly so the invariant `non-empty buf => at least one
+ * block` stays a real invariant. */
+const reparseBlocks = (buf: string): Block[] => {
+  if (buf === "") return [];
+  const r = many1(lazy(() => blockEntry))(buf);
+  if (!r.success) {
+    throw new Error(
+      `reparseBlocks: failed on non-empty buffer: ${JSON.stringify(buf)}`
+    );
+  }
+  return r.result as Block[];
 };
 
-// One list item: an item-head followed by an optional sublist at +2 indent.
-const itemWithSublist = (
-  indent: number,
-  markerParser: Parser<Marker>
-): Parser<{ marker: Marker; item: ListItem }> =>
+/* Full item content: first line + zero-or-more continuation lines, joined
+ * with `\n` and reparsed. */
+const itemBody = (k: number): Parser<Block[]> =>
   map(
     seqC(
-      capture(itemHeadOf(indent, markerParser), "raw"),
-      capture(optional(lazy(() => listParserAt(indent + 2))), "sublist")
+      capture(itemFirstLine, "first"),
+      capture(many(itemContentLine(k)), "rest")
     ),
-    ({ raw, sublist }) => {
-      const item: ListItem = { content: parseInline(raw.line) };
-      if (sublist) item.sublist = sublist;
-      if (raw.checked !== undefined) item.checked = raw.checked;
-      return { marker: raw.marker, item };
+    ({ first, rest }) => {
+      const lines = [
+        first,
+        ...rest.map((r) => (typeof r === "string" ? r : "")),
+      ];
+      return reparseBlocks(lines.join("\n"));
     }
   );
 
-// A list of one or more items that all share a marker family.
-const listOf = (
-  indent: number,
-  markerParser: Parser<Marker>
-): Parser<List> =>
-  map(
-    seqC(
-      capture(itemWithSublist(indent, markerParser), "first"),
-      capture(many(itemWithSublist(indent, markerParser)), "rest")
-    ),
-    ({ first, rest }) => ({
-      type: "list",
-      ordered: first.marker.ord,
-      start: first.marker.start,
-      items: [first.item, ...rest.map((r) => r.item)],
-    })
-  );
+type ParsedItem = { marker: Marker; item: ListItem };
 
-const listParserAt = (indent: number): Parser<List> =>
-  or(listOf(indent, unorderedMarker), listOf(indent, orderedMarker));
+/* Item parser at marker column c. Handwritten because `k` is derived from the
+ * parsed marker's width — `seqC` runs its children in fixed order with no data
+ * flow between them, so we sequence by hand to thread `marker.width` into
+ * `itemBody(k)`. Same shape as `inlineCodeParser` (inline.ts:179), which
+ * threads the opener's tick count into its closer for the same reason. */
+const itemParser = (c: number): Parser<ParsedItem> => (input: string) => {
+  const head = seqC(
+    indentOf(c),
+    capture(anyMarker, "marker"),
+    char(" "),
+    capture(optional(taskCheckbox), "checked")
+  )(input);
+  if (!head.success) return head;
+
+  const { marker, checked } = head.result as {
+    marker: Marker;
+    checked: boolean | null;
+  };
+  const k = c + marker.width + 1;
+
+  const body = itemBody(k)(head.rest);
+  if (!body.success) return body;
+
+  const item: ListItem = { content: body.result };
+  if (checked !== null) item.checked = checked;
+  return success({ marker, item }, body.rest);
+};
+
+/* An item whose marker family matches the locked one. Fails (without
+ * consuming) if the family changed. */
+const itemMatching = (c: number, ord: boolean): Parser<ParsedItem> =>
+  (input: string) => {
+    const r = itemParser(c)(input);
+    if (!r.success) return r;
+    if (r.result.marker.ord !== ord) {
+      return failure("list marker family changed", input);
+    }
+    return r;
+  };
+
+/* A list at column c. Marker family locked by the first item; subsequent
+ * items use `itemMatching` to enforce the lock. */
+const listOf = (c: number): Parser<List> => (input: string) => {
+  const first = itemParser(c)(input);
+  if (!first.success) return first;
+  const ord = first.result.marker.ord;
+  const rest = many(itemMatching(c, ord))(first.rest);
+  if (!rest.success) return rest;
+  const items = [
+    first.result.item,
+    ...(rest.result as ParsedItem[]).map((r) => r.item),
+  ];
+  return success(
+    {
+      type: "list" as const,
+      ordered: ord,
+      start: first.result.marker.start,
+      items,
+    },
+    rest.rest
+  );
+};
+
+const listParserAt = (indent: number): Parser<List> => listOf(indent);
 
 export const listParser: Parser<List> = listParserAt(0);
 
@@ -463,4 +543,31 @@ const paragraphInline: Parser<InlineMarkdown> = map(
 export const paragraphParser: Parser<Paragraph> = map(
   many1(paragraphInline),
   (content) => ({ type: "paragraph", content: content as InlineMarkdown[] })
+);
+
+/* Top-level block dispatcher. Lives here (rather than in index.ts) so
+ * `listParser`'s `reparseBlocks` can recurse through it via `lazy`. */
+export const blockAlt: Parser<Block> = or(
+  setextHeadingParser,
+  horizontalRuleParser,
+  headingParser,
+  codeBlockParser,
+  indentedCodeBlockParser,
+  tableParser,
+  blockQuoteParser,
+  listParser,
+  htmlBlockParser,
+  linkDefinitionParser,
+  footnoteDefinitionParser,
+  paragraphParser,
+  imageParser
+);
+
+/* A block followed by zero-or-more trailing newlines. Blocks differ in
+ * whether they consume their own terminating "\n" (e.g. headingParser does,
+ * codeBlock doesn't), so `sepBy(many1(newline), block)` won't work — it
+ * would fail to separate two blocks when the first already ate its newline. */
+export const blockEntry: Parser<Block> = map(
+  seqC(capture(blockAlt, "b"), many(newline)),
+  ({ b }) => b as Block
 );

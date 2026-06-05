@@ -110,11 +110,23 @@ export type InlineRefImage = {
 };
 
 export type ListItem = {
-  content: InlineMarkdown[];
-  sublist?: List;
+  content: Block[];
   /** GFM task-list state: `true` for `[x]`/`[X]`, `false` for `[ ]`, absent for plain items. */
   checked?: boolean;
 };
+
+export type Block =
+  | Paragraph
+  | Heading
+  | CodeBlock
+  | List
+  | BlockQuote
+  | HorizontalRule
+  | Table
+  | HTMLBlock
+  | Image
+  | LinkDef
+  | FootnoteDef;
 
 export type List = {
   type: "list";

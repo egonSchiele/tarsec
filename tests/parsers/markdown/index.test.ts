@@ -98,9 +98,9 @@ describe("markdownParser integration", () => {
   });
 
   it("parses a list item followed by a 2-space-indented fenced code block", () => {
-    // Standard markdown list-item-continuation shape. The indented fence isn't
-    // recognised as a real code block (we don't dedent), but the parser must
-    // still consume the indented lines so `rest` ends up empty.
+    // The fence indented to the item's continuation column (k = 2) is now
+    // recognised as a nested block inside the item, not as a top-level
+    // sibling. Top-level result is `list` then `heading`.
     const input = [
       "- Use the command:",
       "  ```bash",
@@ -114,10 +114,13 @@ describe("markdownParser integration", () => {
     if (res.success) {
       expect(res.rest).toBe("");
       const types = (res.result as any[]).map((b) => b.type);
-      // The indented fence isn't dedented — its body falls through to a
-      // paragraph between the list and the next heading. The important
-      // invariant is that nothing is dropped on the floor.
-      expect(types).toEqual(["list", "paragraph", "heading"]);
+      expect(types).toEqual(["list", "heading"]);
+      const list = (res.result as any[])[0];
+      const itemContent = list.items[0].content as any[];
+      const itemTypes = itemContent.map((b) => b.type);
+      expect(itemTypes).toEqual(["paragraph", "code-block"]);
+      expect(itemContent[1].language).toBe("bash");
+      expect(itemContent[1].content).toBe("pnpm install agency-lang\n");
     }
   });
 
