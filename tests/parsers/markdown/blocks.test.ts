@@ -181,9 +181,9 @@ describe("listParser unordered", () => {
       expect(res.result.type).toBe("list");
       expect(res.result.ordered).toBe(false);
       expect(res.result.items.map((i) => i.content)).toEqual([
-        [{ type: "inline-text", content: "a" }],
-        [{ type: "inline-text", content: "b" }],
-        [{ type: "inline-text", content: "c" }],
+        [{ type: "paragraph", content: [{ type: "inline-text", content: "a" }] }],
+        [{ type: "paragraph", content: [{ type: "inline-text", content: "b" }] }],
+        [{ type: "paragraph", content: [{ type: "inline-text", content: "c" }] }],
       ]);
     }
   });
@@ -254,11 +254,159 @@ describe("listParser nested", () => {
     if (res.success) {
       expect(res.result.items.length).toBe(2);
       const first = res.result.items[0];
-      expect(first.sublist).toBeDefined();
-      if (first.sublist) {
-        expect(first.sublist.items.length).toBe(2);
+      // The sublist now lives inside the item's content blocks rather than
+      // on a dedicated `sublist` field.
+      const sublist = first.content.find((b) => b.type === "list");
+      expect(sublist).toBeDefined();
+      if (sublist && sublist.type === "list") {
+        expect(sublist.items.length).toBe(2);
       }
     }
+  });
+});
+
+describe("listParser nested blocks (minimum viable)", () => {
+  it("nests a fenced code block inside a list item", () => {
+    const input = [
+      "- Run this:",
+      "  ```ts",
+      "  node main()",
+      "  ```",
+    ].join("\n");
+    const res = listParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      const item = res.result.items[0];
+      const types = item.content.map((b) => b.type);
+      expect(types).toEqual(["paragraph", "code-block"]);
+      const code = item.content[1] as any;
+      expect(code.language).toBe("ts");
+      expect(code.content).toBe("node main()\n");
+    }
+  });
+
+  it("nests a fenced code block inside a sub-list item (the README case)", () => {
+    const input = [
+      "- Quick Start:",
+      "  - Create a file:",
+      "    ```ts",
+      "    node main() {",
+      "      print(1);",
+      "    }",
+      "    ```",
+      "  - Run it.",
+    ].join("\n");
+    const res = listParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.items.length).toBe(1);
+      const inner = res.result.items[0].content.find(
+        (b) => b.type === "list"
+      );
+      expect(inner).toBeDefined();
+      if (inner && inner.type === "list") {
+        expect(inner.items.length).toBe(2);
+        const firstInner = inner.items[0];
+        const types = firstInner.content.map((b) => b.type);
+        expect(types).toEqual(["paragraph", "code-block"]);
+        const code = firstInner.content[1] as any;
+        expect(code.language).toBe("ts");
+      }
+    }
+  });
+
+  it("nests a blockquote inside a list item", () => {
+    const input = [
+      "- top",
+      "  > quoted",
+    ].join("\n");
+    const res = listParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      const types = res.result.items[0].content.map((b) => b.type);
+      expect(types).toEqual(["paragraph", "block-quote"]);
+    }
+  });
+
+  it("nests an ordered list inside an ordered item (k=3 continuation)", () => {
+    // For `1. outer` (marker col 0, width 2, one space): k = 3.
+    // Inner items at 3-space indent fall inside the outer item.
+    const input = [
+      "1. outer",
+      "   1. inner",
+      "   2. inner2",
+    ].join("\n");
+    const res = listParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      // outer ordered list with one item that contains an inner ordered list
+      expect(res.result.ordered).toBe(true);
+      const outer = res.result.items[0];
+      const inner = outer.content.find((b) => b.type === "list");
+      expect(inner).toBeDefined();
+      if (inner && inner.type === "list") {
+        expect(inner.ordered).toBe(true);
+        expect(inner.items.length).toBe(2);
+      }
+    }
+  });
+
+  it("produces multiple paragraph blocks when items have blank-line-separated paragraphs", () => {
+    const input = ["- first para", "", "  second para"].join("\n");
+    const res = listParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      const types = res.result.items[0].content.map((b) => b.type);
+      expect(types).toEqual(["paragraph", "paragraph"]);
+    }
+  });
+
+  // --- Negative cases ---
+
+  it("does not absorb a sibling item as continuation", () => {
+    // `- second` at column 0 is a new sibling, not part of the first item.
+    const res = listParser("- first\n- second\n");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.items.length).toBe(2);
+      const firstTypes = res.result.items[0].content.map((b) => b.type);
+      expect(firstTypes).toEqual(["paragraph"]);
+    }
+  });
+
+  it("survives a trailing blank line after the last item", () => {
+    const res = listParser("- one\n- two\n\n");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.items.length).toBe(2);
+    }
+  });
+
+  // --- Known-broken (out of scope per spec) ---
+
+  it.skip("[out of scope] handles lazy continuation of a paragraph in an item", () => {
+    // Properly correct: one list, two items, the first contains a two-line
+    // paragraph. Minimum viable produces: list(1) + paragraph + list(1).
+    // See docs/superpowers/plans/2026-06-05-markdown-nested-blocks-in-list-items.md
+    const input = [
+      "- This is the first item with a paragraph",
+      "that wraps onto a second line without indentation.",
+      "- Second item.",
+    ].join("\n");
+    const res = listParser(input);
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(res.result.items.length).toBe(2);
+    }
+  });
+
+  it.skip("[out of scope] distinguishes loose lists by wrapping items in paragraph nodes", () => {
+    // Loose vs tight lists not handled. See spec.
+    const tight = "- one\n- two\n";
+    const loose = "- one\n\n- two\n";
+    const t = listParser(tight);
+    const l = listParser(loose);
+    expect(t.success && l.success).toBe(true);
   });
 });
 
