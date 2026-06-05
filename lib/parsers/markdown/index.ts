@@ -9,11 +9,11 @@ import { spaces } from "../../parsers.js";
 import { blockEntry } from "./blocks.js";
 import { resolveReferences } from "./references.js";
 import { frontmatterParser } from "./frontmatter.js";
-import { Frontmatter } from "./types.js";
+import { Block, Frontmatter, MarkdownNode } from "./types.js";
 
 import { Parser } from "../../types.js";
 
-const _markdownParser = seq(
+const _markdownParser: Parser<MarkdownNode[]> = seq(
   [
     optional(frontmatterParser),
     optional(spaces),
@@ -22,13 +22,13 @@ const _markdownParser = seq(
   ],
   (r) => {
     const fm = r[0] as Frontmatter | null;
-    const blocks = r[2] as unknown[];
+    const blocks = r[2] as Block[];
     return fm ? [fm, ...blocks] : blocks;
   }
 );
 
 // Resolve [id]: url definitions across the AST after parsing.
-export const markdownParser: Parser<unknown[]> = map(
+export const markdownParser: Parser<MarkdownNode[]> = map(
   _markdownParser,
-  (nodes) => resolveReferences(nodes as unknown[])
+  (nodes) => resolveReferences(nodes as unknown[]) as MarkdownNode[]
 );

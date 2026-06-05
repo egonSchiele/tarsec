@@ -128,6 +128,9 @@ export type Block =
   | LinkDef
   | FootnoteDef;
 
+/** Top-level node in the markdown AST (optionally prefixed by frontmatter). */
+export type MarkdownNode = Block | Frontmatter;
+
 export type List = {
   type: "list";
   ordered: boolean;

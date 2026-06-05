@@ -275,10 +275,15 @@ const continuationLine = (k: number): Parser<string> =>
 /* A blank line at line-start. `blocks.ts` already defines `blankLine` below,
  * but that variant starts with `\n` (designed for inter-block separators).
  * Here we're already past the previous `\n`, so we need a line-start variant.
- * The matched value isn't used as data; itemBody normalises blanks to "". */
+ *
+ * We do NOT allow `eof` here: at end-of-input with no trailing whitespace
+ * this would succeed without consuming anything, and `many(itemContentLine(k))`
+ * would either spin or append a phantom blank. The final line of an item body
+ * is handled by `continuationLine`'s own `or(char("\n"), eof)`. The matched
+ * value isn't used as data; itemBody normalises blanks to "". */
 const blankContinuation: Parser<unknown> = seqR(
   many(oneOf(" \t")),
-  or(char("\n"), eof)
+  char("\n")
 );
 
 /* One line of item body (after the first). Heterogeneous return type:
@@ -290,17 +295,19 @@ const itemContentLine = (k: number): Parser<string | unknown> =>
 
 /* Reparse an item's collected body as a sequence of blocks via `blockEntry`.
  *
- * No silent fallback. CommonMark guarantees any non-empty buffer produces at
- * least one block (worst case, a paragraph). The only legitimate empty case
- * is an item whose first line is empty and which has no continuations — we
- * handle that explicitly so the invariant `non-empty buf => at least one
- * block` stays a real invariant. */
+ * List item bodies can legitimately begin with blank lines — e.g.
+ * `- \n\n  - inner` collects `"\n- inner"`, and `- ` alone collects `"\n"`.
+ * Strip leading newlines (they carry no AST content) before handing to
+ * `many1(blockEntry)`. After trimming, the invariant `non-empty buf =>
+ * at least one block` holds (CommonMark falls back to a paragraph), so a
+ * parse failure here is a genuine parser bug worth surfacing. */
 const reparseBlocks = (buf: string): Block[] => {
-  if (buf === "") return [];
-  const r = many1(lazy(() => blockEntry))(buf);
+  const trimmed = buf.replace(/^\n+/, "");
+  if (trimmed === "") return [];
+  const r = many1(lazy(() => blockEntry))(trimmed);
   if (!r.success) {
     throw new Error(
-      `reparseBlocks: failed on non-empty buffer: ${JSON.stringify(buf)}`
+      `reparseBlocks: failed on non-empty buffer: ${JSON.stringify(trimmed)}`
     );
   }
   return r.result as Block[];
