@@ -1,4 +1,5 @@
 export * from "./types.js";
+export * from "./committed.js";
 export * from "./lexemes.js";
 export * from "./spanned.js";
 export * from "./words.js";

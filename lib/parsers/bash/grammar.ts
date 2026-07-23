@@ -1,7 +1,12 @@
 import { lazy, map, not, or, seqR } from "../../combinators.js";
 import { char } from "../../parsers.js";
-import { recordFailure } from "../../rightmostFailure.js";
+import {
+  recordFailure,
+  restoreRightmostFailure,
+  saveRightmostFailure,
+} from "../../rightmostFailure.js";
 import { failure, Parser, success } from "../../types.js";
+import { isCommittedFailure } from "./committed.js";
 import { simpleCommand } from "./command.js";
 import {
   drainHeredocs,
@@ -16,11 +21,12 @@ import { AndOrOp, BashNode, BashScript, Statement } from "./types.js";
 
 const NEWLINE_CODE = 0x0a;
 
-/** A single command. Compound commands (if/while/for/case) get added as
- * alternatives here in a future scope — hence the or + lazy. */
+/** A single command. Compound commands (if/while/for/case) get added here in
+ * a future scope as a committed-aware alternation (plain `or` would swallow
+ * committed failures) — hence the lazy. */
 export const command: Parser<BashNode> = nonterminal(
   "command",
-  lazy(() => or(simpleCommand)),
+  lazy(() => simpleCommand),
 );
 
 // `|` that is not `||`. Explicit lookahead, not an accident of backtracking.
@@ -100,12 +106,22 @@ function chain<Op extends string>(
     // Terminates: `operator` consumes at least one character on success, and
     // the loop exits on the first operator failure.
     while (true) {
+      // Operator attempts leave zero-width recordings even on success (the
+      // `not(char("|"))` guard records at the position after the operator);
+      // neither those nor a failed attempt's recordings belong in errors.
+      const savedBeforeOperator = saveRightmostFailure();
       const operatorResult = operator(rest);
+      restoreRightmostFailure(savedBeforeOperator);
       if (!operatorResult.success) break;
       const afterBreaks = lineBreaks(operatorResult.rest);
       if (!afterBreaks.success) return afterBreaks;
+      const savedFailures = saveRightmostFailure();
       const next = operand(afterBreaks.rest);
       if (!next.success) {
+        if (isCommittedFailure(next)) return next;
+        // Wipe the operand's noisy alternative recordings; the useful
+        // phrasing is "a command after <op>".
+        restoreRightmostFailure(savedFailures);
         recordFailure(afterBreaks.rest, `a command after ${operatorResult.result}`);
         return failure(
           `expected a command after ${operatorResult.result}`,
@@ -162,12 +178,18 @@ export const script: Parser<BashScript> = nonterminal(
         if (!drained.success) return drained;
         rest = drained.rest;
       } else {
+        // Separator attempts leave recordings whether they succeed or fail
+        // (including the zero-width `not(char("&"))` guard); wipe them all,
+        // then record the one readable phrase on the failure path.
+        const savedFailures = saveRightmostFailure();
         const ampersand = ampersandOp(rest);
         if (ampersand.success) {
+          restoreRightmostFailure(savedFailures);
           background = true;
           rest = ampersand.rest;
         } else {
           const semicolon = semicolonOp(rest);
+          restoreRightmostFailure(savedFailures);
           if (semicolon.success) {
             rest = semicolon.rest;
           } else if (rest !== "") {

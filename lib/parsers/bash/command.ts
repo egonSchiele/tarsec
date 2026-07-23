@@ -1,7 +1,11 @@
-import { or } from "../../combinators.js";
 import { compileCharPredicate } from "../../parsers.js";
-import { recordFailure } from "../../rightmostFailure.js";
+import {
+  recordFailure,
+  restoreRightmostFailure,
+  saveRightmostFailure,
+} from "../../rightmostFailure.js";
 import { failure, Parser, ParserResult, success } from "../../types.js";
+import { committedFailure, isCommittedFailure } from "./committed.js";
 import { nonterminal } from "./heredocQueue.js";
 import { lx } from "./lexemes.js";
 import { redirect } from "./redirects.js";
@@ -38,8 +42,9 @@ const assignmentScan: Parser<Omit<BashAssignment, "span">> = (input: string) => 
   const afterEquals = input.slice(nameEnd + 1);
   const valueEnd = scanWord(afterEquals);
   if (valueEnd === -1) {
+    // `NAME=` was consumed: this is an assignment with a malformed value.
     recordFailure(afterEquals, "a closing quote");
-    return failure("unterminated quote", input);
+    return committedFailure("unterminated quote", input);
   }
   if (valueEnd === 0) {
     // e.g. `FOO=` followed by whitespace or an operator: empty value
@@ -67,26 +72,57 @@ type CommandElement = BashAssignment | BashRedirect | BashWord;
 // Bash rule: NAME=value tokens are assignments only until the first *word*;
 // after that they are ordinary words (`echo foo=bar`). Redirects may appear
 // anywhere, including before the command name and between assignments.
-const elementBeforeWords: Parser<CommandElement> = or(redirect, assignment, bashWord);
-const elementAfterWords: Parser<CommandElement> = or(redirect, bashWord);
+// Committed-aware alternation by hand: `or` would swallow a committed
+// failure (a malformed redirect/word) and lose its message and position.
+function parseElement(
+  rest: string,
+  seenWord: boolean,
+): ParserResult<CommandElement> {
+  // Each rejected alternative wipes its own failure recordings ("<<-",
+  // "an assignment", ...) so only the alternative that commits — or the
+  // final word attempt — contributes to the error message.
+  const savedBeforeRedirect = saveRightmostFailure();
+  const redirectResult = redirect(rest);
+  if (redirectResult.success || isCommittedFailure(redirectResult)) {
+    return redirectResult;
+  }
+  restoreRightmostFailure(savedBeforeRedirect);
+  if (!seenWord) {
+    const savedBeforeAssignment = saveRightmostFailure();
+    const assignmentResult = assignment(rest);
+    if (assignmentResult.success || isCommittedFailure(assignmentResult)) {
+      return assignmentResult;
+    }
+    restoreRightmostFailure(savedBeforeAssignment);
+  }
+  return bashWord(rest);
+}
 
 /** A simple command: assignments, words, and redirects, in bash's order
- * rules. Fails unless at least one element is present. */
+ * rules. Fails unless at least one element is present. A committed failure
+ * from an element (unterminated quote, redirect without target, `<<` without
+ * tag) propagates out so the error points at the offending token instead of
+ * surfacing later as a bogus separator error. */
 export const simpleCommand: Parser<SimpleCommand> = nonterminal(
   "simpleCommand",
   (input: string) => {
     const elements: CommandElement[] = [];
+    let seenWord = false;
     let rest = input;
     // Terminates: every element parser consumes at least one character on
     // success, and the loop exits on the first failure.
     while (true) {
-      let parsed: ParserResult<CommandElement>;
-      if (elements.some((element) => element.type === "word")) {
-        parsed = elementAfterWords(rest);
-      } else {
-        parsed = elementBeforeWords(rest);
+      // Failed alternatives record noisy expectations ("2>", "an
+      // assignment", ...) at the loop's stopping point; wipe them on the
+      // ordinary end-of-command break so error messages stay readable.
+      const savedFailures = saveRightmostFailure();
+      const parsed = parseElement(rest, seenWord);
+      if (!parsed.success) {
+        if (isCommittedFailure(parsed)) return parsed;
+        restoreRightmostFailure(savedFailures);
+        break;
       }
-      if (!parsed.success) break;
+      if (parsed.result.type === "word") seenWord = true;
       elements.push(parsed.result);
       rest = parsed.rest;
     }

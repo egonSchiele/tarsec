@@ -71,32 +71,67 @@ describe("spans", () => {
 });
 
 describe("error messages", () => {
+  // toEqual, not toContain: the right phrase being buried in a dump of
+  // operator/charset alternatives is a regression these tests must catch.
   it("reports unterminated quotes with line and column", () => {
     const result = parseBash("echo hi\necho 'bad");
     expect(result.success).toEqual(false);
-    const message = getErrorMessage();
-    expect(message).toContain("Line 2, col 6");
-    expect(message).toContain("a closing quote");
+    if (!result.success) expect(result.message).toEqual("unterminated quote");
+    expect(getErrorMessage()).toEqual("Line 2, col 6: expected a closing quote");
   });
 
-  it("reports a missing redirect target", () => {
+  it("reports a missing redirect target at the right position", () => {
     const result = parseBash("echo x > |");
     expect(result.success).toEqual(false);
-    expect(getErrorMessage()).toContain("a target after >");
+    if (!result.success) expect(result.message).toEqual("expected target after >");
+    expect(getErrorMessage()).toEqual("Line 1, col 10: expected a target after >");
   });
 
   it("reports a missing command after |", () => {
     const result = parseBash("echo |");
     expect(result.success).toEqual(false);
-    expect(getErrorMessage()).toContain("a command after |");
+    expect(getErrorMessage()).toEqual("Line 1, col 7: expected a command after |");
   });
 
-  it("reports diagnostics line/column for failures on later lines", () => {
+  it("reports 'expected a command' without dumping the alternatives", () => {
+    const result = parseBash("echo;;");
+    expect(result.success).toEqual(false);
+    expect(getErrorMessage()).toEqual("Line 1, col 6: expected a command");
+  });
+
+  it("reports a clean separator error", () => {
+    const result = parseBash("echo )");
+    expect(result.success).toEqual(false);
+    expect(getErrorMessage()).toEqual(
+      "Line 1, col 6: expected ';', '&', or a newline",
+    );
+  });
+
+  it("renders diagnostics with an accurate line, column, and caret", () => {
     const result = parseBash("echo hi\necho )");
     expect(result.success).toEqual(false);
     if (!result.success) {
-      expect(result.diagnostics.prettyMessage).toContain("^");
       expect(result.diagnostics.line).toEqual(1);
+      expect(result.diagnostics.column).toEqual(5);
+      expect(result.diagnostics.prettyMessage).toEqual(
+        [
+          "Near: echo )",
+          "           ^",
+          "expected ';', '&', or newline after command",
+        ].join("\n"),
+      );
+    }
+  });
+
+  it("keeps the caret aligned on long lines (windowed preview)", () => {
+    const padding = "a".repeat(60);
+    const result = parseBash(`echo ${padding} )`);
+    expect(result.success).toEqual(false);
+    if (!result.success) {
+      const [previewLine, caretLine] = result.diagnostics.prettyMessage.split("\n");
+      const caretIndex = caretLine.indexOf("^");
+      expect(caretIndex).toBeGreaterThan(-1);
+      expect(previewLine[caretIndex]).toEqual(")");
     }
   });
 });

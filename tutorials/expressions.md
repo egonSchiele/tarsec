@@ -137,6 +137,13 @@ expr("1 + 2 * 3");           // => { success: true, result: 7 }
 expr("1 * (2 - (3 / 4))");   // => { success: true, result: 1.25 }
 ```
 
+One caveat: lexemes only eat *trailing* whitespace, so `expr("  1 + 2")` would
+fail on the leading spaces. Eat leading whitespace once at the top:
+
+```ts
+const parse = (input) => expr(lx.skipWhitespace(input));
+```
+
 ## Right-associative operators
 
 Some operators are right-associative. For example, exponentiation: `2 ^ 3 ^ 2` should be `2 ^ (3 ^ 2) = 512`, not `(2 ^ 3) ^ 2 = 64`. Just set `assoc: "right"`:

@@ -1,6 +1,7 @@
 import { compileCharPredicate } from "../../parsers.js";
 import { recordFailure } from "../../rightmostFailure.js";
 import { failure, Parser, success } from "../../types.js";
+import { committedFailure } from "./committed.js";
 import { lx } from "./lexemes.js";
 import { spanned } from "./spanned.js";
 import { BashWord } from "./types.js";
@@ -118,8 +119,11 @@ function scanDollarParen(input: string, openIndex: number): number {
 const wordScan: Parser<Omit<BashWord, "span">> = (input: string) => {
   const end = scanWord(input);
   if (end === -1) {
+    // A quote was opened, so this IS a word — a malformed one. Committed,
+    // so callers report "unterminated quote" here instead of trying other
+    // alternatives and failing somewhere later.
     recordFailure(input, "a closing quote");
-    return failure("unterminated quote", input);
+    return committedFailure("unterminated quote", input);
   }
   if (end === 0) {
     recordFailure(input, "a word");

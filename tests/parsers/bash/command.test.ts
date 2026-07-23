@@ -106,4 +106,20 @@ describe("simpleCommand", () => {
     setInputStr("| x");
     expect(simpleCommand("| x").success).toEqual(false);
   });
+
+  it("propagates a malformed element instead of ending the command early", () => {
+    setInputStr("echo >");
+    const missingTarget = simpleCommand("echo >");
+    expect(missingTarget.success).toEqual(false);
+    if (!missingTarget.success) {
+      expect(missingTarget.message).toEqual("expected target after >");
+    }
+
+    setInputStr("echo 'oops");
+    const unterminated = simpleCommand("echo 'oops");
+    expect(unterminated.success).toEqual(false);
+    if (!unterminated.success) {
+      expect(unterminated.message).toEqual("unterminated quote");
+    }
+  });
 });

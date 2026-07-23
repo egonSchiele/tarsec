@@ -46,9 +46,33 @@ describe("file redirects", () => {
     expect(rest).toEqual("x");
   });
 
-  it("does not support 2>&N for other descriptors (known limitation)", () => {
-    setInputStr("2>&2 x");
-    expect(redirect("2>&2 x").success).toEqual(false);
+  it.each([
+    ["2>&1 x", "2>&1"],
+    ["2>&2 x", "2>&2"],
+    ["1>&2 x", "1>&2"],
+    [">&2 x", ">&2"],
+    [">&- x", ">&-"],
+    ["2>&- x", "2>&-"],
+  ])("parses fd duplication %s with no target", (input, op) => {
+    const { node, rest } = fileRedirectOk(input);
+    expect(node.op).toEqual(op);
+    expect(node.target).toEqual(null);
+    expect(rest).toEqual("x");
+  });
+
+  it("parses redirects with multi-digit fds", () => {
+    const { node } = fileRedirectOk("22>x y");
+    expect(node.op).toEqual("22>");
+    expect(node.target?.text).toEqual("x");
+  });
+
+  it("fails on >& with no descriptor (>&file is unsupported)", () => {
+    setInputStr(">&file x");
+    const result = redirect(">&file x");
+    expect(result.success).toEqual(false);
+    if (!result.success) {
+      expect(result.message).toContain("a file descriptor after >&");
+    }
   });
 
   it("fails without a target, leaving the queue clean", () => {

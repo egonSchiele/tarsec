@@ -12,12 +12,16 @@ export type BashAssignment = {
   span: Span;
 };
 
-export type FileRedirectOp = ">" | ">>" | "<" | "2>" | "&>" | "2>&1";
+/** The redirect operator as written, with optional leading fd digits:
+ * ">", ">>", "<", "2>", "&>", and fd duplication "2>&1" / "1>&2" / ">&2" /
+ * ">&-". A string rather than a union because the fd prefix is open-ended
+ * (`22>x` is valid bash). */
+export type FileRedirectOp = string;
 
 export type FileRedirect = {
   type: "redirect";
   op: FileRedirectOp;
-  /** null only for 2>&1 */
+  /** null for fd-duplication ops (`[n]>&m`, `[n]>&-`), which take no target */
   target: BashWord | null;
   span: Span;
 };
