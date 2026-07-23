@@ -1,5 +1,54 @@
 # Lexeme Layer + Bash Parser Implementation Plan
 
+> **Revision 2 (2026-07-23):** the code blocks below are superseded where they
+> conflict with these review resolutions (from
+> `2026-07-23-lexeme-layer-and-bash-parser-review.md` and Aditya's style rules).
+> The implementation applies:
+>
+> 1. **`lexeme` overloads**: `CaptureParser` overload FIRST (matches `trace`) —
+>    the `Parser` overload otherwise swallows capture types.
+> 2. **Heredoc drain is queue-safe**: `heredocNewline` is wrapped in
+>    `withQueueUnwind` so a failed drain restores the queue, and all
+>    newline-skipping goes through one `lineBreaks` parser that propagates
+>    unterminated-heredoc failures instead of swallowing them. Tests cover
+>    `cat <<EOF;\nno end`, `cat <<EOF &\nno end`, and the working
+>    `cat <<EOF; echo hi\nbody\nEOF`.
+> 3. **Declarative grammar layer**: `nonterminal(name, p)` =
+>    `trace(name, withQueueUnwind(p))` enforces the unwind invariant and fixes
+>    trace-wrapping inconsistency in one place; a `chain(operand, operator,
+>    combine)` helper replaces the duplicated pipeline/andOr loops; `spanOf`
+>    replaces the four inline span constructions; `simpleCommand` parses a flat
+>    element sequence and partitions it.
+> 4. **Operators may end a line**: `chain` consumes `lineBreaks` after an
+>    operator, so `a &&\nb` and `a |\nb` parse (and heredocs registered before
+>    the operator drain at that newline, matching bash).
+> 5. **Assignment gating is interleaved**: assignments are recognized until the
+>    first *word* (not just at the start), so `>f FOO=1 cmd` matches bash.
+> 6. **Style/perf**: no `ws`/`nl`-style names (`lx.ws` → `lx.whitespace`, plus a
+>    total `skipWhitespace(input): string` that removes every
+>    `as ParserSuccess<null>` cast); scanners use `charCodeAt` +
+>    `compileCharPredicate` lookup tables (no per-character regexes); every
+>    `while (true)` documents its termination argument; no nested ternaries.
+> 7. **Non-vacuous tests**: no assertions gated behind bare
+>    `if (result.success ...)` — helpers throw on unexpected shapes.
+> 8. **Error-message correction**: `getErrorMessage()` exists in
+>    `lib/rightmostFailure.ts:72` (the spec-review claim it didn't referred to
+>    `trace.ts`). Error-quality tests use it; `parseBash` still returns
+>    `getDiagnostics` output.
+> 9. **`parseBash` also calls `resetMemos()`** (cheap insurance; it owns global
+>    state).
+> 10. Added test coverage from the review: `$VAR`/`${x:-y}` words, backtick
+>     behavior pinned as a known limitation, `FOO="a b"`, unterminated
+>     assignment value, `2>&2` pinned (unsupported), standalone `> out` /
+>     `FOO=1`, trailing backslash, quote fusions, heredoc delimiter with
+>     trailing space, consecutive/pipeline heredocs, lexeme-failure rest,
+>     `keyword` at end of input, multi-char `lineComment`, spans on a second
+>     `parseBash` with different-length input, trailing `;`/`&`, malformed
+>     separators, CRLF pinned.
+> 11. **Per Aditya: no commits during this execution** — all commit steps are
+>     skipped; changes stay local on the worktree branch.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a scannerless lexeme layer (`makeLexemes`) to tarsec and a bash example parser (`tarsec/parsers/bash`) covering pipes, redirects, and heredocs.

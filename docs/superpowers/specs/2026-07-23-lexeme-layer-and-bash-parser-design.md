@@ -35,9 +35,12 @@ grammar). No changes to `types.ts` or any core module. Target ~120–150 lines.
 const lx = makeLexemes({
   whitespace: " \t",              // charset eaten after every lexeme (bash: NOT \n)
   lineComment: "#",               // optional; eaten as whitespace
-  identStart: or(letter, char("_")),
-  identRest: or(alphanum, char("_")),
-  keywords: ["if", "then", "else", "fi", ...],  // optional
+  lineContinuation: true,         // optional; eat backslash-newline too
+  // charsets (or CharPredicates) — not parsers — so identifier scanning stays
+  // a compileCharPredicate index loop
+  identStart: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_",
+  identRest: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_",
+  keywords: ["if", "then", "else", "fi"],  // optional
 });
 ```
 
@@ -193,7 +196,8 @@ lands mid-block, where no "line parser" exists to wrap).
 
 - `tests/lexeme.test.ts` — unit tests for each `makeLexemes` output, including
   comment skipping, keyword rejection of `ifx`, and composition with `capture`.
-- `tests/examples/bash/` — mirroring the markdown example's test layout:
+- `tests/parsers/bash/` — mirroring the markdown example's test layout
+  (markdown's tests live at `tests/parsers/markdown/`, not `tests/examples/`):
   simple commands, assignments (including `if=1`), each redirect form, pipelines,
   `&&`/`||`/`;`/`&`, comments (including `echo a#b` staying a literal word),
   quoting edge cases (`foo"bar baz"qux`, escaped quotes), heredocs
