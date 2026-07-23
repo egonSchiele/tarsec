@@ -11,6 +11,10 @@ import process from "process";
 import { execSync } from "child_process";
 import { TarsecErrorData } from "./tarsecError.js";
 import { resetRightmostFailure } from "./rightmostFailure.js";
+// Note: position.ts also imports from trace.ts (getInputStr). The cycle is
+// safe — both modules only use the imports at call time, never at module
+// init — and mirrors the existing trace <-> rightmostFailure cycle.
+import { buildLineTable, offsetToPosition } from "./position.js";
 
 const isNode =
   typeof process !== "undefined" &&
@@ -334,42 +338,44 @@ export function getDiagnostics(
   _message?: string,
 ): TarsecErrorData {
   const inputStr = getInputStr();
-  const messages: string[] = [];
   const prefix = "Near: ";
   const message = _message || result.message || "Parsing failed";
-  if (inputStr.length > 0) {
-    const index = inputStr.length - input.length;
-    const start = Math.max(0, index - 20);
-    const end = Math.min(inputStr.length, index + 20);
-    const previewStr = inputStr.substring(start, end).split("\n")[0];
-    messages.push(`${prefix}${previewStr}`);
-    messages.push(`${" ".repeat(index + prefix.length)}^`);
-    messages.push(message);
-    const lines = inputStr.split("\n");
-    let acc = 0;
-    let i = 0;
-    while (index >= acc && i < lines.length) {
-      acc += lines[i].length;
-      i++;
-    }
-    const linesIndex = Math.max(0, i - 1);
-    const column = lines[linesIndex].length - (acc - index);
-    return {
-      line: i - 1,
-      column,
-      length: 1,
-      prettyMessage: messages.join("\n"),
-      message: message,
-    };
-  } else {
-    messages.push(`${prefix}${input.substring(1, 100)}`);
-    messages.push(message);
+  if (inputStr.length === 0) {
     return {
       line: 0,
       column: 0,
       length: 0,
-      prettyMessage: messages.join("\n"),
-      message: message,
+      prettyMessage: [`${prefix}${input.substring(1, 100)}`, message].join("\n"),
+      message,
     };
   }
+  const index = inputStr.length - input.length;
+  const lineTable = buildLineTable(inputStr);
+  const position = offsetToPosition(lineTable, index);
+
+  // Preview the failing line only, windowed around the caret so long lines
+  // stay readable, with the caret aligned to the previewed slice.
+  const lineStart = lineTable[position.line];
+  let lineEnd = inputStr.indexOf("\n", lineStart);
+  if (lineEnd === -1) lineEnd = inputStr.length;
+  const windowRadius = 30;
+  let previewStart = lineStart;
+  if (position.column > windowRadius) {
+    previewStart = lineStart + position.column - windowRadius;
+  }
+  const previewEnd = Math.min(lineEnd, previewStart + 2 * windowRadius);
+  const preview = inputStr.slice(previewStart, previewEnd);
+  const caretColumn = index - previewStart;
+  const messages = [
+    `${prefix}${preview}`,
+    `${" ".repeat(prefix.length + caretColumn)}^`,
+    message,
+  ];
+  return {
+    line: position.line,
+    column: position.column,
+    length: 1,
+    prettyMessage: messages.join("\n"),
+    message,
+  };
 }
