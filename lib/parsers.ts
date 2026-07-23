@@ -134,7 +134,7 @@ export type CharPredicate = (code: number) => boolean;
  * @param charsOrPred - a string of allowed characters or a predicate function
  * @returns - a `CharPredicate` suitable for use in tight scanning loops
  */
-function compileCharPredicate(
+export function compileCharPredicate(
   charsOrPred: string | CharPredicate
 ): CharPredicate {
   if (typeof charsOrPred === "function") return charsOrPred;
