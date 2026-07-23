@@ -1,6 +1,6 @@
 {
   "name": "tarsec",
-  "version": "0.4.5",
+  "version": "0.5.0",
   "description": "A parser combinator library for TypeScript, inspired by Parsec.",
   "homepage": "https://github.com/egonSchiele/tarsec",
   "scripts": {
@@ -24,6 +24,11 @@
       "import": "./dist/parsers/markdown/index.js",
       "require": "./dist/parsers/markdown/index.js",
       "types": "./dist/parsers/markdown/index.d.ts"
+    },
+    "./parsers/bash": {
+      "import": "./dist/parsers/bash/index.js",
+      "require": "./dist/parsers/bash/index.js",
+      "types": "./dist/parsers/bash/index.d.ts"
     }
   },
   "type": "module",

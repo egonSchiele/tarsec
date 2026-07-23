@@ -21,7 +21,9 @@ A parser combinator library for TypeScript, inspired by Parsec.
   - `trace.ts` — debug tracing, `setInputStr`/`getInputStr`, `getDiagnostics`
   - `tarsecError.ts` — `TarsecError` class with line/column info
   - `utils.ts` — internal helpers (tree traversal, string escaping)
+  - `lexeme.ts` — `makeLexemes`: scannerless lexeme helpers (`lexeme`, `symbol`, `identifier`, `keyword`, whitespace/comment skipping)
   - `parsers/within.ts` — `within` combinator for searching within input
+  - `parsers/bash/` — bash example parser (`parseBash`): commands, pipes, redirects, heredocs via a pending-queue drained at newlines
   - `index.ts` — re-exports everything from the above modules
 - `tests/` — vitest tests mirroring lib structure
   - `parsers/` — tests for individual parsers

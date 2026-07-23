@@ -36,6 +36,7 @@ parser("hello there"); // failure
 ## Learning tarsec
 - [A five minute introduction](/tutorials/5-minute-intro.md)
 - [The three building blocks in tarsec](/tutorials/three-building-blocks.md)
+- [Lexemes: handling whitespace in one place](/tutorials/lexemes.md)
 - [API reference](https://egonschiele.github.io/tarsec/)
 
 ## Features
@@ -49,6 +50,8 @@ parser("hello there"); // failure
 
 ## Examples
 - [A CommonMark-ish markdown parser](/lib/parsers/markdown) — importable as `tarsec/parsers/markdown`. Supports headings (ATX 1–6 with optional trailing `#` stripping, plus setext), fenced and indented code blocks, multi-backtick inline code spans, multi-line / nested block quotes, ordered / unordered / nested lists, pipe tables with alignment, horizontal rules, HTML passthrough, VitePress-style YAML frontmatter, plus inline bold/italic (`*` and `_`), combined `***bold-italic***`, strikethrough, escapes, autolinks, hard *and* soft line breaks, images and links with optional `"title"`, and reference-style links / footnotes resolved in a post-parse pass. Paragraphs round-trip soft-wrapped lines through an `inline-soft-break` node. Inline emphasis, strike, and link content all nest, so ``**[link](u)**`` and ``*a `code` b*`` round-trip into the AST.
+
+- A bash parser — importable as `tarsec/parsers/bash`. Parses the command-line skeleton: simple commands, `VAR=value` assignments, pipes, `&&`/`||`/`;`/`&`, redirects, and heredocs (`<<`, `<<-`, quoted tags, multiple per line), with a span on every AST node. Expansions and control flow are not parsed yet (words keep raw text).
 
 Read more about [use cases for tarsec](/tutorials/use-case.md).
 

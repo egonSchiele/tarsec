@@ -1,3 +1,8 @@
+## July 23 2026 — v0.5.0
+- New: `makeLexemes` — scannerless lexeme helpers (`lexeme`, `symbol`, `identifier`, `keyword`, `whitespace`, `skipWhitespace`) for whitespace/comment/keyword handling in one place. See tutorials/lexemes.md.
+- New: `tarsec/parsers/bash` subpath export — a bash parser covering simple commands, assignments, pipes, `&&`/`||`/`;`/`&`, redirects, and heredocs (`<<`, `<<-`, quoted tags), with spans on every AST node.
+- `compileCharPredicate` is now exported for building fast character-class predicates.
+
 ## June 3 2026 — v0.4.4
 - Add `memo`, cache line table instead of rebuilding it on every call to buildLineTable.
 
