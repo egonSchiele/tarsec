@@ -673,6 +673,37 @@ export function manyTillOneOf(
 }
 
 /**
+ * Just like `manyTillOneOf`, but fails unless at least one character of
+ * input is consumed. Use this as the bulk "inert text" alternative inside
+ * an `or()` of chunk parsers: when a stop character is at the current
+ * position, this parser fails and `or()` moves on to the alternatives
+ * that know how to handle it.
+ *
+ * @param stops - the strings to stop at
+ * @param options - object of optional parameters. { insensitive: boolean }
+ * @returns a parser that consumes at least one character, up to a stop
+ */
+export function many1TillOneOf(
+  stops: string[],
+  { insensitive = false }: { insensitive?: boolean } = {},
+): Parser<string> {
+  const scan = manyTillOneOf(stops, { insensitive });
+  return trace(
+    `many1TillOneOf(${escape(stops.join(","))})`,
+    (input: string) => {
+      const result = scan(input);
+      if (result.success && result.result.length === 0) {
+        return failure(
+          "expected to consume at least one character of input",
+          input,
+        );
+      }
+      return result;
+    },
+  );
+}
+
+/**
  * `manyTillStr` is an optimized version of `manyTill`.
  * The `manyTill` combinator is slow because it runs the given parser
  * on every character of the string until it succeeds. However, if you
