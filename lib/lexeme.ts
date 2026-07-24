@@ -71,7 +71,9 @@ export type Lexemes = {
  */
 export function makeLexemes(config: LexemeConfig): Lexemes {
   const isWhitespaceChar = compileCharPredicate(config.whitespace);
-  const commentMarker = config.lineComment;
+  // Treat an empty marker as absent: `startsWith("", i)` is always true, so
+  // "" would make the comment branch loop forever at a newline.
+  const commentMarker = config.lineComment || undefined;
   const allowContinuation = config.lineContinuation === true;
 
   const skipWhitespace = (input: string): string => {

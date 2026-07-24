@@ -43,6 +43,12 @@ describe("whitespace", () => {
   it("line continuation defaults to off", () => {
     expect(lx.skipWhitespace("\\\nx")).toEqual("\\\nx");
   });
+
+  it("treats an empty lineComment as absent (no infinite loop)", () => {
+    const empty = makeLexemes({ whitespace: " ", lineComment: "" });
+    expect(empty.skipWhitespace("\nx")).toEqual("\nx");
+    expect(empty.skipWhitespace("  abc")).toEqual("abc");
+  });
 });
 
 describe("symbol and lexeme", () => {
@@ -115,5 +121,17 @@ describe("identifier and keyword", () => {
   it("supports custom charsets", () => {
     const custom = makeLexemes({ whitespace: " ", identStart: "@", identRest: "0123456789" });
     expect(custom.identifier("@42 x")).toEqual({ success: true, result: "@42", rest: "x" });
+  });
+
+  it("supports CharPredicate functions for identifier charsets", () => {
+    const AT_SIGN = 0x40;
+    const isDigitCode = (code: number) => code >= 0x30 && code <= 0x39;
+    const custom = makeLexemes({
+      whitespace: " ",
+      identStart: (code) => code === AT_SIGN,
+      identRest: isDigitCode,
+    });
+    expect(custom.identifier("@42 x")).toEqual({ success: true, result: "@42", rest: "x" });
+    expect(custom.identifier("a42").success).toEqual(false);
   });
 });
