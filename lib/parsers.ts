@@ -1,5 +1,5 @@
 import { many1WithJoin } from "./combinators.js";
-import { trace } from "./trace.js";
+import { trace, getInputStr } from "./trace.js";
 import { recordFailure, saveRightmostFailure, restoreRightmostFailure } from "./rightmostFailure.js";
 import {
   CaptureParser,
@@ -283,8 +283,19 @@ export const anyChar: Parser<string> = trace("anyChar", (input: string) => {
 
 /**
  * Wraps a parser with a human-readable label for error reporting.
- * On failure, suppresses any inner failure recordings and records only the label.
- * This produces clean error messages like `expected a digit` instead of `expected one of "0123456789"`.
+ *
+ * If the wrapped parser fails at the label's own position (it never got
+ * anywhere), its internal failure records are suppressed and only the
+ * label is recorded — producing clean messages like `expected a digit`
+ * instead of `expected one of "0123456789"`.
+ *
+ * If the wrapped parser fails STRICTLY INSIDE the labeled region (it
+ * consumed input first), its deeper, more specific record is kept and
+ * the label stays out of the way — so a grammar labeled at every level
+ * still surfaces the deepest thing the parser actually knew.
+ * (Comparing against the label's own position, rather than the previous
+ * record, is what keeps shallow labels clean while deep knowledge
+ * survives.)
  *
  * @param name - human-readable description of what the parser expects
  * @param parser - the parser to wrap
@@ -294,6 +305,16 @@ export function label<T>(name: string, parser: Parser<T>): Parser<T> {
   return (input: string) => {
     const saved = saveRightmostFailure();
     const result = parser(input);
+    const afterChild = saveRightmostFailure();
+    const labelPos = getInputStr().length - input.length;
+    const childGotStrictlyDeeper = afterChild.pos > labelPos;
+    if (!result.success && childGotStrictlyDeeper) {
+      // The child FAILED somewhere specific past this label's start —
+      // keep its record; adding the label here would only blur it.
+      // On success the restore below still runs, scrubbing speculative
+      // records left by backtracked alternatives inside the region.
+      return result;
+    }
     restoreRightmostFailure(saved);
     if (!result.success) recordFailure(input, name);
     return result;
