@@ -10,6 +10,7 @@ import {
   GeneralParser,
   InferManyReturnType,
   isCaptureResult,
+  isCommittedFailure,
   isSuccess,
   MergedCaptures,
   MergedResults,
@@ -48,6 +49,9 @@ export function many<const T extends GeneralParser<any, any>>(
     while (true) {
       let parsed = parser(rest);
       if (!parsed.success) {
+        if (isCommittedFailure(parsed)) {
+          return parsed; // committed: fail the whole repetition
+        }
         if (Object.keys(captures).length) {
           return captureSuccess(results, rest, { captures });
         } else {
@@ -85,6 +89,9 @@ export function many1<const T extends GeneralParser<any, any>>(
 ): InferManyReturnType<T> {
   return trace(`many1`, (input: string) => {
     let result = many(parser)(input);
+    if (!result.success && isCommittedFailure(result)) {
+      return result;
+    }
     // this logic doesn't work with optional and not
     if (result.rest !== input) {
       return result;
@@ -129,6 +136,9 @@ export function exactly<T>(num: number, parser: Parser<T>): Parser<T[]> {
     for (let i = 0; i < num; i++) {
       let parsed = parser(rest);
       if (!parsed.success) {
+        if (isCommittedFailure(parsed)) {
+          return parsed;
+        }
         return failure(`expected ${num} matches, got ${i}`, input);
       }
       results.push(parsed.result);
@@ -201,6 +211,9 @@ export function or<const T extends readonly GeneralParser<any, any>[]>(
       if (result.success) {
         return result;
       }
+      if (isCommittedFailure(result)) {
+        return result; // committed: do not try later alternatives
+      }
     }
 
     return failure(`all parsers failed`, input);
@@ -263,6 +276,9 @@ export function optional<T>(parser: Parser<T>): Parser<T | null> {
     let result = parser(input);
     if (result.success) {
       return result;
+    }
+    if (isCommittedFailure(result)) {
+      return result; // committed: not "optionally absent" — genuinely broken
     }
     return success(null, input);
   });
@@ -439,6 +455,9 @@ export function sepBy<S, P>(
     while (true) {
       const result = parser(rest);
       if (!result.success) {
+        if (isCommittedFailure(result)) {
+          return result; // committed: fail the whole sepBy
+        }
         return success(results, rest);
       }
       results.push(result.result);
@@ -446,6 +465,9 @@ export function sepBy<S, P>(
 
       const sepResult = separator(rest);
       if (!sepResult.success) {
+        if (isCommittedFailure(sepResult)) {
+          return sepResult;
+        }
         return success(results, rest);
       }
       rest = sepResult.rest;
