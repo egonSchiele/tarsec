@@ -6,3 +6,5 @@ export * from "./tarsecError.js";
 export * from "./position.js";
 export * from "./rightmostFailure.js";
 export * from "./lexeme.js";
+export * from "./parseState.js";
+export * from "./runNested.js";
