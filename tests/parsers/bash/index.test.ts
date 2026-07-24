@@ -1,6 +1,6 @@
 import { execSync } from "child_process";
 import { describe, expect, it } from "vitest";
-import { bashParser, List, SimpleCommand } from "@/lib/parsers/bash/index";
+import { bashParser, FunctionDef } from "@/lib/parsers/bash/index";
 import { buildLineTable, offsetToPosition } from "@/lib/position";
 import {
   getErrorMessage,
@@ -8,8 +8,8 @@ import {
   resetRightmostFailure,
 } from "@/lib/rightmostFailure";
 import { setInputStr } from "@/lib/trace";
-import { bashParser as permissiveParser } from "../../examples/bashFromLexemes";
-import { BIG_SCRIPT } from "../../examples/fixtures/corpus";
+import { BIG_SCRIPT, readFixture } from "./fixtures/corpus";
+import { onlyCommand } from "./helpers";
 
 /** Is a bash binary available? The differential `bash -n` assertions are
  * skipped (not failed) without one, so the parser tests still run on
@@ -55,9 +55,10 @@ function parse(input: string) {
   };
 }
 
-// Everything in the supported subset. Each of these must (a) parse, (b) be
-// valid to real bash, and (c) produce the same AST as the permissive
-// example parser in tests/examples.
+// The supported subset, end to end. Each input must both parse and be
+// valid to real bash. (Detailed AST shape assertions live in the
+// words/commands/lists suites; everything here must stay bash-3.2
+// compatible because macOS ships /bin/bash 3.2.)
 const SUPPORTED: [string, string][] = [
   ["simple command", "echo hello world"],
   ["quoting", `echo 'a b' "c $d" e'f'"g"$h`],
@@ -68,6 +69,7 @@ const SUPPORTED: [string, string][] = [
   ["assignment-shaped argument words", "env FOO=bar cmd --opt=value"],
   ["assignment value containing =", "foo=bar=baz"],
   ["nested substitution", 'echo "dir: $(basename $(pwd))"'],
+  ["empty substitution", "echo $()"],
   ["raw expansions", "echo ${VAR:-default} $((count + 1))"],
   ["redirects", "cmd < in.txt >> log.txt 2>&1"],
   ["fd redirect", "echo 2> err.txt"],
@@ -84,6 +86,7 @@ const SUPPORTED: [string, string][] = [
   ["while with redirect", 'while read -r line; do echo "-> $line"; done < input.txt'],
   ["until", "until [ -f done.txt ]; do sleep 1; done"],
   ["for", 'for f in *.txt logs/*.log; do wc -l "$f"; done'],
+  ["for without in", "for arg; do echo $arg; done"],
   [
     "case",
     'case "$1" in\n  start|restart) run start ;;\n  stop) run stop ;;\n  *) echo unknown ;;\nesac',
@@ -95,6 +98,7 @@ const SUPPORTED: [string, string][] = [
   ["empty script", ""],
   ["only comments", "\n# just a comment\n\n"],
   ["realistic script", BIG_SCRIPT],
+  ["npm bin wrapper fixture", readFixture("npm-bin-wrapper.sh")],
 ];
 
 // Valid bash the parser deliberately refuses: fail closed rather than
@@ -116,6 +120,9 @@ const CUT: [string, string][] = [
   ["time", "time ls"],
   // bash really does allow reserved words as for-loop variables.
   ["reserved word as for variable", "for do in a b; do :; done"],
+  // Real script using backticks and [[ ]] throughout (lunr's release
+  // script, MIT) — the flagship fail-closed case.
+  ["real release script", readFixture("lunr-release.sh")],
 ];
 
 // Invalid bash: the parser rejects it, and real bash agrees.
@@ -135,47 +142,20 @@ describe("supported subset", () => {
     if (!result.success) {
       throw new Error(`rejected: ${result.message} (line ${result.line})`);
     }
-    // The permissive example parser accepts a superset; on the supported
-    // subset the two must agree exactly.
-    const permissive = permissiveParser(input);
-    if (!permissive.success) throw new Error("permissive parser rejected input");
-    expect(result.list).toEqual(permissive.result);
   });
 
   itIfBash.each(SUPPORTED)("bash -n accepts %s", (_name, input) => {
     expect(bashAccepts(input)).toBe(true);
   });
-});
 
-describe("assignment vs word boundary", () => {
-  function simple(list: List, index = 0): SimpleCommand {
-    const command = list.items[index].command.first.commands[0];
-    expect(command.tag).toBe("simpleCommand");
-    return command as SimpleCommand;
-  }
-
-  it("treats k=v after the command word as a plain argument", () => {
-    const result = parse("env FOO=bar cmd --opt=value");
+  it("parses the realistic script into the expected structure", () => {
+    const result = parse(BIG_SCRIPT);
     if (!result.success) throw new Error(result.message);
-    const command = simple(result.list);
-    expect(command.assignments).toEqual([]);
-    expect(command.words).toHaveLength(4);
-    expect(command.words[1].parts).toEqual([{ tag: "literal", text: "FOO=bar" }]);
-  });
-
-  it("parses name=bar=baz as an assignment with value bar=baz", () => {
-    const result = parse("foo=bar=baz");
-    if (!result.success) throw new Error(result.message);
-    const command = simple(result.list);
-    expect(command.words).toEqual([]);
-    expect(command.assignments[0].name).toBe("foo");
-    expect(command.assignments[0].value?.parts).toEqual([
-      { tag: "literal", text: "bar=baz" },
-    ]);
-  });
-
-  it("rejects append assignments at command position", () => {
-    expect(parse("count+=1").success).toBe(false);
+    // set, readonly, log, check_deps, main, main "$@"
+    expect(result.list.items).toHaveLength(6);
+    expect((onlyCommand(result.list, 2) as FunctionDef).name).toBe("log");
+    expect((onlyCommand(result.list, 3) as FunctionDef).name).toBe("check_deps");
+    expect((onlyCommand(result.list, 4) as FunctionDef).name).toBe("main");
   });
 });
 

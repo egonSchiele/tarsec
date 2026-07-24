@@ -1,23 +1,15 @@
-/** Shared fixtures for the bash parser test suites. Keeping the corpus in
- * one place means the equivalence guarantees between the parser variants
- * can't silently drift apart. */
+/** Shared fixtures for the bash parser test suites. */
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
 const FIXTURES_DIR = path.dirname(fileURLToPath(import.meta.url));
 
-/** Real-world scripts checked into the repo (originally from lunr@2.3.9
- * (MIT) and an npm .bin wrapper, with machine-specific paths
- * genericized). Read eagerly: a missing fixture is a test failure, not a
- * silent skip. */
-export const REAL_SCRIPTS: [string, string][] = [
-  "lunr-release.sh",
-  "npm-bin-wrapper.sh",
-].map((name) => [
-  name,
-  fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8"),
-]);
+/** Read a checked-in fixture script. A missing fixture is a test
+ * failure, not a silent skip. */
+export function readFixture(name: string): string {
+  return fs.readFileSync(path.join(FIXTURES_DIR, name), "utf8");
+}
 
 /** A realistic deploy-style script exercising most of the supported
  * subset: functions, case, loops, redirects, substitutions, background. */

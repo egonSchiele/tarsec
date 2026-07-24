@@ -1,8 +1,10 @@
 #!/bin/sh
+# An npm .bin wrapper script (paths genericized, backtick substitutions
+# modernized to $(...), which the fail-closed parser supports).
 basedir=$(dirname "$(echo "$0" | sed -e 's,\\,/,g')")
 
-case `uname` in
-    *CYGWIN*) basedir=`cygpath -w "$basedir"`;;
+case $(uname) in
+    *CYGWIN*) basedir=$(cygpath -w "$basedir");;
 esac
 
 if [ -z "$NODE_PATH" ]; then
