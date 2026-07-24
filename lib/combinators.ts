@@ -208,6 +208,49 @@ export function or<const T extends readonly GeneralParser<any, any>[]>(
 }
 
 /**
+ * Commit point: once `prefix` succeeds, the branch is committed — a
+ * failure of `rest` is marked `committed` and stops backtracking. `or()`
+ * returns it instead of trying later alternatives, `many`/`optional`
+ * fail through it, `label` passes it along untouched, and lookahead
+ * (`not`, `peek`) contains it. A failure of `prefix` itself remains an
+ * ordinary, backtrackable failure.
+ *
+ * Use it where a prefix uniquely identifies a construct, so errors in
+ * the construct's body are reported as such instead of being drowned
+ * out by other alternatives' complaints:
+ *
+ * @example
+ * ```ts
+ * const codeLiteral = committed(str("[|"), literalBody);
+ * // On "[|broken", the error is literalBody's — no other parser in an
+ * // enclosing or() gets to reinterpret the text.
+ * ```
+ *
+ * @param prefix - parser identifying the construct; its result is discarded
+ * @param rest - parser for the remainder of the construct
+ * @returns a parser producing `rest`'s result
+ */
+export function committed<T>(
+  prefix: Parser<unknown>,
+  rest: Parser<T>,
+): Parser<T> {
+  return trace("committed", (input: string) => {
+    const prefixResult = prefix(input);
+    if (!prefixResult.success) return prefixResult;
+    const restResult = rest(prefixResult.rest);
+    if (!restResult.success) {
+      const committedResult = { ...restResult, committed: true as const };
+      // Preferred slot for error reporting: getErrorMessage returns this
+      // in preference to the rightmost record, so a fallback alternative
+      // that wanders deeper than the commit point can't win the message.
+      getParseState().committedFailure = committedResult;
+      return committedResult;
+    }
+    return restResult;
+  });
+}
+
+/**
  * Takes a parser and runs it. If the parser fails,
  * optional returns a success with a null result.
  *

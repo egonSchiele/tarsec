@@ -6,6 +6,7 @@ export function resetRightmostFailure() {
   const state = getParseState();
   state.rightmostFailurePos = -1;
   state.rightmostFailureExpected = [];
+  state.committedFailure = null;
 }
 
 /**
