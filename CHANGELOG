@@ -1,7 +1,3 @@
-## July 24 2026 — v0.5.0
-- New: `makeLexemes` — a scannerless token layer for grammars. Core helpers: `lexeme`, `symbol`, `identifier`, `keyword`, `whitespace`, `skipWhitespace`. Token vocabulary helpers: `operator` (longest-match, so `<` never steals the front of `<=`), `parens`/`brackets`/`braces`, and `commaSep`/`commaSep1`. See tutorials/lexemes.md.
-- `compileCharPredicate` is now exported for building fast character-class predicates.
-
 ## June 3 2026 — v0.4.4
 - Add `memo`, cache line table instead of rebuilding it on every call to buildLineTable.
 

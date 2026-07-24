@@ -18,6 +18,40 @@ const lx = makeLexemes({
 });
 ```
 
+## What you configure vs. what you call
+
+`makeLexemes` takes one config object and returns one bundle of helpers. The config describes facts about your language. The helpers are what you call while building your grammar.
+
+You configure, once:
+
+| Config field | What it describes |
+|---|---|
+| `whitespace` | The characters every token eats after itself. |
+| `lineComment` | A comment marker. Comments count as whitespace. |
+| `lineContinuation` | Whether backslash-newline counts as whitespace. |
+| `keywords` | The reserved words. `identifier` refuses them. |
+| `identStart`, `identRest` | The identifier charsets. |
+| `operatorChars` | The characters operators are made of. |
+
+You call, at each grammar site:
+
+| Helper | What it returns |
+|---|---|
+| `lx.lexeme(p)` | `p` as a token: its result, then trailing whitespace eaten. |
+| `lx.symbol("=")` | A parser for the literal `=`, as a token. |
+| `lx.identifier` | A parser for one identifier. Rejects keywords. |
+| `lx.keyword("if")` | A parser for exactly the word `if`. Rejects `ifx`. |
+| `lx.operator("<")` | A parser for exactly the operator `<`. Rejects `<=`. |
+| `lx.parens(p)` | A parser for `p` between `(` and `)`. |
+| `lx.brackets(p)` | A parser for `p` between `[` and `]`. |
+| `lx.braces(p)` | A parser for `p` between `{` and `}`. |
+| `lx.commaSep(p)` | A parser for zero or more `p`, comma-separated. |
+| `lx.commaSep1(p)` | A parser for one or more `p`, comma-separated. |
+| `lx.whitespace` | The whitespace skipper as a parser. Always succeeds. |
+| `lx.skipWhitespace(s)` | The skipper as a plain function. Returns the rest. |
+
+Note what is not in the config: your language's operators and bracket shapes. You do not declare `<=` anywhere up front. You call `lx.operator("<=")` at the grammar site that needs it, the same way you call `lx.keyword("if")`. The config only supplies the charsets those helpers use to find token boundaries.
+
 ## The discipline
 
 All the helpers follow one rule:
@@ -100,31 +134,57 @@ argumentList("(a, b, c)");  // => { success: true, result: ["a", "b", "c"], rest
 
 ## A complete example
 
-Here is an expression parser for arithmetic with comparison, built entirely from the token layer plus `buildExpressionParser`:
+Here is a parser for a tiny language of `let` statements and function calls:
 
-```ts
-import { buildExpressionParser, makeLexemes, map, regexParser } from "tarsec";
-
-const lx = makeLexemes({ whitespace: " \t\n" });
-const integer = lx.lexeme(map(regexParser("^[0-9]+"), Number));
-
-const expr = buildExpressionParser(integer, [
-  [
-    { op: lx.operator("*"), assoc: "left", apply: (a, b) => a * b },
-    { op: lx.operator("/"), assoc: "left", apply: (a, b) => a / b },
-  ],
-  [
-    { op: lx.operator("+"), assoc: "left", apply: (a, b) => a + b },
-    { op: lx.operator("-"), assoc: "left", apply: (a, b) => a - b },
-  ],
-  [
-    { op: lx.operator("<="), assoc: "left", apply: (a, b) => (a <= b ? 1 : 0) },
-    { op: lx.operator("<"), assoc: "left", apply: (a, b) => (a < b ? 1 : 0) },
-  ],
-]);
-
-expr("1 + 2 * 3");     // => { success: true, result: 7 }
-expr("2 < 1 + 5");     // => { success: true, result: 1 }
+```
+# starting values
+let x = 5
+let y = add(x, 2)
 ```
 
-Notice what the grammar does not contain: no whitespace handling, no comment handling, and no risk that `<` steals the front of `<=`. Those concerns live in the token layer, where you wrote them once.
+The grammar is three rules. Each one is built almost entirely from `lx` helpers:
+
+```ts
+import { lazy, makeLexemes, many, map, or, regexParser, seqR } from "tarsec";
+
+const lx = makeLexemes({
+  whitespace: " \t\n",
+  lineComment: "#",
+  keywords: ["let"],
+});
+
+const number = lx.lexeme(map(regexParser("^[0-9]+"), Number));
+
+// expression → call | number | identifier
+const expression = or(
+  lazy(() => call),
+  number,
+  lx.identifier,
+);
+
+// call → identifier "(" expression, ... ")"
+const call = map(
+  seqR(lx.identifier, lx.parens(lx.commaSep(expression))),
+  ([name, args]) => ({ call: name, args }),
+);
+
+// statement → "let" identifier "=" expression
+const statement = map(
+  seqR(lx.keyword("let"), lx.identifier, lx.operator("="), expression),
+  ([, name, , value]) => ({ name, value }),
+);
+
+const program = (input) => many(statement)(lx.skipWhitespace(input));
+```
+
+Running it on the input above:
+
+```ts
+program("# starting values\nlet x = 5\nlet y = add(x, 2)\n");
+// => { success: true, result: [
+//      { name: "x", value: 5 },
+//      { name: "y", value: { call: "add", args: ["x", 2] } },
+//    ], rest: "" }
+```
+
+Notice what the grammar does not contain. No whitespace or comment handling: the tokens ate it. No check that `let` is a whole word: `keyword` did it. No argument-list plumbing: `parens(commaSep(...))` reads exactly like the rule it implements. The token layer absorbed every concern that was not structure.
