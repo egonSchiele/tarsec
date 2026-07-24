@@ -21,6 +21,7 @@ import {
   success,
 } from "./types.js";
 import { escape } from "./utils.js";
+import { getParseState } from "./parseState.js";
 
 /**
  * Takes a parser and runs it zero or more times, returning the results as an array.
@@ -1280,21 +1281,23 @@ function tryOps<T>(
 
 const DEFAULT_MEMO_LIMIT = 10_000;
 
-// Registry of all caches created by `memo`, so callers can clear them
-// between independent parses. This matters when memoized parsers produce
-// results derived from globally-set state (e.g. `withSpan` reads the
+// Caches created by `memo` live on the current parse state, keyed by a
+// per-memo numeric id. This matters when memoized parsers produce
+// results derived from the parse's state (e.g. `withSpan` reads the
 // current input via `setInputStr`): the cached `loc` is only valid for
-// the source it was computed against, so reusing the cache across parses
-// with different sources would return stale positional info.
-const memoCaches: Map<string, ParserResult<any>>[] = [];
+// the source it was computed against, so a nested parse must never see
+// (or pollute) the enclosing parse's entries — swapping the state swaps
+// the caches with it.
+let nextMemoId = 0;
 
 /**
- * Clear every cache created by `memo`. Call this at the start of each
+ * Clear the current parse's memo caches. Call this at the start of each
  * top-level parse if your memoized parsers produce results that depend
  * on mutable global state (e.g. positional info from `setInputStr`).
+ * (`runNested` gives nested parses fresh caches automatically.)
  */
 export function resetMemos(): void {
-  for (const cache of memoCaches) cache.clear();
+  getParseState().memoCaches.clear();
 }
 
 /**
@@ -1322,9 +1325,14 @@ export function memo(
   name: string,
   parser: GeneralParser<any, any>,
 ): GeneralParser<any, any> {
-  const cache = new Map<string, ParserResult<any>>();
-  memoCaches.push(cache);
+  const memoId = nextMemoId++;
   return trace(name ? `memo(${name})` : "memo", (input: string) => {
+    const state = getParseState();
+    let cache = state.memoCaches.get(memoId);
+    if (cache === undefined) {
+      cache = new Map<string, ParserResult<any>>();
+      state.memoCaches.set(memoId, cache);
+    }
     const hit = cache.get(input);
     if (hit !== undefined) return hit;
     const result = parser(input);

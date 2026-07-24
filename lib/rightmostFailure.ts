@@ -1,12 +1,11 @@
 import { getInputStr } from "./trace.js";
 import { buildLineTable, offsetToPosition } from "./position.js";
-
-let rightmostFailurePos = -1;
-let rightmostFailureExpected: string[] = [];
+import { getParseState } from "./parseState.js";
 
 export function resetRightmostFailure() {
-  rightmostFailurePos = -1;
-  rightmostFailureExpected = [];
+  const state = getParseState();
+  state.rightmostFailurePos = -1;
+  state.rightmostFailureExpected = [];
 }
 
 /**
@@ -19,15 +18,16 @@ export function resetRightmostFailure() {
  * @param expected - a human-readable description of what was expected
  */
 export function recordFailure(input: string, expected: string) {
+  const state = getParseState();
   const source = getInputStr();
   if (source.length === 0) return;
   const pos = source.length - input.length;
-  if (pos > rightmostFailurePos) {
-    rightmostFailurePos = pos;
-    rightmostFailureExpected = [expected];
-  } else if (pos === rightmostFailurePos) {
-    if (!rightmostFailureExpected.includes(expected)) {
-      rightmostFailureExpected.push(expected);
+  if (pos > state.rightmostFailurePos) {
+    state.rightmostFailurePos = pos;
+    state.rightmostFailureExpected = [expected];
+  } else if (pos === state.rightmostFailurePos) {
+    if (!state.rightmostFailureExpected.includes(expected)) {
+      state.rightmostFailureExpected.push(expected);
     }
   }
 }
@@ -40,8 +40,12 @@ export function getRightmostFailure(): {
   pos: number;
   expected: string[];
 } | null {
-  if (rightmostFailurePos < 0) return null;
-  return { pos: rightmostFailurePos, expected: [...rightmostFailureExpected] };
+  const state = getParseState();
+  if (state.rightmostFailurePos < 0) return null;
+  return {
+    pos: state.rightmostFailurePos,
+    expected: [...state.rightmostFailureExpected],
+  };
 }
 
 type SavedRightmostFailure = {
@@ -50,12 +54,17 @@ type SavedRightmostFailure = {
 };
 
 export function saveRightmostFailure(): SavedRightmostFailure {
-  return { pos: rightmostFailurePos, expected: [...rightmostFailureExpected] };
+  const state = getParseState();
+  return {
+    pos: state.rightmostFailurePos,
+    expected: [...state.rightmostFailureExpected],
+  };
 }
 
 export function restoreRightmostFailure(saved: SavedRightmostFailure) {
-  rightmostFailurePos = saved.pos;
-  rightmostFailureExpected = [...saved.expected];
+  const state = getParseState();
+  state.rightmostFailurePos = saved.pos;
+  state.rightmostFailureExpected = [...saved.expected];
 }
 
 function formatExpected(expected: string[]): string {
@@ -70,11 +79,12 @@ function formatExpected(expected: string[]): string {
  * Requires `setInputStr` to have been called.
  */
 export function getErrorMessage(): string | null {
-  if (rightmostFailurePos < 0) return null;
+  const state = getParseState();
+  if (state.rightmostFailurePos < 0) return null;
   const source = getInputStr();
   const lineTable = buildLineTable(source);
-  const pos = offsetToPosition(lineTable, rightmostFailurePos);
+  const pos = offsetToPosition(lineTable, state.rightmostFailurePos);
   const line = pos.line + 1;
   const column = pos.column + 1;
-  return `Line ${line}, col ${column}: expected ${formatExpected(rightmostFailureExpected)}`;
+  return `Line ${line}, col ${column}: expected ${formatExpected(state.rightmostFailureExpected)}`;
 }
