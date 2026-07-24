@@ -760,6 +760,70 @@ export function matchedText(parser: Parser<unknown>): Parser<string> {
 }
 
 /**
+ * Repeats `chunk` until `terminator` succeeds. The terminator is tried
+ * FIRST each round and is NOT consumed — parsing resumes at its start.
+ * Fails if the input ends before the terminator appears, if a chunk
+ * fails mid-scan, or if a chunk succeeds without consuming input (which
+ * would otherwise loop forever).
+ *
+ * Unlike `manyTill` (which scans character-by-character for a stop
+ * parser), `repeatTill` parses structured chunks — so regions where the
+ * terminator text is inert (strings, comments) can be skipped by making
+ * them chunks. For raw text output, wrap in `matchedText`. For speed,
+ * make the first chunk alternative a `many1TillOneOf` of every character
+ * that can begin a chunk or the terminator — it swallows runs of inert
+ * text in one indexOf-driven step.
+ *
+ * @example
+ * ```ts
+ * const bodyChunk = or(
+ *   many1TillOneOf(['"', "/", "|"]), // bulk inert text — caller's triggers
+ *   stringParser,                    // terminator inside a string is inert
+ *   commentParser,
+ *   anyChar,                         // lone trigger char that started nothing
+ * );
+ * const bodyText = matchedText(repeatTill(bodyChunk, str("|]")));
+ * ```
+ *
+ * @param chunk - parser for one repeated unit
+ * @param terminator - parser marking the end of the repetition (not consumed)
+ * @returns a parser producing the array of chunk results
+ */
+export function repeatTill<T>(
+  chunk: Parser<T>,
+  terminator: Parser<unknown>,
+): Parser<T[]> {
+  return trace("repeatTill", (input: string) => {
+    const results: T[] = [];
+    let rest = input;
+    // Terminates: every iteration either returns or strictly shrinks
+    // `rest` (the zero-consumption guard enforces it), and empty `rest`
+    // returns — at most input.length + 1 iterations.
+    while (true) {
+      const terminatorResult = terminator(rest);
+      if (terminatorResult.success) {
+        return success(results, rest);
+      }
+      if (rest.length === 0) {
+        return failure("input ended before terminator", rest);
+      }
+      const chunkResult = chunk(rest);
+      if (!chunkResult.success) {
+        return chunkResult;
+      }
+      if (chunkResult.rest.length === rest.length) {
+        return failure(
+          "repeatTill chunk succeeded without consuming input",
+          rest,
+        );
+      }
+      results.push(chunkResult.result);
+      rest = chunkResult.rest;
+    }
+  });
+}
+
+/**
  * `map` is a parser combinator that takes a parser and a mapper function.
  * If the parser succeeds, it maps its result using the mapper function.
  * You can think of map as a general `map`, like for functors, applied to a parser.
