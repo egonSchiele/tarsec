@@ -12,6 +12,7 @@ import { execSync } from "child_process";
 import { TarsecErrorData } from "./tarsecError.js";
 import { resetRightmostFailure } from "./rightmostFailure.js";
 import { getParseState } from "./parseState.js";
+import { composePosition } from "./position.js";
 
 const isNode =
   typeof process !== "undefined" &&
@@ -353,9 +354,14 @@ export function getDiagnostics(
     }
     const linesIndex = Math.max(0, i - 1);
     const column = lines[linesIndex].length - (acc - index);
-    return {
+    const composed = composePosition(getParseState().basePosition, {
+      offset: index,
       line: i - 1,
       column,
+    });
+    return {
+      line: composed.line,
+      column: composed.column,
       length: 1,
       prettyMessage: messages.join("\n"),
       message: message,

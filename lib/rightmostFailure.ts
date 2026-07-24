@@ -1,5 +1,5 @@
 import { getInputStr } from "./trace.js";
-import { buildLineTable, offsetToPosition } from "./position.js";
+import { buildLineTable, offsetToPosition, composePosition } from "./position.js";
 import { getParseState } from "./parseState.js";
 
 export function resetRightmostFailure() {
@@ -83,7 +83,10 @@ export function getErrorMessage(): string | null {
   if (state.rightmostFailurePos < 0) return null;
   const source = getInputStr();
   const lineTable = buildLineTable(source);
-  const pos = offsetToPosition(lineTable, state.rightmostFailurePos);
+  const pos = composePosition(
+    state.basePosition,
+    offsetToPosition(lineTable, state.rightmostFailurePos),
+  );
   const line = pos.line + 1;
   const column = pos.column + 1;
   return `Line ${line}, col ${column}: expected ${formatExpected(state.rightmostFailureExpected)}`;
