@@ -8,7 +8,14 @@ import {
   exactly,
   sepBy,
   seqR,
+  seq,
+  between,
+  manyTill,
+  buildExpressionParser,
+  getResults,
 } from "@/lib/combinators";
+import { char, digit } from "@/lib/parsers";
+import { runNested } from "@/lib/runNested";
 import { getErrorMessage } from "@/lib/rightmostFailure";
 import { str, word, label } from "@/lib/parsers";
 import { peek, not } from "@/lib/combinators";
@@ -180,5 +187,86 @@ describe("committed failures win error reporting end-to-end", () => {
     const message = getErrorMessage();
     expect(message).not.toBeNull();
     expect(message).toMatch(/^Line 1, col /);
+  });
+});
+
+describe("committed failures survive rewrapping combinators", () => {
+  const committedBranch = committed(str("[|"), str("body|]"));
+
+  it("seq preserves the flag AND the failure position", () => {
+    const parser = seq([str("a"), committedBranch], getResults);
+    const result = parser("a[|broken");
+    expect(result.success).toBe(false);
+    expect(isCommittedFailure(result)).toBe(true);
+    if (!result.success) {
+      expect(result.rest).toBe("broken"); // not reset to the sequence start
+    }
+  });
+
+  it("between passes a committed failure through unwrapped", () => {
+    const parser = between(char("("), char(")"), committedBranch);
+    const result = parser("([|broken)");
+    expect(result.success).toBe(false);
+    expect(isCommittedFailure(result)).toBe(true);
+  });
+});
+
+describe("committed slot containment in speculative scans", () => {
+  const committedBranch = committed(str("[|"), str("body|]"));
+
+  it("manyTill's stop probes do not pollute the slot", () => {
+    setInputStr("abc[|broken");
+    const before = getParseState().committedFailure;
+    manyTill(committedBranch)("abc[|broken"); // probe at "[|" commits, is discarded
+    expect(getParseState().committedFailure).toBe(before);
+  });
+
+  it("buildExpressionParser's fold probes do not pollute the slot", () => {
+    // Operand after "+" is a committed literal that fails; the fold
+    // discards it and returns the left side — the slot must not keep
+    // the discarded commit, or it would mask every later error message.
+    const atom = or(digit, committedBranch);
+    const expr = buildExpressionParser(atom, [
+      [{ op: char("+"), assoc: "left" as const, apply: (a: string, b: string) => a + b }],
+    ]);
+    setInputStr("1+[|broken");
+    const before = getParseState().committedFailure;
+    const result = expr("1+[|broken");
+    expect(result.success).toBe(true); // folds back to "1"
+    expect(getParseState().committedFailure).toBe(before);
+  });
+});
+
+describe("committed × runNested", () => {
+  it("an inner commit stays in the inner state and surfaces via the result flag", () => {
+    setInputStr("outer text");
+    const outerSlotBefore = getParseState().committedFailure;
+    const inner = committed(str("[|"), str("body|]"));
+
+    const result = runNested(inner, "[|broken", {
+      basePosition: { offset: 6, line: 0, column: 6 },
+    });
+
+    // The commitment reaches the caller through the result...
+    expect(result.success).toBe(false);
+    expect(isCommittedFailure(result)).toBe(true);
+    // ...but never through the outer state's slot or message channel.
+    expect(getParseState().committedFailure).toBe(outerSlotBefore);
+    expect(getErrorMessage()).toBeNull();
+  });
+
+  it("inside the nested parse, getErrorMessage composes the committed position with basePosition", () => {
+    setInputStr("outer");
+    runNested(
+      (input) => {
+        const inner = committed(str("[|"), str("body|]"));
+        inner(input); // committed failure at inner pos 2
+        // inner pos 2 + base col 6 → col 9 (1-based), base line 40 → line 41
+        expect(getErrorMessage()).toMatch(/^Line 41, col 9: /);
+        return { success: true as const, result: null, rest: input };
+      },
+      "[|broken",
+      { basePosition: { offset: 100, line: 40, column: 6 } },
+    );
   });
 });

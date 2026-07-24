@@ -79,6 +79,13 @@ function formatExpected(expected: string[]): string {
  * A committed failure (see the `committed` combinator) takes precedence
  * over the rightmost record — the committed error wins reporting even
  * when some fallback alternative failed deeper into the input.
+ *
+ * Scope: the preference is per parse state. A commit inside `runNested`
+ * lives in the inner state and surfaces through the returned result's
+ * `committed` flag, never through the enclosing parse's getErrorMessage.
+ * The position math assumes the committed failure's `rest` is a suffix
+ * of the CURRENT state's source — don't stash a `runNested` result
+ * (inner-coordinate `rest`) into an outer-state commit.
  * Returns `null` if no failures have been recorded.
  * Requires `setInputStr` to have been called.
  */

@@ -411,6 +411,9 @@ export function between<O, C, P>(
       // the parser should keep succeeding until we find the closer
       // if it doesn't, we fail
       if (!parserResult.success) {
+        if (isCommittedFailure(parserResult)) {
+          return parserResult; // committed: pass through unwrapped
+        }
         return failure(parserResult.message, input);
       }
       successResult.push(parserResult.result);
@@ -666,14 +669,18 @@ export function captureCaptures<T extends PlainObject>(
  */
 export function manyTill<T>(parser: Parser<T>): Parser<string> {
   return (input: string) => {
+    // The stop probes are speculative; contain any commit they stash.
+    const slotBefore = getParseState().committedFailure;
     let current = 0;
     while (current < input.length) {
       const parsed = parser(input.slice(current));
       if (parsed.success) {
+        getParseState().committedFailure = slotBefore;
         return success(input.slice(0, current), input.slice(current));
       }
       current++;
     }
+    getParseState().committedFailure = slotBefore;
     return success(input, "");
   };
 }
@@ -685,10 +692,13 @@ export function manyTill<T>(parser: Parser<T>): Parser<string> {
  */
 export function many1Till<T>(parser: Parser<T>): Parser<string> {
   return (input: string) => {
+    // The stop probes are speculative; contain any commit they stash.
+    const slotBefore = getParseState().committedFailure;
     let current = 0;
     while (current < input.length) {
       const parsed = parser(input.slice(current));
       if (parsed.success) {
+        getParseState().committedFailure = slotBefore;
         if (current === 0) {
           return failure(
             "expected to consume at least one character of input",
@@ -700,6 +710,7 @@ export function many1Till<T>(parser: Parser<T>): Parser<string> {
       }
       current++;
     }
+    getParseState().committedFailure = slotBefore;
     if (current === 0) {
       return failure(
         "expected to consume at least one character of input",
@@ -992,6 +1003,9 @@ export function seq<const T extends readonly GeneralParser<any, any>[], U>(
     for (let i = 0; i < parsers.length; i++) {
       const parsed = parsers[i](rest);
       if (!parsed.success) {
+        if (isCommittedFailure(parsed)) {
+          return parsed; // committed: keep the flag AND the failure position
+        }
         return { ...parsed, rest: input };
       }
       results.push(parsed.result);
@@ -1233,7 +1247,10 @@ export function buildExpressionParser<T>(
       if (!openResult.success) return openResult;
 
       const exprResult = expr(openResult.rest);
-      if (!exprResult.success) return failure(exprResult.message, input);
+      if (!exprResult.success) {
+        if (isCommittedFailure(exprResult)) return exprResult;
+        return failure(exprResult.message, input);
+      }
 
       const closeResult =
         exprResult.rest[0] === ")" ? success(")", exprResult.rest.slice(1)) : failure("expected )", input);
@@ -1289,6 +1306,10 @@ function parseLeft<T>(
   nextLevel: Parser<T>,
   ops: OperatorInfo<T>[],
 ): ParserSuccess<T> {
+  // The fold's probes are speculative: a failing operator or operand just
+  // ends the chain. Discarding the failure must also discard any commit
+  // it stashed, or the stale slot would mask later errors' messages.
+  const slotBefore = getParseState().committedFailure;
   while (true) {
     const opMatch = tryOps(ops, rest);
     if (!opMatch) break;
@@ -1299,6 +1320,7 @@ function parseLeft<T>(
     left = opMatch.apply(left, rightResult.result);
     rest = rightResult.rest;
   }
+  getParseState().committedFailure = slotBefore;
   return success(left, rest);
 }
 
@@ -1308,11 +1330,16 @@ function parseRight<T>(
   nextLevel: Parser<T>,
   ops: OperatorInfo<T>[],
 ): ParserSuccess<T> {
+  // Same speculative-probe containment as parseLeft.
+  const slotBefore = getParseState().committedFailure;
   const opMatch = tryOps(ops, rest);
   if (!opMatch) return success(left, rest);
 
   const rightResult = nextLevel(opMatch.rest);
-  if (!rightResult.success) return success(left, rest);
+  if (!rightResult.success) {
+    getParseState().committedFailure = slotBefore;
+    return success(left, rest);
+  }
 
   // Recursively parse the right side to get right-associativity
   const rightFolded = parseRight(rightResult.result, rightResult.rest, nextLevel, ops);
@@ -1327,6 +1354,8 @@ function parseChain<T>(
   ops: OperatorInfo<T>[],
 ): ParserSuccess<T> {
   // Fallback: treat everything as left-associative
+  // Same speculative-probe containment as parseLeft.
+  const slotBefore = getParseState().committedFailure;
   while (true) {
     const opMatch = tryOps(ops, rest);
     if (!opMatch) break;
@@ -1337,6 +1366,7 @@ function parseChain<T>(
     left = opMatch.apply(left, rightResult.result);
     rest = rightResult.rest;
   }
+  getParseState().committedFailure = slotBefore;
   return success(left, rest);
 }
 
@@ -1344,8 +1374,11 @@ function tryOps<T>(
   ops: OperatorInfo<T>[],
   input: string,
 ): { rest: string; apply: (left: T, right: T) => T } | null {
+  // Op probes are speculative; contain any commit they stash.
+  const slotBefore = getParseState().committedFailure;
   for (const op of ops) {
     const result = op.op(input);
+    getParseState().committedFailure = slotBefore;
     if (result.success) {
       return { rest: result.rest, apply: op.apply };
     }
