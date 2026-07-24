@@ -112,35 +112,36 @@ That's it. `buildExpressionParser` handles:
 
 ## Handling whitespace
 
-The example above doesn't handle spaces. The simplest approach is to make your operator parsers consume surrounding whitespace:
+The example above doesn't handle spaces. Use `makeLexemes`: wrap each operator
+in `lx.symbol`, which matches and then eats trailing whitespace (see the
+[lexemes tutorial](./lexemes.md) for the full pattern):
 
 ```ts
-// An operator parser that allows optional surrounding whitespace
-function wsOp(c) {
-  return (input) => {
-    const r1 = ws(input);     // consume leading whitespace
-    if (!r1.success) return r1;
-    const r2 = char(c)(r1.rest);  // match the operator
-    if (!r2.success) return r2;
-    const r3 = ws(r2.rest);       // consume trailing whitespace
-    if (!r3.success) return r3;
-    return { success: true, result: c, rest: r3.rest };
-  };
-}
+import { makeLexemes } from "tarsec";
+
+const lx = makeLexemes({ whitespace: " \t\n" });
+const wsInteger = lx.lexeme(integer);
 
 const expr = buildExpressionParser(wsInteger, [
   [
-    { op: wsOp("*"), assoc: "left", apply: (a, b) => a * b },
-    { op: wsOp("/"), assoc: "left", apply: (a, b) => a / b },
+    { op: lx.symbol("*"), assoc: "left", apply: (a, b) => a * b },
+    { op: lx.symbol("/"), assoc: "left", apply: (a, b) => a / b },
   ],
   [
-    { op: wsOp("+"), assoc: "left", apply: (a, b) => a + b },
-    { op: wsOp("-"), assoc: "left", apply: (a, b) => a - b },
+    { op: lx.symbol("+"), assoc: "left", apply: (a, b) => a + b },
+    { op: lx.symbol("-"), assoc: "left", apply: (a, b) => a - b },
   ],
 ]);
 
 expr("1 + 2 * 3");           // => { success: true, result: 7 }
 expr("1 * (2 - (3 / 4))");   // => { success: true, result: 1.25 }
+```
+
+One caveat: lexemes only eat *trailing* whitespace, so `expr("  1 + 2")` would
+fail on the leading spaces. Eat leading whitespace once at the top:
+
+```ts
+const parse = (input) => expr(lx.skipWhitespace(input));
 ```
 
 ## Right-associative operators
