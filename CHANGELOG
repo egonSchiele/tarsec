@@ -1,3 +1,7 @@
+## July 24 2026 — v0.5.0
+- Add `makeLexemes`
+- Add bash parser
+
 ## June 3 2026 — v0.4.4
 - Add `memo`, cache line table instead of rebuilding it on every call to buildLineTable.
 
