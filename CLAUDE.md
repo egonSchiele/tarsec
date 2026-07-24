@@ -22,6 +22,8 @@ A parser combinator library for TypeScript, inspired by Parsec.
   - `tarsecError.ts` — `TarsecError` class with line/column info
   - `utils.ts` — internal helpers (tree traversal, string escaping)
   - `lexeme.ts` — `makeLexemes`: scannerless lexeme helpers (`lexeme`, `symbol`, `identifier`, `keyword`, whitespace/comment skipping)
+  - `parseState.ts` — the single `ParseState` object holding all per-parse mutable state (input string, rightmost failure, memo caches, base position)
+  - `runNested.ts` — `runNested`: isolated nested parses with `basePosition` offsetting
   - `parsers/within.ts` — `within` combinator for searching within input
   - `index.ts` — re-exports everything from the above modules
 - `tests/` — vitest tests mirroring lib structure
@@ -36,7 +38,7 @@ A parser combinator library for TypeScript, inspired by Parsec.
 - `ParserResult<T>` is either `ParserSuccess<T>` (with `result` and `rest`) or `ParserFailure` (with `message` and `rest`)
 - `CaptureParser<T, C>` extends this with a `captures` object for named captures
 - `rest` is the remaining unparsed string — position is derived from `originalInput.length - rest.length`
-- `setInputStr` stores the original input in a module-level variable; `getInputStr` retrieves it. This is used by `getDiagnostics` and the position module for computing offsets
+- All per-parse mutable state (input string, rightmost-failure record, memo caches, base position) lives on a single `ParseState` object in `parseState.ts`; `setInputStr`/`getInputStr` read and write the current state. `runNested` swaps in a fresh state for a parse-within-a-parse and restores the outer one on exit
 - `lazy(() => parser)` enables recursive parser definitions by deferring evaluation
 - `buildExpressionParser(atom, operatorTable)` handles operator precedence and associativity for expression parsing. Operator table is ordered highest-to-lowest precedence. Supports left/right associativity and auto-generates `()`-based paren parsing (overridable via third arg).
 

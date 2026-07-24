@@ -11,6 +11,8 @@ import process from "process";
 import { execSync } from "child_process";
 import { TarsecErrorData } from "./tarsecError.js";
 import { resetRightmostFailure } from "./rightmostFailure.js";
+import { getParseState } from "./parseState.js";
+import { composePosition } from "./position.js";
 
 const isNode =
   typeof process !== "undefined" &&
@@ -311,8 +313,6 @@ export function limitSteps(limit: number, callback: Function) {
   stepLimit = -1;
 }
 
-let inputStr = "";
-
 /**
  * Use this function in conjunction with the parseError combinator. Before running your parser,
  * call this function, giving it the entire input. Then, if the parseError combinator throws an error,
@@ -320,12 +320,12 @@ let inputStr = "";
  * @param s full string to parse
  */
 export function setInputStr(s: string) {
-  inputStr = s;
+  getParseState().inputStr = s;
   resetRightmostFailure();
 }
 
 export function getInputStr(): string {
-  return inputStr;
+  return getParseState().inputStr;
 }
 
 export function getDiagnostics(
@@ -354,9 +354,14 @@ export function getDiagnostics(
     }
     const linesIndex = Math.max(0, i - 1);
     const column = lines[linesIndex].length - (acc - index);
-    return {
+    const composed = composePosition(getParseState().basePosition, {
+      offset: index,
       line: i - 1,
       column,
+    });
+    return {
+      line: composed.line,
+      column: composed.column,
       length: 1,
       prettyMessage: messages.join("\n"),
       message: message,
