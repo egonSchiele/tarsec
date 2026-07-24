@@ -67,7 +67,11 @@ const itemSeparator: Parser<SeparatorInfo> = or(
   seq([newlineToken, linebreak], () => ({ background: false })),
 );
 
-const listBody: Parser<List> = seq(
+/** A parsed list plus whether it ended with an explicit separator —
+ * group parsing needs this to decide whether `}` is at command position. */
+export type ListWithEnd = { list: List; endedWithSeparator: boolean };
+
+const listBody: Parser<ListWithEnd> = seq(
   [
     andOrParser,
     many(
@@ -92,7 +96,10 @@ const listBody: Parser<List> = seq(
       command,
       background: separators[index]?.background === true,
     }));
-    return { tag: "list", items } satisfies List;
+    return {
+      list: { tag: "list", items },
+      endedWithSeparator: trailing !== null,
+    } satisfies ListWithEnd;
   },
 );
 
@@ -102,7 +109,7 @@ const list0Impl: Parser<List> = trace(
   "bash:list0",
   seq(
     [L.whitespace, linebreak, optional(listBody)],
-    (results) => (results[2] as List | null) ?? EMPTY_LIST,
+    (results) => (results[2] as ListWithEnd | null)?.list ?? EMPTY_LIST,
   ),
 );
 
@@ -110,8 +117,13 @@ const list1Impl: Parser<List> = trace(
   "bash:list1",
   seq(
     [L.whitespace, linebreak, listBody],
-    (results) => results[2] as List,
+    (results) => (results[2] as ListWithEnd).list,
   ),
+);
+
+const list1WithEndImpl: Parser<ListWithEnd> = seq(
+  [L.whitespace, linebreak, listBody],
+  (results) => results[2] as ListWithEnd,
 );
 
 /** A possibly-empty command list. Empty lists are only legal where bash
@@ -126,4 +138,9 @@ export function list0(input: string): ParserResult<List> {
  * command, subshell, and group. */
 export function list1(input: string): ParserResult<List> {
   return list1Impl(input);
+}
+
+/** `list1`, but also reporting whether it ended with a separator. */
+export function list1WithEnd(input: string): ParserResult<ListWithEnd> {
+  return list1WithEndImpl(input);
 }

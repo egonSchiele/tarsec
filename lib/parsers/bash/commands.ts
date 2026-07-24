@@ -14,15 +14,21 @@ import {
 } from "../../combinators.js";
 import { char, oneOf, str } from "../../parsers.js";
 import { trace } from "../../trace.js";
-import { Parser, ParserResult } from "../../types.js";
+import { failure, Parser, ParserResult, success } from "../../types.js";
 import {
   bashLexemes,
   groupClose,
   groupOpen,
   linebreak,
   newlineToken,
+  wordBoundary,
 } from "./lexemes.js";
-import { list0 as list0Import, list1 as list1Import } from "./lists.js";
+import {
+  list0 as list0Import,
+  list1 as list1Import,
+  list1WithEnd as list1WithEndImport,
+  ListWithEnd,
+} from "./lists.js";
 import {
   commandWord as commandWordImport,
   identifierRun as identifierRunImport,
@@ -58,6 +64,7 @@ const commandWord = lazy(() => commandWordImport);
 const identifierRun = lazy(() => identifierRunImport);
 const parenBody = lazy(() => parenBodyImport);
 const wordParser = lazy(() => wordParserImport);
+const list1WithEnd = lazy(() => list1WithEndImport);
 
 // ---------------------------------------------------------------------------
 // Redirects and assignments
@@ -231,12 +238,21 @@ const caseTerminator: Parser<string | null> = or(
   map(peek(L.keyword("esac")), () => null),
 );
 
+// Without a leading `(`, a bare `esac` cannot start a pattern — it ends
+// the case statement (bash rejects `case x in esac) ...`).
+const bareEsac = seq([str("esac"), wordBoundary], () => "esac");
+
+const caseItemStart: Parser<BashWord[]> = or(
+  seq([L.symbol("("), casePatterns], (results) => results[1] as BashWord[]),
+  seq([not(bareEsac), casePatterns], (results) => results[1] as BashWord[]),
+);
+
 const caseItemParser: Parser<CaseItem> = seq(
-  [optional(L.symbol("(")), casePatterns, L.symbol(")"), list0, caseTerminator],
+  [caseItemStart, L.symbol(")"), list0, caseTerminator],
   (results) => ({
-    patterns: results[1] as BashWord[],
-    body: results[3] as List,
-    terminator: results[4] as string | null,
+    patterns: results[0] as BashWord[],
+    body: results[2] as List,
+    terminator: results[3] as string | null,
   }) satisfies CaseItem,
 );
 
@@ -271,14 +287,50 @@ const subshellParser: Parser<Subshell> = seq(
   }) satisfies Subshell,
 );
 
-const groupParser: Parser<Group> = seq(
-  [groupOpen, list1, groupClose],
-  (results) => ({
-    tag: "group",
-    body: results[1] as List,
-    redirects: [],
-  }) satisfies Group,
-);
+/** Can `}` directly follow this command, as it can in bash? True for a
+ * compound command with no trailing redirects (`{ { echo a; } }`), and
+ * for a function definition whose body qualifies. A redirect re-enters
+ * word context (`{ { cat; } > log }` is rejected by bash), and `(( ))`
+ * does not qualify. */
+function closesGroup(command: Command): boolean {
+  if (command.tag === "functionDef") return closesGroup(command.body);
+  const isCompound =
+    command.tag === "if" ||
+    command.tag === "loop" ||
+    command.tag === "for" ||
+    command.tag === "case" ||
+    command.tag === "subshell" ||
+    command.tag === "group";
+  return isCompound && command.redirects.length === 0;
+}
+
+function endsAtCommandPosition({ list, endedWithSeparator }: ListWithEnd): boolean {
+  if (endedWithSeparator) return true;
+  const lastItem = list.items[list.items.length - 1];
+  const andOr = lastItem.command;
+  const lastPipeline =
+    andOr.rest.length > 0 ? andOr.rest[andOr.rest.length - 1].pipeline : andOr.first;
+  return closesGroup(lastPipeline.commands[lastPipeline.commands.length - 1]);
+}
+
+// `}` is a reserved word, recognized only at command position: the group
+// body must end with a separator or a bare compound command. Without this
+// check, `{ echo a }` would fail OPEN (bash treats that `}` as an
+// argument to echo and rejects the unterminated group).
+const groupParser: Parser<Group> = (input) => {
+  const result = seq(
+    [groupOpen, list1WithEnd, groupClose],
+    (results) => results[1] as ListWithEnd,
+  )(input);
+  if (!result.success) return result;
+  if (!endsAtCommandPosition(result.result)) {
+    return failure("expected ; & or newline before }", input);
+  }
+  return success(
+    { tag: "group", body: result.result.list, redirects: [] } satisfies Group,
+    result.rest,
+  );
+};
 
 const compoundParser: Parser<Command> = or(
   ifParser,
@@ -290,12 +342,22 @@ const compoundParser: Parser<Command> = or(
   groupParser,
 );
 
+const compoundWithRedirects: Parser<Command> = seq(
+  [compoundParser, many(redirectParser)],
+  (results) => ({
+    ...(results[0] as Command),
+    redirects: results[1] as Redirect[],
+  }),
+);
+
 const functionParens = seq([L.symbol("("), L.symbol(")")], () => "()");
 
-// "Needs `function` or `()`" expressed as the two valid shapes.
+// "Needs `function` or `()`" expressed as the two valid shapes. The body
+// must be a compound command (bash rejects `f() echo hi` and nested
+// definitions like `f() g() { :; }`); trailing redirects are allowed.
 const functionDefParser: Parser<FunctionDef> = or(
   seq(
-    [L.keyword("function"), L.identifier, optional(functionParens), linebreak, commandParser],
+    [L.keyword("function"), L.identifier, optional(functionParens), linebreak, compoundWithRedirects],
     (results) => ({
       tag: "functionDef",
       name: results[1] as string,
@@ -303,7 +365,7 @@ const functionDefParser: Parser<FunctionDef> = or(
     }) satisfies FunctionDef,
   ),
   seq(
-    [L.identifier, functionParens, linebreak, commandParser],
+    [L.identifier, functionParens, linebreak, compoundWithRedirects],
     (results) => ({
       tag: "functionDef",
       name: results[0] as string,
@@ -314,17 +376,7 @@ const functionDefParser: Parser<FunctionDef> = or(
 
 const commandParserImpl: Parser<Command> = trace(
   "bash:command",
-  or(
-    seq(
-      [compoundParser, many(redirectParser)],
-      (results) => ({
-        ...(results[0] as Command),
-        redirects: results[1] as Redirect[],
-      }),
-    ),
-    functionDefParser,
-    simpleCommandParser,
-  ),
+  or(compoundWithRedirects, functionDefParser, simpleCommandParser),
 );
 
 /** Any single command: simple, compound (with trailing redirects), or a

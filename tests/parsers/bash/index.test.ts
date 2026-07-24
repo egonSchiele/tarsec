@@ -94,6 +94,12 @@ const SUPPORTED: [string, string][] = [
   ["case without final ;;", "case $x in\n  a) echo a ;;\n  b) echo b\nesac"],
   ["subshell and group", "(cd /tmp && ls) | sort; { echo a; echo b; } > out.txt"],
   ["arithmetic command", "(( count++ ))"],
+  ["group closed by inner group", "{ { echo a; } }"],
+  ["group closed by if", "{ if true; then :; fi }"],
+  ["group with background tail", "{ sleep 1 & }"],
+  ["group closed by pipeline into group", "{ echo a | { cat; } }"],
+  ["function with compound body", "f() if true; then :; fi"],
+  ["parenthesized esac pattern", "case x in (esac) echo hi ;; esac"],
   ["functions", 'greet() { echo hi; }\nfunction cleanup {\n rm -f "$tmp"\n}'],
   ["empty script", ""],
   ["only comments", "\n# just a comment\n\n"],
@@ -134,6 +140,11 @@ const INVALID: [string, string][] = [
   ["empty if condition", "if ; then :; fi"],
   ["case item missing ;;", "case x in\n  a) echo a\n  b) echo b ;;\nesac"],
   ["double semicolon outside case", "echo a ;; echo b"],
+  ["group without separator before }", "{ echo a }"],
+  ["group with redirected compound tail", "{ { cat; } > log }"],
+  ["function with simple-command body", "f() echo hi"],
+  ["nested function definition body", "f() g() { :; }"],
+  ["esac as bare case pattern", "case x in esac) echo hi ;; esac"],
 ];
 
 describe("supported subset", () => {

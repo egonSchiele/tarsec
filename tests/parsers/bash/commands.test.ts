@@ -197,6 +197,17 @@ describe("case", () => {
 
   it("rejects a non-final item without ;;", () =>
     rejects("case x in\n  a) echo a\n  b) echo b ;;\nesac"));
+
+  it("treats bare esac as the end of the case, not a pattern", () => {
+    rejects("case x in esac) echo hi ;; esac");
+  });
+
+  it("allows esac as a parenthesized pattern, matching bash", () => {
+    const caseCommand = onlyCommand(
+      parse("case x in (esac) echo hi ;; esac"),
+    ) as CaseCommand;
+    expect(caseCommand.items[0].patterns.map(text)).toEqual(["esac"]);
+  });
 });
 
 describe("subshells, groups, and arithmetic commands", () => {
@@ -224,6 +235,46 @@ describe("subshells, groups, and arithmetic commands", () => {
   });
 });
 
+describe("groups close only at command position (like bash's reserved })", () => {
+  it("accepts a separator before }", () => {
+    parse("{ echo a; }");
+    parse("{ echo a\n}");
+    parse("{ sleep 1 & }");
+  });
+
+  it("accepts a bare compound command as the final command", () => {
+    parse("{ { echo a; } }");
+    parse("{ if true; then :; fi }");
+    parse("{ while true; do break; done }");
+    parse("{ ( echo a ) }");
+    parse("{ case y in a) echo b ;; esac }");
+    parse("{ f() { :; } }");
+  });
+
+  it("accepts a pipeline or chain ending in a compound", () => {
+    parse("{ echo a | { cat; } }");
+    parse("{ echo a && { cat; } }");
+    parse("{ ! { cat; } }");
+  });
+
+  it("rejects } directly after a simple command", () => {
+    rejects("{ echo a }");
+    rejects("func() { echo a }");
+    rejects("if { echo a }; then :; fi");
+  });
+
+  it("rejects } after a redirected compound (a redirect re-enters word context)", () => {
+    rejects("{ { cat; } > log }");
+    rejects("{ if true; then :; fi > log }");
+  });
+
+  it("rejects } after (( )), matching bash 3.2", () => {
+    // Parser-only: bash versions differ here, so it stays out of the
+    // bash -n differential corpus.
+    rejects("{ (( x++ )) }");
+  });
+});
+
 describe("function definitions", () => {
   it("parses both styles", () => {
     const list = parse('greet() { echo hi; }\nfunction cleanup {\n rm -f "$tmp"\n}');
@@ -237,5 +288,16 @@ describe("function definitions", () => {
   it("parses the function keyword with parens", () => {
     const def = onlyCommand(parse("function go() { echo hi; }")) as FunctionDef;
     expect(def.name).toBe("go");
+  });
+
+  it("allows any compound command as the body, with redirects", () => {
+    parse("f() if true; then :; fi");
+    parse("f() ( echo hi )");
+    parse("f() { :; } > log");
+  });
+
+  it("rejects non-compound bodies, matching bash", () => {
+    rejects("f() echo hi");
+    rejects("f() g() { :; }");
   });
 });
