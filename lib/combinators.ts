@@ -797,7 +797,8 @@ export function repeatTill<T>(
     const results: T[] = [];
     let rest = input;
     // Terminates: every iteration either returns or strictly shrinks
-    // `rest` (the zero-consumption guard enforces it), and empty `rest`
+    // `rest` (the progress guard below enforces it, even against a
+    // misbehaving chunk that returns a longer rest), and empty `rest`
     // returns — at most input.length + 1 iterations.
     while (true) {
       const terminatorResult = terminator(rest);
@@ -811,7 +812,7 @@ export function repeatTill<T>(
       if (!chunkResult.success) {
         return chunkResult;
       }
-      if (chunkResult.rest.length === rest.length) {
+      if (chunkResult.rest.length >= rest.length) {
         return failure(
           "repeatTill chunk succeeded without consuming input",
           rest,

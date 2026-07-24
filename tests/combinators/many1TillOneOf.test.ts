@@ -26,4 +26,9 @@ describe("many1TillOneOf", () => {
   it("fails on empty input", () => {
     expect(untilQuoteOrSlash("").success).toBe(false);
   });
+
+  it("passes the insensitive option through", () => {
+    const untilX = many1TillOneOf(["X"], { insensitive: true });
+    compareSuccess(untilX("abxcd"), success("ab", "xcd"));
+  });
 });
