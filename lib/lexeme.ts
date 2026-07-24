@@ -1,3 +1,4 @@
+import { sepBy, sepBy1, seq } from "./combinators.js";
 import { CharPredicate, compileCharPredicate, str } from "./parsers.js";
 import { trace } from "./trace.js";
 import { recordFailure } from "./rightmostFailure.js";
@@ -12,6 +13,7 @@ import {
 
 const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const DIGITS = "0123456789";
+const OPERATOR_CHARS = "+-*/<>=!&|^%~?:.";
 const BACKSLASH_CODE = 0x5c;
 const NEWLINE = "\n";
 
@@ -32,6 +34,10 @@ export type LexemeConfig = {
   identRest?: string | CharPredicate;
   /** Words `identifier` refuses to match (and `keyword` accepts). */
   keywords?: string[];
+  /** Charset or predicate for characters that can appear in operators.
+   * `operator` uses it for longest-match rejection: `operator("<")` refuses
+   * to match the front of `<=`. Defaults to common symbol characters. */
+  operatorChars?: string | CharPredicate;
 };
 
 export type Lexemes = {
@@ -57,6 +63,21 @@ export type Lexemes = {
   /** Match `s` only when not followed by an identRest character, so
    * `keyword("if")` rejects "ifx". */
   keyword: (s: string) => Parser<string>;
+  /** Match `s` only when not followed by an operator character, so
+   * `operator("<")` rejects the front of "<=". The symbolic counterpart
+   * of `keyword`. */
+  operator: (s: string) => Parser<string>;
+  /** Run a parser between "(" and ")", whitespace handled. Returns the
+   * inner result. */
+  parens: <T>(parser: Parser<T>) => Parser<T>;
+  /** Like `parens`, with "[" and "]". */
+  brackets: <T>(parser: Parser<T>) => Parser<T>;
+  /** Like `parens`, with "{" and "}". */
+  braces: <T>(parser: Parser<T>) => Parser<T>;
+  /** Zero or more of `parser`, separated by commas. */
+  commaSep: <T>(parser: Parser<T>) => Parser<T[]>;
+  /** One or more of `parser`, separated by commas. */
+  commaSep1: <T>(parser: Parser<T>) => Parser<T[]>;
 };
 
 /**
@@ -144,24 +165,71 @@ export function makeLexemes(config: LexemeConfig): Lexemes {
     }),
   );
 
-  function keyword(s: string): Parser<string> {
+  /** Match `s` as a whole token: it must not be followed by a character
+   * from `continuationChars`, so a shorter token never steals the front of
+   * a longer one. Shared by `keyword` (identifier characters) and
+   * `operator` (operator characters). */
+  function wholeToken(
+    kind: string,
+    s: string,
+    isContinuation: CharPredicate,
+  ): Parser<string> {
     return lexeme(
-      trace(`lexeme:keyword(${s})`, (input: string) => {
+      trace(`lexeme:${kind}(${s})`, (input: string) => {
         if (!input.startsWith(s)) {
-          recordFailure(input, `keyword ${s}`);
-          return failure(`expected keyword ${s}`, input);
+          recordFailure(input, `${kind} ${s}`);
+          return failure(`expected ${kind} ${s}`, input);
         }
         const followingCode = input.charCodeAt(s.length);
         // charCodeAt returns NaN past the end of input; NaN fails the
-        // predicate, so a keyword at end-of-input matches.
-        if (!Number.isNaN(followingCode) && isIdentRest(followingCode)) {
-          recordFailure(input, `keyword ${s}`);
-          return failure(`expected keyword ${s}`, input);
+        // predicate, so a token at end-of-input matches.
+        if (!Number.isNaN(followingCode) && isContinuation(followingCode)) {
+          recordFailure(input, `${kind} ${s}`);
+          return failure(`expected ${kind} ${s}`, input);
         }
         return success(s, input.slice(s.length));
       }),
     );
   }
 
-  return { whitespace, skipWhitespace, lexeme, symbol, identifier, keyword };
+  const keyword = (s: string) => wholeToken("keyword", s, isIdentRest);
+
+  const isOperatorChar = compileCharPredicate(
+    config.operatorChars ?? OPERATOR_CHARS,
+  );
+  const operator = (s: string) => wholeToken("operator", s, isOperatorChar);
+
+  function delimited<T>(
+    open: string,
+    close: string,
+    parser: Parser<T>,
+  ): Parser<T> {
+    return seq(
+      [symbol(open), parser, symbol(close)],
+      (results) => results[1] as T,
+    );
+  }
+
+  const parens = <T>(parser: Parser<T>) => delimited("(", ")", parser);
+  const brackets = <T>(parser: Parser<T>) => delimited("[", "]", parser);
+  const braces = <T>(parser: Parser<T>) => delimited("{", "}", parser);
+
+  const comma = symbol(",");
+  const commaSep = <T>(parser: Parser<T>) => sepBy(comma, parser);
+  const commaSep1 = <T>(parser: Parser<T>) => sepBy1(comma, parser);
+
+  return {
+    whitespace,
+    skipWhitespace,
+    lexeme,
+    symbol,
+    identifier,
+    keyword,
+    operator,
+    parens,
+    brackets,
+    braces,
+    commaSep,
+    commaSep1,
+  };
 }

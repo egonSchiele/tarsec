@@ -135,3 +135,73 @@ describe("identifier and keyword", () => {
     expect(custom.identifier("a42").success).toEqual(false);
   });
 });
+
+describe("operator", () => {
+  it("matches an operator and eats trailing whitespace", () => {
+    expect(lx.operator("<")("< 2")).toEqual({ success: true, result: "<", rest: "2" });
+  });
+
+  it("rejects a longer operator (longest match)", () => {
+    expect(lx.operator("<")("<= 2").success).toEqual(false);
+    expect(lx.operator("<=")("<= 2")).toEqual({ success: true, result: "<=", rest: "2" });
+    expect(lx.operator("|")("|| x").success).toEqual(false);
+  });
+
+  it("matches at the exact end of input", () => {
+    expect(lx.operator("+")("+")).toEqual({ success: true, result: "+", rest: "" });
+  });
+
+  it("stops rejecting at non-operator characters", () => {
+    expect(lx.operator("<")("<2")).toEqual({ success: true, result: "<", rest: "2" });
+  });
+
+  it("supports a custom operator charset", () => {
+    const arrows = makeLexemes({ whitespace: " ", operatorChars: "-></" });
+    expect(arrows.operator("->")("->> x").success).toEqual(false);
+    expect(arrows.operator("->")("-> x")).toEqual({ success: true, result: "->", rest: "x" });
+  });
+});
+
+describe("brackets and lists", () => {
+  it("parens wraps a parser between ( and ), whitespace handled", () => {
+    const inner = lx.lexeme(word);
+    expect(lx.parens(inner)("( hello )!")).toEqual({
+      success: true,
+      result: "hello",
+      rest: "!",
+    });
+  });
+
+  it("brackets and braces use their own delimiters", () => {
+    const inner = lx.lexeme(word);
+    expect(lx.brackets(inner)("[hi] x")).toEqual({ success: true, result: "hi", rest: "x" });
+    expect(lx.braces(inner)("{hi} x")).toEqual({ success: true, result: "hi", rest: "x" });
+  });
+
+  it("parens fails without consuming input when the close is missing", () => {
+    const result = lx.parens(lx.lexeme(word))("(hello");
+    expect(result.success).toEqual(false);
+    expect(result.rest).toEqual("(hello");
+  });
+
+  it("commaSep parses zero, one, and many items", () => {
+    const items = lx.commaSep(lx.lexeme(word));
+    expect(items("")).toEqual({ success: true, result: [], rest: "" });
+    expect(items("a")).toEqual({ success: true, result: ["a"], rest: "" });
+    expect(items("a, b ,c d")).toEqual({ success: true, result: ["a", "b", "c"], rest: "d" });
+  });
+
+  it("commaSep1 requires at least one item", () => {
+    expect(lx.commaSep1(lx.lexeme(word))(", x").success).toEqual(false);
+  });
+
+  it("composes into an argument-list parser", () => {
+    const args = lx.parens(lx.commaSep(lx.identifier));
+    expect(args("(a, b, c) rest")).toEqual({
+      success: true,
+      result: ["a", "b", "c"],
+      rest: "rest",
+    });
+  });
+});
+
