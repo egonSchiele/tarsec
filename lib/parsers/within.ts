@@ -1,5 +1,6 @@
 import { trace } from "../trace.js";
 import { WithinResult, Parser, failure, success } from "../types.js";
+import { getParseState } from "../parseState.js";
 
 /**
  * `within` is a funny combinator. It finds zero or more instances of `parser` within the input.
@@ -60,6 +61,9 @@ import { WithinResult, Parser, failure, success } from "../types.js";
  */
 export function within<T>(parser: Parser<T>): Parser<WithinResult<T>[]> {
   return trace("within", (input: string) => {
+    // A search is speculation: probes at every offset must not leak
+    // commits into the committedFailure slot.
+    const slotBefore = getParseState().committedFailure;
     let start = 0;
     let current = 0;
     const results: WithinResult<T>[] = [];
@@ -93,6 +97,7 @@ export function within<T>(parser: Parser<T>): Parser<WithinResult<T>[]> {
         value: input.slice(start, current),
       });
     }
+    getParseState().committedFailure = slotBefore;
     return success(results, "");
   });
 }

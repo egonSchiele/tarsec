@@ -296,7 +296,11 @@ export function optional<T>(parser: Parser<T>): Parser<T | null> {
  */
 export function not(parser: Parser<any>): Parser<null> {
   return trace("not", (input: string) => {
+    // The probe is speculation: a commit inside it must not escape,
+    // either through the result or through the committedFailure slot.
+    const slotBefore = getParseState().committedFailure;
     let result = parser(input);
+    getParseState().committedFailure = slotBefore;
     if (result.success) {
       return {
         success: false,
@@ -336,9 +340,14 @@ export function peek(
   parser: GeneralParser<any, any>,
 ): GeneralParser<any, any> {
   return trace("peek", (input: string) => {
+    // The probe is speculation: contain any commit inside it — restore
+    // the slot and strip the flag, keeping peek's rest-reset contract.
+    const slotBefore = getParseState().committedFailure;
     const result = parser(input);
+    getParseState().committedFailure = slotBefore;
     if (!result.success) {
-      return { ...result, rest: input };
+      const { committed: _stripped, ...plain } = result;
+      return { ...plain, rest: input };
     }
     return { ...result, rest: input };
   });
