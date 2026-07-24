@@ -1,4 +1,7 @@
-import { getInputStr } from "./trace.js";
+// NOTE: this module deliberately imports nothing from trace.ts — it reads
+// the input via getParseState().inputStr. trace.ts imports composePosition
+// from here, so an import in the other direction would create a runtime
+// module cycle (fragile TDZ hazard under refactoring/bundlers).
 import { Parser, success } from "./types.js";
 import { getParseState } from "./parseState.js";
 
@@ -94,7 +97,7 @@ export function composePosition(base: Position, pos: Position): Position {
  * coordinates (the state's `basePosition` is added).
  */
 export const getOffset: Parser<number> = (input: string) => {
-  const source = getInputStr();
+  const source = getParseState().inputStr;
   const base = getParseState().basePosition;
   return success(base.offset + (source.length - input.length), input);
 };
@@ -106,7 +109,7 @@ export const getOffset: Parser<number> = (input: string) => {
  * coordinates (composed with the state's `basePosition`).
  */
 export const getPosition: Parser<Position> = (input: string) => {
-  const source = getInputStr();
+  const source = getParseState().inputStr;
   const offset = source.length - input.length;
   const lineTable = getLineTable(source);
   const base = getParseState().basePosition;
@@ -131,7 +134,7 @@ export function withSpan<T>(
   parser: Parser<T>,
 ): Parser<{ value: T; span: Span }> {
   return (input: string) => {
-    const source = getInputStr();
+    const source = getParseState().inputStr;
     const lineTable = getLineTable(source);
     const startOffset = source.length - input.length;
     const result = parser(input);
