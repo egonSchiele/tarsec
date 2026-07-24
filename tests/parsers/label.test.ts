@@ -49,6 +49,17 @@ describe("label keeps deeper failures", () => {
     expect(getErrorMessage()).toBe("Line 1, col 1: expected an a or a b");
   });
 
+  it("scrubs speculative deeper records when the child SUCCEEDS", () => {
+    // str("turn") records at pos 2 before str("t") succeeds; the label
+    // restores on success, so the abandoned alternative's record cannot
+    // later surface as a stale error from a region that parsed fine.
+    const keyword = label("kw", seqR(str("re"), or(str("turn"), str("t"))));
+    setInputStr("retx");
+    const result = keyword("retx");
+    expect(result.success).toBe(true);
+    expect(getRightmostFailure()).toBeNull();
+  });
+
   it("does not resurrect a pre-existing deeper record from a sibling", () => {
     // A sibling already failed deep at pos 3; then a label fails at pos 0.
     // The sibling's deeper record must survive untouched — the rule

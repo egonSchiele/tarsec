@@ -308,9 +308,11 @@ export function label<T>(name: string, parser: Parser<T>): Parser<T> {
     const afterChild = saveRightmostFailure();
     const labelPos = getInputStr().length - input.length;
     const childGotStrictlyDeeper = afterChild.pos > labelPos;
-    if (childGotStrictlyDeeper) {
-      // The child learned something specific past this label's start —
+    if (!result.success && childGotStrictlyDeeper) {
+      // The child FAILED somewhere specific past this label's start —
       // keep its record; adding the label here would only blur it.
+      // On success the restore below still runs, scrubbing speculative
+      // records left by backtracked alternatives inside the region.
       return result;
     }
     restoreRightmostFailure(saved);
