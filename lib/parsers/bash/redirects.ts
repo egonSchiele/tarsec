@@ -1,13 +1,15 @@
-import { or } from "../../combinators.js";
+import { or, required } from "../../combinators.js";
 import { compileCharPredicate, str } from "../../parsers.js";
 import { recordFailure } from "../../rightmostFailure.js";
-import { failure, Parser, ParserResult, success } from "../../types.js";
 import {
-  attempt,
   CommittedFailure,
   committedFailure,
+  failure,
   isCommittedFailure,
-} from "./committed.js";
+  Parser,
+  ParserResult,
+  success,
+} from "../../types.js";
 import { nonterminal, registerHeredoc } from "./heredocQueue.js";
 import { lx } from "./lexemes.js";
 import { positionAt, spanned } from "./spanned.js";
@@ -139,8 +141,6 @@ function scanFileOp(input: string): ScannedFileOp {
   return null;
 }
 
-const attemptRawWord = attempt(rawWord);
-
 const fileRedirectScan: Parser<Omit<FileRedirect, "span">> = (input: string) => {
   const scanned = scanFileOp(input);
   if (scanned === null) return failure("expected a redirect", input);
@@ -157,15 +157,12 @@ const fileRedirectScan: Parser<Omit<FileRedirect, "span">> = (input: string) => 
       scanned.rest,
     );
   }
+  // Once the operator is consumed a target must follow: `required` reports
+  // "expected a target after >" at the gap (and lets a committed failure
+  // from the word itself, e.g. `> 'oops`, pass through unchanged).
   const afterOperator = lx.skipWhitespace(scanned.rest);
-  // `attempt` suppresses the inner "a word" recording on an uncommitted
-  // failure — the useful phrasing is ours; committed (`> 'oops`) propagates.
-  const target = attemptRawWord(afterOperator);
-  if (!target.success) {
-    if (isCommittedFailure(target)) return target;
-    recordFailure(afterOperator, `a target after ${scanned.opText}`);
-    return committedFailure(`expected target after ${scanned.opText}`, input);
-  }
+  const target = required(`a target after ${scanned.opText}`, rawWord)(afterOperator);
+  if (!target.success) return target;
   return success(
     {
       type: "redirect" as const,

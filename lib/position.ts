@@ -1,5 +1,6 @@
 import { getInputStr } from "./trace.js";
-import { Parser, success } from "./types.js";
+import { TarsecErrorData } from "./tarsecError.js";
+import { Parser, ParserFailure, success } from "./types.js";
 
 export type Position = {
   offset: number;
@@ -85,6 +86,63 @@ export const getPosition: Parser<Position> = (input: string) => {
   const lineTable = getLineTable(source);
   return success(offsetToPosition(lineTable, offset), input);
 };
+
+/**
+ * Formats a parse failure into a `TarsecErrorData`: line/column of the
+ * failure, plus a pretty message previewing the failing line with an
+ * aligned caret. Long lines are windowed around the caret. Requires
+ * `setInputStr` to have been called with the full input.
+ *
+ * Lives here (rather than trace.ts) because it's built on the memoized
+ * line table this module already maintains.
+ */
+export function getDiagnostics(
+  result: ParserFailure,
+  input: string,
+  _message?: string,
+): TarsecErrorData {
+  const inputStr = getInputStr();
+  const prefix = "Near: ";
+  const message = _message || result.message || "Parsing failed";
+  if (inputStr.length === 0) {
+    return {
+      line: 0,
+      column: 0,
+      length: 0,
+      prettyMessage: [`${prefix}${input.substring(1, 100)}`, message].join("\n"),
+      message,
+    };
+  }
+  const index = inputStr.length - input.length;
+  const lineTable = getLineTable(inputStr);
+  const position = offsetToPosition(lineTable, index);
+
+  // Preview the failing line only, windowed around the caret so long lines
+  // stay readable, with the caret aligned to the previewed slice.
+  const lineStart = lineTable[position.line];
+  let lineEnd = inputStr.indexOf("\n", lineStart);
+  if (lineEnd === -1) lineEnd = inputStr.length;
+  const windowRadius = 30;
+  let previewStart = lineStart;
+  if (position.column > windowRadius) {
+    previewStart = lineStart + position.column - windowRadius;
+  }
+  const previewEnd = Math.min(lineEnd, previewStart + 2 * windowRadius);
+  const preview = inputStr.slice(previewStart, previewEnd);
+  const caretColumn = index - previewStart;
+  const messages = [
+    `${prefix}${preview}`,
+    `${" ".repeat(prefix.length + caretColumn)}^`,
+    message,
+  ];
+  return {
+    line: position.line,
+    column: position.column,
+    length: 1,
+    prettyMessage: messages.join("\n"),
+    message,
+  };
+}
 
 /**
  * Wraps a parser so that its result includes span information (start and end positions).

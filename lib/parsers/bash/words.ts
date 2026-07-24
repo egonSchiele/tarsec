@@ -1,7 +1,6 @@
 import { compileCharPredicate } from "../../parsers.js";
 import { recordFailure } from "../../rightmostFailure.js";
-import { failure, Parser, success } from "../../types.js";
-import { committedFailure } from "./committed.js";
+import { committedFailure, failure, Parser, success } from "../../types.js";
 import { lx } from "./lexemes.js";
 import { spanned } from "./spanned.js";
 import { BashWord } from "./types.js";
@@ -20,8 +19,16 @@ const CLOSE_PAREN = 0x29;
  * the space (known limitation, pinned in tests). */
 const isMetachar = compileCharPredicate(" \t\n|&;()<>");
 
+/** `scanDoubleQuote` and `scanDollarParen` call each other, so each level of
+ * quote/substitution *alternation* (`$("$("...`) costs two JS stack frames —
+ * unbounded input could overflow the stack. Past this cap we report the word
+ * as unterminated (a normal ParserFailure, never a throw). Bash's own
+ * nesting limits are far lower. */
+const MAX_NESTING_DEPTH = 200;
+
 /** Scan one word starting at index 0. Returns the end index (0 = no word
- * here), or -1 for an unterminated quote / substitution.
+ * here), or -1 for an unterminated quote / substitution (or nesting deeper
+ * than MAX_NESTING_DEPTH).
  *
  * All three scanners below are tight charCodeAt index loops (the same style
  * as `takeWhile`): every branch either advances the index or returns, so
@@ -42,13 +49,13 @@ export function scanWord(input: string): number {
       continue;
     }
     if (code === DOUBLE_QUOTE) {
-      const afterClose = scanDoubleQuote(input, index);
+      const afterClose = scanDoubleQuote(input, index, 0);
       if (afterClose === -1) return -1;
       index = afterClose;
       continue;
     }
     if (code === DOLLAR && input.charCodeAt(index + 1) === OPEN_PAREN) {
-      const afterClose = scanDollarParen(input, index + 1);
+      const afterClose = scanDollarParen(input, index + 1, 0);
       if (afterClose === -1) return -1;
       index = afterClose;
       continue;
@@ -61,7 +68,8 @@ export function scanWord(input: string): number {
 
 /** From an opening `"` at `start`, return the index just past the closing
  * quote, or -1. Handles backslash escapes and nested `$(...)`. */
-function scanDoubleQuote(input: string, start: number): number {
+function scanDoubleQuote(input: string, start: number, depth: number): number {
+  if (depth > MAX_NESTING_DEPTH) return -1;
   let index = start + 1;
   const length = input.length;
   while (index < length) {
@@ -72,7 +80,7 @@ function scanDoubleQuote(input: string, start: number): number {
     }
     if (code === DOUBLE_QUOTE) return index + 1;
     if (code === DOLLAR && input.charCodeAt(index + 1) === OPEN_PAREN) {
-      const afterClose = scanDollarParen(input, index + 1);
+      const afterClose = scanDollarParen(input, index + 1, depth + 1);
       if (afterClose === -1) return -1;
       index = afterClose;
       continue;
@@ -83,10 +91,12 @@ function scanDoubleQuote(input: string, start: number): number {
 }
 
 /** From a `(` at `openIndex` (part of `$(`), return the index just past the
- * matching `)`, or -1. Tracks paren nesting and quoting. */
-function scanDollarParen(input: string, openIndex: number): number {
+ * matching `)`, or -1. Tracks paren nesting iteratively (a counter, not
+ * recursion) and quoting. */
+function scanDollarParen(input: string, openIndex: number, depth: number): number {
+  if (depth > MAX_NESTING_DEPTH) return -1;
   let index = openIndex + 1;
-  let depth = 1;
+  let parenDepth = 1;
   const length = input.length;
   while (index < length) {
     const code = input.charCodeAt(index);
@@ -101,15 +111,15 @@ function scanDollarParen(input: string, openIndex: number): number {
       continue;
     }
     if (code === DOUBLE_QUOTE) {
-      const afterClose = scanDoubleQuote(input, index);
+      const afterClose = scanDoubleQuote(input, index, depth + 1);
       if (afterClose === -1) return -1;
       index = afterClose;
       continue;
     }
-    if (code === OPEN_PAREN) depth++;
+    if (code === OPEN_PAREN) parenDepth++;
     if (code === CLOSE_PAREN) {
-      depth--;
-      if (depth === 0) return index + 1;
+      parenDepth--;
+      if (parenDepth === 0) return index + 1;
     }
     index++;
   }

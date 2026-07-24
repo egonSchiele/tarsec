@@ -21,7 +21,37 @@ export type ParserFailure = {
   success: false;
   rest: string;
   message: string;
+  /** Set by `committedFailure`. A committed failure means the parser
+   * recognized its construct and found it malformed ("this IS a redirect,
+   * but the target is missing") — as opposed to an ordinary failure
+   * ("this alternative doesn't apply here"). Committed-aware combinators
+   * (`alt`, `required`) propagate these instead of backtracking, so the
+   * error is reported at the offending token. */
+  committed?: boolean;
 };
+
+/** A `ParserFailure` marked as committed — see `committedFailure`. */
+export type CommittedFailure = ParserFailure & { committed: true };
+
+/** Convenience function to return a committed `ParserFailure` — a failure
+ * from a parser that had already recognized its construct, which
+ * committed-aware combinators (`alt`, `required`) propagate rather than
+ * backtrack over. */
+export function committedFailure(
+  message: string,
+  rest: string,
+): CommittedFailure {
+  return { success: false, message, rest, committed: true };
+}
+
+/** True when `result` is a failure produced by `committedFailure`. */
+export function isCommittedFailure(result: {
+  success: boolean;
+}): result is CommittedFailure {
+  return (
+    !result.success && (result as CommittedFailure).committed === true
+  );
+}
 
 export type ParserResult<T> = ParserSuccess<T> | ParserFailure;
 

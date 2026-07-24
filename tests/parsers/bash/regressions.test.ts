@@ -83,8 +83,28 @@ describe("error messages", () => {
   it("reports a missing redirect target at the right position", () => {
     const result = parseBash("echo x > |");
     expect(result.success).toEqual(false);
-    if (!result.success) expect(result.message).toEqual("expected target after >");
+    if (!result.success) expect(result.message).toEqual("expected a target after >");
     expect(getErrorMessage()).toEqual("Line 1, col 10: expected a target after >");
+  });
+
+  it("puts the diagnostics caret where the missing command belongs", () => {
+    const result = parseBash("echo hi &&");
+    expect(result.success).toEqual(false);
+    if (!result.success) {
+      // after the operator, not at the start of the chain
+      expect(result.diagnostics.column).toEqual(10);
+      expect(result.diagnostics.line).toEqual(0);
+    }
+  });
+
+  it("puts the diagnostics caret at the unterminated heredoc body", () => {
+    const result = parseBash("cat <<EOF;\nno end");
+    expect(result.success).toEqual(false);
+    if (!result.success) {
+      // the body line, where the delimiter was expected — not the newline
+      expect(result.diagnostics.line).toEqual(1);
+      expect(result.diagnostics.column).toEqual(0);
+    }
   });
 
   it("reports a missing command after |", () => {
@@ -143,6 +163,21 @@ describe("malformed separators", () => {
 
   it("fails on a command followed by garbage", () => {
     expect(parseBash("echo )").success).toEqual(false);
+  });
+});
+
+describe("memo isolation", () => {
+  it("parseBash does not clear other parsers' memo caches", async () => {
+    const { memo } = await import("@/lib/combinators");
+    let calls = 0;
+    const counted = memo("regression-counter", (input: string) => {
+      calls++;
+      return { success: true as const, result: "x", rest: input };
+    });
+    counted("same-input");
+    parseBash("echo hi");
+    counted("same-input"); // must hit the cache, not re-run
+    expect(calls).toEqual(1);
   });
 });
 

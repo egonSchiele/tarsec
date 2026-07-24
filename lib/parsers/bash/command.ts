@@ -1,12 +1,18 @@
+import { alt } from "../../combinators.js";
 import { compileCharPredicate } from "../../parsers.js";
 import { recordFailure } from "../../rightmostFailure.js";
-import { failure, Parser, ParserResult, success } from "../../types.js";
-import { attempt, committedFailure, isCommittedFailure } from "./committed.js";
+import {
+  committedFailure,
+  failure,
+  isCommittedFailure,
+  Parser,
+  success,
+} from "../../types.js";
 import { nonterminal } from "./heredocQueue.js";
 import { lx } from "./lexemes.js";
 import { redirect } from "./redirects.js";
-import { spanned, spanOf } from "./spanned.js";
-import { rawWord, scanWord, bashWord } from "./words.js";
+import { positionAt, spanned, spanOf } from "./spanned.js";
+import { bashWord, scanWord } from "./words.js";
 import {
   BashAssignment,
   BashRedirect,
@@ -49,12 +55,14 @@ const assignmentScan: Parser<Omit<BashAssignment, "span">> = (input: string) => 
       afterEquals,
     );
   }
-  const value = rawWord(afterEquals);
-  if (!value.success) return value;
-  return success(
-    { type: "assignment" as const, name, value: value.result },
-    value.rest,
-  );
+  // Build the value node from the scan we already did (no re-scan).
+  const valueRest = afterEquals.slice(valueEnd);
+  const value: BashWord = {
+    type: "word",
+    text: afterEquals.slice(0, valueEnd),
+    span: { start: positionAt(afterEquals), end: positionAt(valueRest) },
+  };
+  return success({ type: "assignment" as const, name, value }, valueRest);
 };
 
 /** `NAME=value`. The name uses its own charset (NOT lx.identifier): bash
@@ -68,33 +76,13 @@ type CommandElement = BashAssignment | BashRedirect | BashWord;
 // Bash rule: NAME=value tokens are assignments only until the first *word*;
 // after that they are ordinary words (`echo foo=bar`). Redirects may appear
 // anywhere, including before the command name and between assignments.
-// Committed-aware alternation by hand: `or` would swallow a committed
-// failure (a malformed redirect/word) and lose its message and position.
-// `attempt` keeps each rejected alternative's failure recordings out of
-// error messages; only a committed alternative contributes its recording.
-const attemptRedirect = attempt(redirect);
-const attemptAssignment = attempt(assignment);
-const attemptWord = attempt(bashWord);
+// `alt` propagates committed failures (malformed redirect/word) and keeps
+// rejected alternatives out of error messages.
+const elementBeforeFirstWord: Parser<CommandElement> = alt(redirect, assignment, bashWord);
+const elementAfterFirstWord: Parser<CommandElement> = alt(redirect, bashWord);
 
-function parseElement(
-  rest: string,
-  seenWord: boolean,
-): ParserResult<CommandElement> {
-  const redirectResult = attemptRedirect(rest);
-  if (redirectResult.success || isCommittedFailure(redirectResult)) {
-    return redirectResult;
-  }
-  if (!seenWord) {
-    const assignmentResult = attemptAssignment(rest);
-    if (assignmentResult.success || isCommittedFailure(assignmentResult)) {
-      return assignmentResult;
-    }
-  }
-  return attemptWord(rest);
-}
-
-/** A simple command: assignments, words, and redirects, in bash's order
- * rules. Fails unless at least one element is present. A committed failure
+/** simpleCommand → (assignment | redirect | word)+ with the first-word rule
+ * above. Fails unless at least one element is present. A committed failure
  * from an element (unterminated quote, redirect without target, `<<` without
  * tag) propagates out so the error points at the offending token instead of
  * surfacing later as a bogus separator error. */
@@ -107,7 +95,8 @@ export const simpleCommand: Parser<SimpleCommand> = nonterminal(
     // Terminates: every element parser consumes at least one character on
     // success, and the loop exits on the first failure.
     while (true) {
-      const parsed = parseElement(rest, seenWord);
+      const element = seenWord ? elementAfterFirstWord : elementBeforeFirstWord;
+      const parsed = element(rest);
       if (!parsed.success) {
         if (isCommittedFailure(parsed)) return parsed;
         break;

@@ -3,6 +3,8 @@
 - New: `tarsec/parsers/bash` subpath export — a bash parser covering simple commands, assignments, pipes, `&&`/`||`/`;`/`&`, redirects, and heredocs (`<<`, `<<-`, quoted tags), with spans on every AST node.
 - `compileCharPredicate` is now exported for building fast character-class predicates.
 - New: `quietly(parser)` — run a parser while discarding any failure expectations it records, for speculative probes whose noise would pollute error messages.
+- New: committed failures — `committedFailure` / `isCommittedFailure` (types) mark a failure as "right construct, malformed" so it's reported at the offending token instead of backtracked over. Two combinators build on them: `alt(...parsers)` (committed-aware, error-quiet alternation that returns the last real failure) and `required(expected, parser)` (marks a grammar position where failure is an error, not an alternative).
+- `getDiagnostics` moved from the trace module to the position module (same package-root export), where the memoized line table lives.
 - Fix (behavior change): `getDiagnostics` — used by `parseError` / `TarsecError` — now reports correct `line`/`column` on multi-line input, previews only the failing line (windowed around long lines), and aligns the caret with the preview. Previously the caret was indented by absolute offset and the preview could show a fragment of the wrong line.
 
 ## June 3 2026 — v0.4.4

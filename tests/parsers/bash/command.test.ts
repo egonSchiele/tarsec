@@ -112,7 +112,7 @@ describe("simpleCommand", () => {
     const missingTarget = simpleCommand("echo >");
     expect(missingTarget.success).toEqual(false);
     if (!missingTarget.success) {
-      expect(missingTarget.message).toEqual("expected target after >");
+      expect(missingTarget.message).toEqual("expected a target after >");
     }
 
     setInputStr("echo 'oops");

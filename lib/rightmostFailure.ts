@@ -27,6 +27,8 @@ export function recordFailure(input: string, expected: string) {
     rightmostFailureExpected = [expected];
   } else if (pos === rightmostFailurePos) {
     if (!rightmostFailureExpected.includes(expected)) {
+      // Append in place: `saveRightmostFailure` relies on arrays only ever
+      // being appended to (undone by length-mark) or replaced wholesale.
       rightmostFailureExpected.push(expected);
     }
   }

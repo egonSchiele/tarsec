@@ -1,15 +1,14 @@
-import { lazy, map, not, or, seqR } from "../../combinators.js";
+import { lazy, map, not, or, required, seqR } from "../../combinators.js";
 import { char, quietly } from "../../parsers.js";
 import { recordFailure } from "../../rightmostFailure.js";
-import { failure, Parser, success } from "../../types.js";
-import { attempt, isCommittedFailure } from "./committed.js";
+import { failure, Parser, ParserFailure, success } from "../../types.js";
 import { simpleCommand } from "./command.js";
 import {
   drainHeredocs,
+  hasPendingHeredocs,
   nonterminal,
   pendingHeredocs,
   scanHeredocBody,
-  withQueueUnwind,
 } from "./heredocQueue.js";
 import { lx } from "./lexemes.js";
 import { positionAt, spanOf } from "./spanned.js";
@@ -17,39 +16,52 @@ import { AndOrOp, BashNode, BashScript, Statement } from "./types.js";
 
 const NEWLINE_CODE = 0x0a;
 
-/** A single command. Compound commands (if/while/for/case) get added here in
- * a future scope as a committed-aware alternation (plain `or` would swallow
- * committed failures) — hence the lazy. */
+/*
+ * The grammar, top-down. Each nonterminal below implements one rule:
+ *
+ *   script    → lineBreaks (statement lineBreaks)*  eof
+ *   statement → andOr statementEnd
+ *   andOr     → pipeline (("&&" | "||") lineBreaks pipeline)*
+ *   pipeline  → command  ("|" lineBreaks command)*
+ *   command   → simpleCommand            (compound commands in a future scope)
+ *
+ * `statementEnd` is `&` (background), `;`, a heredoc-draining newline, or
+ * end of input. `lineBreaks` eats blank lines and comments, draining
+ * heredocs at each newline.
+ */
+
+/** command → simpleCommand. Compound commands (if/while/for/case) join via
+ * a committed-aware `alt` here in a future scope — hence the lazy. */
 export const command: Parser<BashNode> = nonterminal(
   "command",
   lazy(() => simpleCommand),
 );
 
-// Operator probes are speculative — a failed (or even successful) attempt
-// must not leave "expected |"-style noise in error messages, so all of
-// these are `quietly` wrapped (the zero-width `not(...)` guards record even
-// on success).
+// Operator probes are speculative; `quietly` keeps their (and their
+// zero-width `not` guards') recordings out of error messages.
 
-// `|` that is not `||`. Explicit lookahead, not an accident of backtracking.
+/** `|` that is not `||`. */
 const pipeOp: Parser<"|"> = quietly(
   lx.lexeme(map(seqR(char("|"), not(char("|"))), () => "|" as const)),
 );
 
-// `&` that is not `&&` — the background/separator operator.
+/** `&` that is not `&&` — the background/separator operator. */
 const ampersandOp: Parser<"&"> = quietly(
   lx.lexeme(map(seqR(char("&"), not(char("&"))), () => "&" as const)),
 );
 
 const semicolonOp: Parser<";"> = quietly(lx.symbol(";"));
 
-// `&&` / `||` — consumed here, before the statement-level single `&`.
+/** `&&` / `||` — consumed here, before the statement-level single `&`. */
 const andOrOp: Parser<AndOrOp> = quietly(or(lx.symbol("&&"), lx.symbol("||")));
 
 /** Consume a newline, then drain pending heredoc bodies (in registration
- * order), mutating each node's `body` and `bodySpan` in place. Wrapped in
- * `withQueueUnwind` so a failed drain restores the queue — a re-run then
- * fails identically instead of silently succeeding on an emptied queue. */
-export const heredocNewline: Parser<null> = withQueueUnwind((input: string) => {
+ * order), mutating each node's `body` and `bodySpan` in place. Wrapped by
+ * `nonterminal`'s queue unwind at every call site, so a failed drain
+ * restores the queue. On an unterminated heredoc the failure's `rest` is
+ * the body's start — where the delimiter was expected — so diagnostics
+ * point there. */
+export const heredocNewline: Parser<null> = (input: string) => {
   if (input.charCodeAt(0) !== NEWLINE_CODE) {
     recordFailure(input, "a newline");
     return failure("expected newline", input);
@@ -59,7 +71,7 @@ export const heredocNewline: Parser<null> = withQueueUnwind((input: string) => {
     const scanned = scanHeredocBody(rest, heredoc.tag, heredoc.stripTabs);
     if (scanned === null) {
       recordFailure(rest, `heredoc delimiter ${heredoc.tag}`);
-      return failure(`unterminated heredoc <<${heredoc.tag}`, input);
+      return failure(`unterminated heredoc <<${heredoc.tag}`, rest);
     }
     heredoc.body = scanned.body;
     heredoc.bodySpan = {
@@ -69,12 +81,12 @@ export const heredocNewline: Parser<null> = withQueueUnwind((input: string) => {
     rest = scanned.rest;
   }
   return success(null, rest);
-});
+};
 
-/** Eat whitespace, comments, newlines, and blank lines — draining heredocs at
- * each newline. Fails only when a heredoc body is unterminated; that failure
- * must be propagated, never treated as "no more line breaks". */
-const lineBreaks: Parser<null> = (input: string) => {
+/** Eat whitespace, comments, newlines, and blank lines — draining heredocs
+ * at each newline. Fails only when a heredoc body is unterminated; that
+ * failure must be propagated, never treated as "no more line breaks". */
+const lineBreaks: Parser<null> = nonterminal("lineBreaks", (input: string) => {
   let rest = input;
   // Terminates: each iteration consumes at least the newline character.
   while (true) {
@@ -84,65 +96,58 @@ const lineBreaks: Parser<null> = (input: string) => {
     if (!drained.success) return drained;
     rest = drained.rest;
   }
-};
+});
 
-/** Left-associative operator chain: `operand (operator operand)*`, where a
- * newline is allowed after each operator (so `a &&\nb` and `a |\nb` parse,
- * and heredocs registered before the operator drain at that newline — the
- * same behavior as bash). `combine` is only called when at least one link
- * was parsed; a single operand is returned unchanged (singleton collapse). */
-function chain<Op extends string>(
+type ChainLink<Op> = { op: Op; command: BashNode };
+
+/** operand (operator lineBreaks operand)* — left-associative. A single
+ * operand collapses to itself (no one-element wrapper nodes). The operand
+ * after an operator is `required`, so `a &&` fails with "expected a command
+ * after &&" at the position where the command should be; line breaks after
+ * an operator are allowed (`a &&\nb`), draining heredocs like any newline. */
+function chainLeft<Op extends string>(
   operand: Parser<BashNode>,
   operator: Parser<Op>,
-  combine: (
-    first: BashNode,
-    links: { op: Op; command: BashNode }[],
-  ) => BashNode,
+  build: (first: BashNode, links: ChainLink<Op>[]) => BashNode,
 ): Parser<BashNode> {
-  const attemptOperand = attempt(operand);
   return (input: string) => {
     const first = operand(input);
     if (!first.success) return first;
-    const links: { op: Op; command: BashNode }[] = [];
+    const links: ChainLink<Op>[] = [];
     let rest = first.rest;
-    // Terminates: `operator` consumes at least one character on success, and
-    // the loop exits on the first operator failure.
+    // Terminates: `operator` consumes input on success; exits on its failure.
     while (true) {
       const operatorResult = operator(rest);
       if (!operatorResult.success) break;
-      const afterBreaks = lineBreaks(operatorResult.rest);
-      if (!afterBreaks.success) return afterBreaks;
-      // `attempt` wipes the operand's noisy alternative recordings on an
-      // uncommitted failure; the useful phrasing is "a command after <op>".
-      const next = attemptOperand(afterBreaks.rest);
-      if (!next.success) {
-        if (isCommittedFailure(next)) return next;
-        recordFailure(afterBreaks.rest, `a command after ${operatorResult.result}`);
-        return failure(
-          `expected a command after ${operatorResult.result}`,
-          input,
-        );
-      }
+      const afterLineBreaks = lineBreaks(operatorResult.rest);
+      if (!afterLineBreaks.success) return afterLineBreaks;
+      const next = required(
+        `a command after ${operatorResult.result}`,
+        operand,
+      )(afterLineBreaks.rest);
+      if (!next.success) return next;
       links.push({ op: operatorResult.result, command: next.result });
       rest = next.rest;
     }
     if (links.length === 0) return success(first.result, rest);
-    return success(combine(first.result, links), rest);
+    return success(build(first.result, links), rest);
   };
 }
 
+/** pipeline → command ("|" lineBreaks command)* */
 export const pipeline: Parser<BashNode> = nonterminal(
   "pipeline",
-  chain(command, pipeOp, (first, links) => ({
+  chainLeft(command, pipeOp, (first, links) => ({
     type: "pipeline" as const,
     commands: [first, ...links.map((link) => link.command)],
     span: spanOf(first, links[links.length - 1].command),
   })),
 );
 
+/** andOr → pipeline (("&&" | "||") lineBreaks pipeline)* */
 export const andOr: Parser<BashNode> = nonterminal(
   "andOr",
-  chain(pipeline, andOrOp, (first, links) => ({
+  chainLeft(pipeline, andOrOp, (first, links) => ({
     type: "and-or" as const,
     first,
     rest: links,
@@ -150,8 +155,53 @@ export const andOr: Parser<BashNode> = nonterminal(
   })),
 );
 
-/** A whole script: statements separated by `;`, `&` (background), or
- * newlines. Use `parseBash` unless you own the global-state setup yourself. */
+/** statementEnd → "&" | ";" | heredoc-draining newline | end-of-input.
+ * Reports whether the statement runs in the background. */
+const statementEnd: Parser<{ background: boolean }> = (input: string) => {
+  if (input.charCodeAt(0) === NEWLINE_CODE) {
+    const drained = heredocNewline(input);
+    if (!drained.success) return drained;
+    return success({ background: false }, drained.rest);
+  }
+  const ampersand = ampersandOp(input);
+  if (ampersand.success) return success({ background: true }, ampersand.rest);
+  const semicolon = semicolonOp(input);
+  if (semicolon.success) return success({ background: false }, semicolon.rest);
+  if (input === "") return success({ background: false }, input);
+  recordFailure(input, "';', '&', or a newline");
+  return failure("expected ';', '&', or newline after command", input);
+};
+
+/** statement → andOr statementEnd */
+const statement: Parser<Statement> = nonterminal(
+  "statement",
+  (input: string) => {
+    const body = andOr(input);
+    if (!body.success) return body;
+    const end = statementEnd(body.rest);
+    if (!end.success) return end;
+    return success(
+      {
+        type: "statement" as const,
+        body: body.result,
+        background: end.result.background,
+        span: body.result.span,
+      },
+      end.rest,
+    );
+  },
+);
+
+/** Heredocs still pending at end of input never get a newline to drain at —
+ * `cat <<EOF` with no newline, or `cat <<EOF;` at EOF. */
+function pendingHeredocAtEof(rest: string): ParserFailure | null {
+  if (rest !== "" || !hasPendingHeredocs()) return null;
+  const tag = pendingHeredocs()[0].tag;
+  recordFailure(rest, `heredoc delimiter ${tag}`);
+  return failure(`unterminated heredoc <<${tag}`, rest);
+}
+
+/** script → lineBreaks (statement lineBreaks)* eof */
 export const script: Parser<BashScript> = nonterminal(
   "script",
   (input: string) => {
@@ -159,54 +209,16 @@ export const script: Parser<BashScript> = nonterminal(
     if (!leading.success) return leading;
     let rest = leading.rest;
     const statements: Statement[] = [];
-
-    // Terminates: each iteration parses one statement, which always consumes
-    // at least one character (simpleCommand requires an element).
+    // Terminates: `statement` always consumes at least one character.
     while (rest !== "") {
-      const commandResult = andOr(rest);
-      if (!commandResult.success) return commandResult;
-      rest = commandResult.rest;
-      let background = false;
-
-      if (rest.charCodeAt(0) === NEWLINE_CODE) {
-        const drained = heredocNewline(rest);
-        if (!drained.success) return drained;
-        rest = drained.rest;
-      } else {
-        // The separator ops are `quietly` wrapped, so failed probes leave
-        // no recordings; only the one readable phrase gets recorded.
-        const ampersand = ampersandOp(rest);
-        if (ampersand.success) {
-          background = true;
-          rest = ampersand.rest;
-        } else {
-          const semicolon = semicolonOp(rest);
-          if (semicolon.success) {
-            rest = semicolon.rest;
-          } else if (rest !== "") {
-            recordFailure(rest, "';', '&', or a newline");
-            return failure("expected ';', '&', or newline after command", rest);
-          }
-        }
-      }
-
-      statements.push({
-        type: "statement",
-        body: commandResult.result,
-        background,
-        span: commandResult.result.span,
-      });
-
-      const trailing = lineBreaks(rest);
-      if (!trailing.success) return trailing; // unterminated heredoc
-      rest = trailing.rest;
-
-      // Heredocs still pending at EOF never get a newline to drain at.
-      if (rest === "" && pendingHeredocs().length > 0) {
-        const tag = pendingHeredocs()[0].tag;
-        recordFailure(rest, `heredoc delimiter ${tag}`);
-        return failure(`unterminated heredoc <<${tag}`, rest);
-      }
+      const parsed = statement(rest);
+      if (!parsed.success) return parsed;
+      statements.push(parsed.result);
+      const breaks = lineBreaks(parsed.rest);
+      if (!breaks.success) return breaks;
+      rest = breaks.rest;
+      const unterminated = pendingHeredocAtEof(rest);
+      if (unterminated !== null) return unterminated;
     }
 
     let span = { start: positionAt(input), end: positionAt(rest) };

@@ -1,15 +1,23 @@
 import { within } from "./parsers/within.js";
 import { TarsecError } from "./tarsecError.js";
-import { getDiagnostics, trace } from "./trace.js";
+import { getDiagnostics } from "./position.js";
+import { trace } from "./trace.js";
+import {
+  recordFailure,
+  restoreRightmostFailure,
+  saveRightmostFailure,
+} from "./rightmostFailure.js";
 import {
   CaptureParser,
   CaptureParserResult,
   CaptureParserSuccess,
   captureSuccess,
+  committedFailure,
   failure,
   GeneralParser,
   InferManyReturnType,
   isCaptureResult,
+  isCommittedFailure,
   isSuccess,
   MergedCaptures,
   MergedResults,
@@ -204,6 +212,74 @@ export function or<const T extends readonly GeneralParser<any, any>[]>(
 
     return failure(`all parsers failed`, input);
   }) as PickParserType<T>;
+}
+
+/**
+ * Committed-aware, error-quiet alternation. Like `or`, `alt` tries each
+ * parser in order and returns the first success — but it's built for
+ * grammars that use committed failures (see `committedFailure` in types):
+ *
+ * - A **committed** failure from any alternative is returned immediately.
+ *   The parser recognized its construct and found it malformed (`>` with no
+ *   target, an unclosed quote), so trying further alternatives would
+ *   misreport the error somewhere else.
+ * - Each rejected alternative's failure recordings are discarded (as with
+ *   `quietly`), so error messages read "expected a command" instead of
+ *   dumping every alternative tried.
+ * - On total failure, the **last** alternative's failure is returned rather
+ *   than a generic "all parsers failed".
+ *
+ * Use `or` when alternatives are cheap and messages don't matter; use `alt`
+ * at grammar decision points where they do.
+ *
+ * @param parsers - parsers to try in order
+ * @returns - the first success, the first committed failure, or the last failure
+ */
+export function alt<const T extends readonly GeneralParser<any, any>[]>(
+  ...parsers: T
+): PickParserType<T> {
+  return trace(`alt()`, (input: string) => {
+    let lastFailure: ParserResult<any> | null = null;
+    for (let i = 0; i < parsers.length; i++) {
+      const saved = saveRightmostFailure();
+      const result = parsers[i](input);
+      if (isCommittedFailure(result)) return result;
+      restoreRightmostFailure(saved);
+      if (result.success) return result;
+      lastFailure = result;
+    }
+    return lastFailure ?? failure("alt: no parsers given", input);
+  }) as PickParserType<T>;
+}
+
+/**
+ * Marks a parser as required at this point in the grammar: from here on,
+ * failure is not an alternative to backtrack over but an error to report.
+ *
+ * On success — or on a committed failure, which already carries a specific
+ * error — behaves exactly like `parser`. On an ordinary failure it discards
+ * the parser's own failure recordings, records `expected <expected>` at this
+ * position, and returns a **committed** failure, so enclosing `alt`s and
+ * repetition loops stop and surface the error here.
+ *
+ * ```ts
+ * // after "&&" there must be a command; "a &&" errors at the gap:
+ * const next = required("a command after &&", command);
+ * ```
+ *
+ * @param expected - human-readable description of what must appear here
+ * @param parser - the parser that must succeed
+ * @returns - a parser whose failure is committed and cleanly labeled
+ */
+export function required<T>(expected: string, parser: Parser<T>): Parser<T> {
+  return (input: string) => {
+    const saved = saveRightmostFailure();
+    const result = parser(input);
+    if (result.success || isCommittedFailure(result)) return result;
+    restoreRightmostFailure(saved);
+    recordFailure(input, expected);
+    return committedFailure(`expected ${expected}`, input);
+  };
 }
 
 /**

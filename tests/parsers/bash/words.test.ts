@@ -52,6 +52,15 @@ describe("scanWord", () => {
     expect(scanWord('"oops')).toEqual(-1);
     expect(scanWord("$(oops")).toEqual(-1);
   });
+
+  it("fails (not crashes) on pathological quote/substitution nesting", () => {
+    // '$("' alternation recurses between the two scanners; unbounded depth
+    // would overflow the JS stack. Must come back as -1, never a throw.
+    expect(scanWord('$("'.repeat(20000) + "x")).toEqual(-1);
+    // pure paren nesting is iterative and unaffected by the depth cap
+    const deepParens = "$(".repeat(5000) + "x" + ")".repeat(5000);
+    expect(scanWord(deepParens)).toEqual(deepParens.length);
+  });
 });
 
 describe("bashWord", () => {
