@@ -1,7 +1,29 @@
 import { execSync } from "child_process";
 import { describe, expect, it } from "vitest";
-import { bashParser as permissiveParser } from "./bashFromLexemes";
-import { parseBashStrict } from "./bashStrict";
+import { bashParser, List, SimpleCommand } from "@/lib/parsers/bash/index";
+import { buildLineTable, offsetToPosition } from "@/lib/position";
+import {
+  getErrorMessage,
+  getRightmostFailure,
+  resetRightmostFailure,
+} from "@/lib/rightmostFailure";
+import { setInputStr } from "@/lib/trace";
+import { bashParser as permissiveParser } from "../../examples/bashFromLexemes";
+import { BIG_SCRIPT } from "../../examples/fixtures/corpus";
+
+/** Is a bash binary available? The differential `bash -n` assertions are
+ * skipped (not failed) without one, so the parser tests still run on
+ * minimal environments. */
+const hasBash = (() => {
+  try {
+    execSync("bash -c 'exit 0'", { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+const itIfBash = hasBash ? it : it.skip;
 
 /** Does real bash consider this script syntactically valid? */
 function bashAccepts(script: string): boolean {
@@ -13,53 +35,29 @@ function bashAccepts(script: string): boolean {
   }
 }
 
-const BIG_SCRIPT = `#!/usr/bin/env bash
-set -euo pipefail
-
-readonly LOG_FILE=/var/log/deploy.log
-
-log() {
-  echo "[$(date +%H:%M:%S)] $1" >> "$LOG_FILE"
+/** Parse with the standard tarsec diagnostics flow, as documented in
+ * lib/parsers/bash/index.ts. */
+function parse(input: string) {
+  setInputStr(input);
+  resetRightmostFailure();
+  const result = bashParser(input);
+  if (result.success) {
+    return { success: true as const, list: result.result };
+  }
+  const rightmost = getRightmostFailure();
+  const offset = rightmost?.pos ?? input.length - result.rest.length;
+  const position = offsetToPosition(buildLineTable(input), offset);
+  return {
+    success: false as const,
+    message: getErrorMessage() ?? result.message,
+    line: position.line + 1,
+    column: position.column + 1,
+  };
 }
-
-check_deps() {
-  for cmd in git node npm; do
-    if ! command -v "$cmd" > /dev/null 2>&1; then
-      log "missing dependency: $cmd"
-      exit 1
-    fi
-  done
-}
-
-main() {
-  check_deps
-  local branch
-  branch=$(git rev-parse --abbrev-ref HEAD)
-
-  case "$branch" in
-    main|master)
-      log "deploying $branch"
-      npm run build && npm run deploy || exit 1
-      ;;
-    feature/*)
-      log "skipping feature branch"
-      ;;
-    *)
-      echo "unknown branch: $branch" >&2
-      exit 1
-      ;;
-  esac
-
-  while read -r line; do
-    echo "-> $line"
-  done < "$LOG_FILE" &
-}
-
-main "$@"
-`;
 
 // Everything in the supported subset. Each of these must (a) parse, (b) be
-// valid to real bash, and (c) produce the same AST as the permissive parser.
+// valid to real bash, and (c) produce the same AST as the permissive
+// example parser in tests/examples.
 const SUPPORTED: [string, string][] = [
   ["simple command", "echo hello world"],
   ["quoting", `echo 'a b' "c $d" e'f'"g"$h`],
@@ -67,6 +65,8 @@ const SUPPORTED: [string, string][] = [
   ["reserved words as args", "echo if fi done"],
   ["assignments", 'FOO=bar BAZ="qux $FOO" run --now'],
   ["assignment only", "PATH=/usr/local/bin:$PATH"],
+  ["assignment-shaped argument words", "env FOO=bar cmd --opt=value"],
+  ["assignment value containing =", "foo=bar=baz"],
   ["nested substitution", 'echo "dir: $(basename $(pwd))"'],
   ["raw expansions", "echo ${VAR:-default} $((count + 1))"],
   ["redirects", "cmd < in.txt >> log.txt 2>&1"],
@@ -97,7 +97,8 @@ const SUPPORTED: [string, string][] = [
   ["realistic script", BIG_SCRIPT],
 ];
 
-// Valid bash we deliberately refuse: fail closed rather than mis-parse.
+// Valid bash the parser deliberately refuses: fail closed rather than
+// mis-parse.
 const CUT: [string, string][] = [
   ["array assignment", "files=(a.txt b.txt)"],
   ["append assignment", "count+=1"],
@@ -117,7 +118,7 @@ const CUT: [string, string][] = [
   ["reserved word as for variable", "for do in a b; do :; done"],
 ];
 
-// Invalid bash: we reject it, and real bash agrees.
+// Invalid bash: the parser rejects it, and real bash agrees.
 const INVALID: [string, string][] = [
   ["commands without a separator", "(echo a) (echo b)"],
   ["trailing pipe", "echo hi |"],
@@ -130,39 +131,77 @@ const INVALID: [string, string][] = [
 
 describe("supported subset", () => {
   it.each(SUPPORTED)("parses %s", (_name, input) => {
-    const result = parseBashStrict(input);
+    const result = parse(input);
     if (!result.success) {
       throw new Error(`rejected: ${result.message} (line ${result.line})`);
     }
-    // The permissive parser accepts a superset; on the strict subset the
-    // two must agree exactly.
+    // The permissive example parser accepts a superset; on the supported
+    // subset the two must agree exactly.
     const permissive = permissiveParser(input);
     if (!permissive.success) throw new Error("permissive parser rejected input");
     expect(result.list).toEqual(permissive.result);
   });
 
-  it.each(SUPPORTED)("bash -n accepts %s", (_name, input) => {
+  itIfBash.each(SUPPORTED)("bash -n accepts %s", (_name, input) => {
     expect(bashAccepts(input)).toBe(true);
+  });
+});
+
+describe("assignment vs word boundary", () => {
+  function simple(list: List, index = 0): SimpleCommand {
+    const command = list.items[index].command.first.commands[0];
+    expect(command.tag).toBe("simpleCommand");
+    return command as SimpleCommand;
+  }
+
+  it("treats k=v after the command word as a plain argument", () => {
+    const result = parse("env FOO=bar cmd --opt=value");
+    if (!result.success) throw new Error(result.message);
+    const command = simple(result.list);
+    expect(command.assignments).toEqual([]);
+    expect(command.words).toHaveLength(4);
+    expect(command.words[1].parts).toEqual([{ tag: "literal", text: "FOO=bar" }]);
+  });
+
+  it("parses name=bar=baz as an assignment with value bar=baz", () => {
+    const result = parse("foo=bar=baz");
+    if (!result.success) throw new Error(result.message);
+    const command = simple(result.list);
+    expect(command.words).toEqual([]);
+    expect(command.assignments[0].name).toBe("foo");
+    expect(command.assignments[0].value?.parts).toEqual([
+      { tag: "literal", text: "bar=baz" },
+    ]);
+  });
+
+  it("rejects append assignments at command position", () => {
+    expect(parse("count+=1").success).toBe(false);
   });
 });
 
 describe("fail-closed: cut syntax is rejected even though bash accepts it", () => {
   it.each(CUT)("rejects %s", (_name, input) => {
-    expect(parseBashStrict(input).success).toBe(false);
-    expect(bashAccepts(input)).toBe(true); // documents that this is a cut
+    expect(parse(input).success).toBe(false);
+  });
+
+  itIfBash.each(CUT)("bash -n accepts %s (documents the cut)", (_name, input) => {
+    expect(bashAccepts(input)).toBe(true);
   });
 });
 
-describe("invalid bash is rejected, and real bash agrees", () => {
+describe("invalid bash is rejected", () => {
   it.each(INVALID)("rejects %s", (_name, input) => {
-    expect(parseBashStrict(input).success).toBe(false);
+    expect(parse(input).success).toBe(false);
+  });
+
+  itIfBash.each(INVALID)("bash -n also rejects %s", (_name, input) => {
     expect(bashAccepts(input)).toBe(false);
   });
 });
 
 describe("diagnostics", () => {
   it("reports the failure line", () => {
-    const result = parseBashStrict("echo ok\nfiles=(a b)\necho done");
+    const result = parse("echo ok\nfiles=(a b)\necho done");
     if (result.success) throw new Error("expected failure");
     expect(result.line).toBe(2);
     expect(result.column).toBeGreaterThan(0);
@@ -170,13 +209,13 @@ describe("diagnostics", () => {
   });
 
   it("labels unterminated quotes", () => {
-    const result = parseBashStrict("echo 'unterminated");
+    const result = parse("echo 'unterminated");
     if (result.success) throw new Error("expected failure");
     expect(result.message).toContain("single-quoted");
   });
 
-  it("former silent mis-parses now point at the offending construct", () => {
-    const result = parseBashStrict("echo `date`");
+  it("points at the offending construct", () => {
+    const result = parse("echo `date`");
     if (result.success) throw new Error("expected failure");
     expect(result.line).toBe(1);
   });

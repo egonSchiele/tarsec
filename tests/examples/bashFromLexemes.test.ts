@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BIG_SCRIPT, REAL_SCRIPTS } from "./fixtures/corpus";
 import {
   AndOr,
   bashParser,
@@ -273,50 +274,7 @@ describe("compound commands", () => {
 
 describe("a realistic script", () => {
   it("parses end to end", () => {
-    const script = `#!/usr/bin/env bash
-set -euo pipefail
-
-readonly LOG_FILE=/var/log/deploy.log
-
-log() {
-  echo "[$(date +%H:%M:%S)] $1" >> "$LOG_FILE"
-}
-
-check_deps() {
-  for cmd in git node npm; do
-    if ! command -v "$cmd" > /dev/null 2>&1; then
-      log "missing dependency: $cmd"
-      exit 1
-    fi
-  done
-}
-
-main() {
-  check_deps
-  local branch
-  branch=$(git rev-parse --abbrev-ref HEAD)
-
-  case "$branch" in
-    main|master)
-      log "deploying $branch"
-      npm run build && npm run deploy || exit 1
-      ;;
-    feature/*)
-      log "skipping feature branch"
-      ;;
-    *)
-      echo "unknown branch: $branch" >&2
-      exit 1
-      ;;
-  esac
-
-  while read -r line; do
-    echo "-> $line"
-  done < "$LOG_FILE" &
-}
-
-main "$@"
-`;
+    const script = BIG_SCRIPT;
     const list = parse(script);
     // set, readonly, log, check_deps, main, main "$@"
     expect(list.items).toHaveLength(6);
@@ -326,16 +284,8 @@ main "$@"
   });
 });
 
-describe("real scripts from node_modules", () => {
-  const candidates = [
-    "node_modules/lunr/build/release.sh",
-    "node_modules/.bin/acorn",
-  ];
-
-  it.each(candidates)("parses %s", async (path) => {
-    const fs = await import("fs");
-    if (!fs.existsSync(path)) return; // layout-dependent; skip if absent
-    const source = fs.readFileSync(path, "utf8");
+describe("real scripts (checked-in fixtures)", () => {
+  it.each(REAL_SCRIPTS)("parses %s", (_name, source) => {
     const result = bashParser(source);
     if (!result.success) {
       throw new Error(`failed at: ${result.rest.slice(0, 60)}`);

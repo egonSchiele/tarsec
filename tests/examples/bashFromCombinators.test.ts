@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { BIG_SCRIPT, REAL_SCRIPTS } from "./fixtures/corpus";
 import { bashParser as loopParser } from "./bashFromLexemes";
 import { bashParser as combinatorParser } from "./bashFromCombinators";
 
@@ -46,51 +47,6 @@ const CORPUS: [string, string][] = [
   ["unterminated quote (fails in both)", "echo 'oops"],
 ];
 
-const BIG_SCRIPT = `#!/usr/bin/env bash
-set -euo pipefail
-
-readonly LOG_FILE=/var/log/deploy.log
-
-log() {
-  echo "[$(date +%H:%M:%S)] $1" >> "$LOG_FILE"
-}
-
-check_deps() {
-  for cmd in git node npm; do
-    if ! command -v "$cmd" > /dev/null 2>&1; then
-      log "missing dependency: $cmd"
-      exit 1
-    fi
-  done
-}
-
-main() {
-  check_deps
-  local branch
-  branch=$(git rev-parse --abbrev-ref HEAD)
-
-  case "$branch" in
-    main|master)
-      log "deploying $branch"
-      npm run build && npm run deploy || exit 1
-      ;;
-    feature/*)
-      log "skipping feature branch"
-      ;;
-    *)
-      echo "unknown branch: $branch" >&2
-      exit 1
-      ;;
-  esac
-
-  while read -r line; do
-    echo "-> $line"
-  done < "$LOG_FILE" &
-}
-
-main "$@"
-`;
-
 describe("combinator-only parser is equivalent to the loop-based one", () => {
   it.each(CORPUS)("%s", (_name, input) => {
     const expected = loopParser(input);
@@ -112,12 +68,9 @@ describe("combinator-only parser is equivalent to the loop-based one", () => {
     expect(actual.result).toEqual(expected.result);
   });
 
-  it.each(["node_modules/lunr/build/release.sh", "node_modules/.bin/acorn"])(
+  it.each(REAL_SCRIPTS)(
     "parses %s identically",
-    async (path) => {
-      const fs = await import("fs");
-      if (!fs.existsSync(path)) return; // layout-dependent; skip if absent
-      const source = fs.readFileSync(path, "utf8");
+    (_name, source) => {
       const expected = loopParser(source);
       const actual = combinatorParser(source);
       expect(actual.success).toBe(expected.success);
@@ -128,8 +81,12 @@ describe("combinator-only parser is equivalent to the loop-based one", () => {
   );
 });
 
+// Informational and machine-sensitive (observed anywhere from 1.3x to 2x
+// between machines); opt in with RUN_BENCH=1 to keep CI fast and quiet.
+const itBench = process.env.RUN_BENCH ? it : it.skip;
+
 describe("cost of the constraint", () => {
-  it("measures both parsers on the realistic script", () => {
+  itBench("measures both parsers on the realistic script", () => {
     const ITERATIONS = 300;
     const time = (parser: (input: string) => unknown): number => {
       for (let i = 0; i < 30; i++) parser(BIG_SCRIPT); // warmup

@@ -24,6 +24,11 @@
       "import": "./dist/parsers/markdown/index.js",
       "require": "./dist/parsers/markdown/index.js",
       "types": "./dist/parsers/markdown/index.d.ts"
+    },
+    "./parsers/bash": {
+      "import": "./dist/parsers/bash/index.js",
+      "require": "./dist/parsers/bash/index.js",
+      "types": "./dist/parsers/bash/index.d.ts"
     }
   },
   "type": "module",
