@@ -1,3 +1,7 @@
+## July 24 2026 — unreleased
+- New combinators for terminated scans: `repeatTill(chunk, terminator)` repeats chunks until an unconsumed terminator (terminator tried first each round); `matchedText(parser)` returns the raw consumed slice; and `many1TillOneOf(stops)` is `manyTillOneOf` that fails on zero consumption — compose it as the first chunk alternative (with caller-chosen trigger characters) to scan long inert runs at `indexOf` speed.
+- Note: `repeatTill` is deliberately NOT named `manyTill` — the existing `manyTill(stopParser)` family (char-by-char scan, returns a string, succeeds at end of input) is unchanged and has different semantics.
+
 ## June 3 2026 — v0.4.4
 - Add `memo`, cache line table instead of rebuilding it on every call to buildLineTable.
 
