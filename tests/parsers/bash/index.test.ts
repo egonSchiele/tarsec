@@ -199,10 +199,14 @@ describe("diagnostics", () => {
     expect(result.message.length).toBeGreaterThan(0);
   });
 
-  it("labels unterminated quotes", () => {
+  it("points at the missing closing quote for unterminated quotes", () => {
     const result = parse("echo 'unterminated");
     if (result.success) throw new Error("expected failure");
-    expect(result.message).toContain("single-quoted");
+    // Since label keeps strictly-deeper failures, the surfaced error is
+    // the missing closing quote at the end of input (col 19), not the
+    // shallower "single-quoted string" label at the quote's start.
+    expect(result.message).toContain(`expected "'"`);
+    expect(result.message).toContain("col 19");
   });
 
   it("points at the offending construct", () => {
