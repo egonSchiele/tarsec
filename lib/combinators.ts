@@ -10,6 +10,7 @@ import {
   GeneralParser,
   InferManyReturnType,
   isCaptureResult,
+  isCommittedFailure,
   isSuccess,
   MergedCaptures,
   MergedResults,
@@ -48,6 +49,9 @@ export function many<const T extends GeneralParser<any, any>>(
     while (true) {
       let parsed = parser(rest);
       if (!parsed.success) {
+        if (isCommittedFailure(parsed)) {
+          return parsed; // committed: fail the whole repetition
+        }
         if (Object.keys(captures).length) {
           return captureSuccess(results, rest, { captures });
         } else {
@@ -85,6 +89,9 @@ export function many1<const T extends GeneralParser<any, any>>(
 ): InferManyReturnType<T> {
   return trace(`many1`, (input: string) => {
     let result = many(parser)(input);
+    if (!result.success && isCommittedFailure(result)) {
+      return result;
+    }
     // this logic doesn't work with optional and not
     if (result.rest !== input) {
       return result;
@@ -129,6 +136,9 @@ export function exactly<T>(num: number, parser: Parser<T>): Parser<T[]> {
     for (let i = 0; i < num; i++) {
       let parsed = parser(rest);
       if (!parsed.success) {
+        if (isCommittedFailure(parsed)) {
+          return parsed;
+        }
         return failure(`expected ${num} matches, got ${i}`, input);
       }
       results.push(parsed.result);
@@ -201,10 +211,56 @@ export function or<const T extends readonly GeneralParser<any, any>[]>(
       if (result.success) {
         return result;
       }
+      if (isCommittedFailure(result)) {
+        return result; // committed: do not try later alternatives
+      }
     }
 
     return failure(`all parsers failed`, input);
   }) as PickParserType<T>;
+}
+
+/**
+ * Commit point: once `prefix` succeeds, the branch is committed — a
+ * failure of `rest` is marked `committed` and stops backtracking. `or()`
+ * returns it instead of trying later alternatives, `many`/`optional`
+ * fail through it, `label` passes it along untouched, and lookahead
+ * (`not`, `peek`) contains it. A failure of `prefix` itself remains an
+ * ordinary, backtrackable failure.
+ *
+ * Use it where a prefix uniquely identifies a construct, so errors in
+ * the construct's body are reported as such instead of being drowned
+ * out by other alternatives' complaints:
+ *
+ * @example
+ * ```ts
+ * const codeLiteral = committed(str("[|"), literalBody);
+ * // On "[|broken", the error is literalBody's — no other parser in an
+ * // enclosing or() gets to reinterpret the text.
+ * ```
+ *
+ * @param prefix - parser identifying the construct; its result is discarded
+ * @param rest - parser for the remainder of the construct
+ * @returns a parser producing `rest`'s result
+ */
+export function committed<T>(
+  prefix: Parser<unknown>,
+  rest: Parser<T>,
+): Parser<T> {
+  return trace("committed", (input: string) => {
+    const prefixResult = prefix(input);
+    if (!prefixResult.success) return prefixResult;
+    const restResult = rest(prefixResult.rest);
+    if (!restResult.success) {
+      const committedResult = { ...restResult, committed: true as const };
+      // Preferred slot for error reporting: getErrorMessage returns this
+      // in preference to the rightmost record, so a fallback alternative
+      // that wanders deeper than the commit point can't win the message.
+      getParseState().committedFailure = committedResult;
+      return committedResult;
+    }
+    return restResult;
+  });
 }
 
 /**
@@ -220,6 +276,9 @@ export function optional<T>(parser: Parser<T>): Parser<T | null> {
     let result = parser(input);
     if (result.success) {
       return result;
+    }
+    if (isCommittedFailure(result)) {
+      return result; // committed: not "optionally absent" — genuinely broken
     }
     return success(null, input);
   });
@@ -237,7 +296,11 @@ export function optional<T>(parser: Parser<T>): Parser<T | null> {
  */
 export function not(parser: Parser<any>): Parser<null> {
   return trace("not", (input: string) => {
+    // The probe is speculation: a commit inside it must not escape,
+    // either through the result or through the committedFailure slot.
+    const slotBefore = getParseState().committedFailure;
     let result = parser(input);
+    getParseState().committedFailure = slotBefore;
     if (result.success) {
       return {
         success: false,
@@ -277,9 +340,14 @@ export function peek(
   parser: GeneralParser<any, any>,
 ): GeneralParser<any, any> {
   return trace("peek", (input: string) => {
+    // The probe is speculation: contain any commit inside it — restore
+    // the slot and strip the flag, keeping peek's rest-reset contract.
+    const slotBefore = getParseState().committedFailure;
     const result = parser(input);
+    getParseState().committedFailure = slotBefore;
     if (!result.success) {
-      return { ...result, rest: input };
+      const { committed: _stripped, ...plain } = result;
+      return { ...plain, rest: input };
     }
     return { ...result, rest: input };
   });
@@ -343,6 +411,9 @@ export function between<O, C, P>(
       // the parser should keep succeeding until we find the closer
       // if it doesn't, we fail
       if (!parserResult.success) {
+        if (isCommittedFailure(parserResult)) {
+          return parserResult; // committed: pass through unwrapped
+        }
         return failure(parserResult.message, input);
       }
       successResult.push(parserResult.result);
@@ -396,6 +467,9 @@ export function sepBy<S, P>(
     while (true) {
       const result = parser(rest);
       if (!result.success) {
+        if (isCommittedFailure(result)) {
+          return result; // committed: fail the whole sepBy
+        }
         return success(results, rest);
       }
       results.push(result.result);
@@ -403,6 +477,9 @@ export function sepBy<S, P>(
 
       const sepResult = separator(rest);
       if (!sepResult.success) {
+        if (isCommittedFailure(sepResult)) {
+          return sepResult;
+        }
         return success(results, rest);
       }
       rest = sepResult.rest;
@@ -592,14 +669,18 @@ export function captureCaptures<T extends PlainObject>(
  */
 export function manyTill<T>(parser: Parser<T>): Parser<string> {
   return (input: string) => {
+    // The stop probes are speculative; contain any commit they stash.
+    const slotBefore = getParseState().committedFailure;
     let current = 0;
     while (current < input.length) {
       const parsed = parser(input.slice(current));
       if (parsed.success) {
+        getParseState().committedFailure = slotBefore;
         return success(input.slice(0, current), input.slice(current));
       }
       current++;
     }
+    getParseState().committedFailure = slotBefore;
     return success(input, "");
   };
 }
@@ -611,10 +692,13 @@ export function manyTill<T>(parser: Parser<T>): Parser<string> {
  */
 export function many1Till<T>(parser: Parser<T>): Parser<string> {
   return (input: string) => {
+    // The stop probes are speculative; contain any commit they stash.
+    const slotBefore = getParseState().committedFailure;
     let current = 0;
     while (current < input.length) {
       const parsed = parser(input.slice(current));
       if (parsed.success) {
+        getParseState().committedFailure = slotBefore;
         if (current === 0) {
           return failure(
             "expected to consume at least one character of input",
@@ -626,6 +710,7 @@ export function many1Till<T>(parser: Parser<T>): Parser<string> {
       }
       current++;
     }
+    getParseState().committedFailure = slotBefore;
     if (current === 0) {
       return failure(
         "expected to consume at least one character of input",
@@ -918,6 +1003,9 @@ export function seq<const T extends readonly GeneralParser<any, any>[], U>(
     for (let i = 0; i < parsers.length; i++) {
       const parsed = parsers[i](rest);
       if (!parsed.success) {
+        if (isCommittedFailure(parsed)) {
+          return parsed; // committed: keep the flag AND the failure position
+        }
         return { ...parsed, rest: input };
       }
       results.push(parsed.result);
@@ -1159,7 +1247,10 @@ export function buildExpressionParser<T>(
       if (!openResult.success) return openResult;
 
       const exprResult = expr(openResult.rest);
-      if (!exprResult.success) return failure(exprResult.message, input);
+      if (!exprResult.success) {
+        if (isCommittedFailure(exprResult)) return exprResult;
+        return failure(exprResult.message, input);
+      }
 
       const closeResult =
         exprResult.rest[0] === ")" ? success(")", exprResult.rest.slice(1)) : failure("expected )", input);
@@ -1215,6 +1306,10 @@ function parseLeft<T>(
   nextLevel: Parser<T>,
   ops: OperatorInfo<T>[],
 ): ParserSuccess<T> {
+  // The fold's probes are speculative: a failing operator or operand just
+  // ends the chain. Discarding the failure must also discard any commit
+  // it stashed, or the stale slot would mask later errors' messages.
+  const slotBefore = getParseState().committedFailure;
   while (true) {
     const opMatch = tryOps(ops, rest);
     if (!opMatch) break;
@@ -1225,6 +1320,7 @@ function parseLeft<T>(
     left = opMatch.apply(left, rightResult.result);
     rest = rightResult.rest;
   }
+  getParseState().committedFailure = slotBefore;
   return success(left, rest);
 }
 
@@ -1234,11 +1330,16 @@ function parseRight<T>(
   nextLevel: Parser<T>,
   ops: OperatorInfo<T>[],
 ): ParserSuccess<T> {
+  // Same speculative-probe containment as parseLeft.
+  const slotBefore = getParseState().committedFailure;
   const opMatch = tryOps(ops, rest);
   if (!opMatch) return success(left, rest);
 
   const rightResult = nextLevel(opMatch.rest);
-  if (!rightResult.success) return success(left, rest);
+  if (!rightResult.success) {
+    getParseState().committedFailure = slotBefore;
+    return success(left, rest);
+  }
 
   // Recursively parse the right side to get right-associativity
   const rightFolded = parseRight(rightResult.result, rightResult.rest, nextLevel, ops);
@@ -1253,6 +1354,8 @@ function parseChain<T>(
   ops: OperatorInfo<T>[],
 ): ParserSuccess<T> {
   // Fallback: treat everything as left-associative
+  // Same speculative-probe containment as parseLeft.
+  const slotBefore = getParseState().committedFailure;
   while (true) {
     const opMatch = tryOps(ops, rest);
     if (!opMatch) break;
@@ -1263,6 +1366,7 @@ function parseChain<T>(
     left = opMatch.apply(left, rightResult.result);
     rest = rightResult.rest;
   }
+  getParseState().committedFailure = slotBefore;
   return success(left, rest);
 }
 
@@ -1270,8 +1374,11 @@ function tryOps<T>(
   ops: OperatorInfo<T>[],
   input: string,
 ): { rest: string; apply: (left: T, right: T) => T } | null {
+  // Op probes are speculative; contain any commit they stash.
+  const slotBefore = getParseState().committedFailure;
   for (const op of ops) {
     const result = op.op(input);
+    getParseState().committedFailure = slotBefore;
     if (result.success) {
       return { rest: result.rest, apply: op.apply };
     }

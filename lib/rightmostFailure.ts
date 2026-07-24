@@ -6,6 +6,7 @@ export function resetRightmostFailure() {
   const state = getParseState();
   state.rightmostFailurePos = -1;
   state.rightmostFailureExpected = [];
+  state.committedFailure = null;
 }
 
 /**
@@ -75,11 +76,31 @@ function formatExpected(expected: string[]): string {
 
 /**
  * Formats the rightmost failure into a human-readable error message with line and column info.
+ * A committed failure (see the `committed` combinator) takes precedence
+ * over the rightmost record — the committed error wins reporting even
+ * when some fallback alternative failed deeper into the input.
+ *
+ * Scope: the preference is per parse state. A commit inside `runNested`
+ * lives in the inner state and surfaces through the returned result's
+ * `committed` flag, never through the enclosing parse's getErrorMessage.
+ * The position math assumes the committed failure's `rest` is a suffix
+ * of the CURRENT state's source — don't stash a `runNested` result
+ * (inner-coordinate `rest`) into an outer-state commit.
  * Returns `null` if no failures have been recorded.
  * Requires `setInputStr` to have been called.
  */
 export function getErrorMessage(): string | null {
   const state = getParseState();
+  const committed = state.committedFailure;
+  if (committed !== null) {
+    const source = getInputStr();
+    const lineTable = buildLineTable(source);
+    const pos = composePosition(
+      state.basePosition,
+      offsetToPosition(lineTable, source.length - committed.rest.length),
+    );
+    return `Line ${pos.line + 1}, col ${pos.column + 1}: ${committed.message}`;
+  }
   if (state.rightmostFailurePos < 0) return null;
   const source = getInputStr();
   const lineTable = buildLineTable(source);

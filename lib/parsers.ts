@@ -305,6 +305,11 @@ export function label<T>(name: string, parser: Parser<T>): Parser<T> {
   return (input: string) => {
     const saved = saveRightmostFailure();
     const result = parser(input);
+    if (!result.success && result.committed === true) {
+      // Committed failures carry their own story — no re-labeling,
+      // no restore games.
+      return result;
+    }
     const afterChild = saveRightmostFailure();
     const labelPos = getInputStr().length - input.length;
     const childGotStrictlyDeeper = afterChild.pos > labelPos;
