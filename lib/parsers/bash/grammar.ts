@@ -1,12 +1,8 @@
 import { lazy, map, not, or, seqR } from "../../combinators.js";
-import { char } from "../../parsers.js";
-import {
-  recordFailure,
-  restoreRightmostFailure,
-  saveRightmostFailure,
-} from "../../rightmostFailure.js";
+import { char, quietly } from "../../parsers.js";
+import { recordFailure } from "../../rightmostFailure.js";
 import { failure, Parser, success } from "../../types.js";
-import { isCommittedFailure } from "./committed.js";
+import { attempt, isCommittedFailure } from "./committed.js";
 import { simpleCommand } from "./command.js";
 import {
   drainHeredocs,
@@ -29,20 +25,25 @@ export const command: Parser<BashNode> = nonterminal(
   lazy(() => simpleCommand),
 );
 
+// Operator probes are speculative — a failed (or even successful) attempt
+// must not leave "expected |"-style noise in error messages, so all of
+// these are `quietly` wrapped (the zero-width `not(...)` guards record even
+// on success).
+
 // `|` that is not `||`. Explicit lookahead, not an accident of backtracking.
-const pipeOp: Parser<"|"> = lx.lexeme(
-  map(seqR(char("|"), not(char("|"))), () => "|" as const),
+const pipeOp: Parser<"|"> = quietly(
+  lx.lexeme(map(seqR(char("|"), not(char("|"))), () => "|" as const)),
 );
 
 // `&` that is not `&&` — the background/separator operator.
-const ampersandOp: Parser<"&"> = lx.lexeme(
-  map(seqR(char("&"), not(char("&"))), () => "&" as const),
+const ampersandOp: Parser<"&"> = quietly(
+  lx.lexeme(map(seqR(char("&"), not(char("&"))), () => "&" as const)),
 );
 
-const semicolonOp: Parser<";"> = lx.symbol(";");
+const semicolonOp: Parser<";"> = quietly(lx.symbol(";"));
 
 // `&&` / `||` — consumed here, before the statement-level single `&`.
-const andOrOp: Parser<AndOrOp> = or(lx.symbol("&&"), lx.symbol("||"));
+const andOrOp: Parser<AndOrOp> = quietly(or(lx.symbol("&&"), lx.symbol("||")));
 
 /** Consume a newline, then drain pending heredoc bodies (in registration
  * order), mutating each node's `body` and `bodySpan` in place. Wrapped in
@@ -98,6 +99,7 @@ function chain<Op extends string>(
     links: { op: Op; command: BashNode }[],
   ) => BashNode,
 ): Parser<BashNode> {
+  const attemptOperand = attempt(operand);
   return (input: string) => {
     const first = operand(input);
     if (!first.success) return first;
@@ -106,22 +108,15 @@ function chain<Op extends string>(
     // Terminates: `operator` consumes at least one character on success, and
     // the loop exits on the first operator failure.
     while (true) {
-      // Operator attempts leave zero-width recordings even on success (the
-      // `not(char("|"))` guard records at the position after the operator);
-      // neither those nor a failed attempt's recordings belong in errors.
-      const savedBeforeOperator = saveRightmostFailure();
       const operatorResult = operator(rest);
-      restoreRightmostFailure(savedBeforeOperator);
       if (!operatorResult.success) break;
       const afterBreaks = lineBreaks(operatorResult.rest);
       if (!afterBreaks.success) return afterBreaks;
-      const savedFailures = saveRightmostFailure();
-      const next = operand(afterBreaks.rest);
+      // `attempt` wipes the operand's noisy alternative recordings on an
+      // uncommitted failure; the useful phrasing is "a command after <op>".
+      const next = attemptOperand(afterBreaks.rest);
       if (!next.success) {
         if (isCommittedFailure(next)) return next;
-        // Wipe the operand's noisy alternative recordings; the useful
-        // phrasing is "a command after <op>".
-        restoreRightmostFailure(savedFailures);
         recordFailure(afterBreaks.rest, `a command after ${operatorResult.result}`);
         return failure(
           `expected a command after ${operatorResult.result}`,
@@ -178,18 +173,14 @@ export const script: Parser<BashScript> = nonterminal(
         if (!drained.success) return drained;
         rest = drained.rest;
       } else {
-        // Separator attempts leave recordings whether they succeed or fail
-        // (including the zero-width `not(char("&"))` guard); wipe them all,
-        // then record the one readable phrase on the failure path.
-        const savedFailures = saveRightmostFailure();
+        // The separator ops are `quietly` wrapped, so failed probes leave
+        // no recordings; only the one readable phrase gets recorded.
         const ampersand = ampersandOp(rest);
         if (ampersand.success) {
-          restoreRightmostFailure(savedFailures);
           background = true;
           rest = ampersand.rest;
         } else {
           const semicolon = semicolonOp(rest);
-          restoreRightmostFailure(savedFailures);
           if (semicolon.success) {
             rest = semicolon.rest;
           } else if (rest !== "") {

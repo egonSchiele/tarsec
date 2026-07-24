@@ -1,17 +1,23 @@
 import { or } from "../../combinators.js";
 import { compileCharPredicate, str } from "../../parsers.js";
-import {
-  recordFailure,
-  restoreRightmostFailure,
-  saveRightmostFailure,
-} from "../../rightmostFailure.js";
+import { recordFailure } from "../../rightmostFailure.js";
 import { failure, Parser, ParserResult, success } from "../../types.js";
-import { CommittedFailure, committedFailure, isCommittedFailure } from "./committed.js";
+import {
+  attempt,
+  CommittedFailure,
+  committedFailure,
+  isCommittedFailure,
+} from "./committed.js";
 import { nonterminal, registerHeredoc } from "./heredocQueue.js";
 import { lx } from "./lexemes.js";
 import { positionAt, spanned } from "./spanned.js";
 import { rawWord } from "./words.js";
-import { BashRedirect, FileRedirect, HeredocRedirect } from "./types.js";
+import {
+  BashRedirect,
+  FileRedirect,
+  FileRedirectOp,
+  HeredocRedirect,
+} from "./types.js";
 
 const ZERO = 0x30;
 const NINE = 0x39;
@@ -21,7 +27,16 @@ function isDigitCode(code: number): boolean {
 }
 
 type ScannedFileOp =
-  | { kind: "op"; op: string; takesTarget: boolean; rest: string }
+  | {
+      kind: "op";
+      op: FileRedirectOp;
+      fd: string | null;
+      targetFd: string | null;
+      /** The operator as written (fd digits included), for error messages. */
+      opText: string;
+      takesTarget: boolean;
+      rest: string;
+    }
   | { kind: "committed"; failure: CommittedFailure }
   | null;
 
@@ -29,15 +44,24 @@ type ScannedFileOp =
  * fd-duplication forms `[n]>&m` / `[n]>&-` (so `2>&1`, `1>&2`, `>&2`, `>&-`
  * all parse; fd-duplication takes no target word). Returns null when the
  * input is not a redirect at all; returns a committed failure for `>&` with
- * no fd, which cannot be anything else. */
+ * neither an fd nor `-`, which is the unsupported `>&file` form. */
 function scanFileOp(input: string): ScannedFileOp {
   let index = 0;
   // Terminates: strictly advancing digit scan.
   while (index < input.length && isDigitCode(input.charCodeAt(index))) index++;
-  const fd = input.slice(0, index);
+  const fd = index > 0 ? input.slice(0, index) : null;
+  const fdText = fd ?? "";
 
   if (input.startsWith(">>", index)) {
-    return { kind: "op", op: fd + ">>", takesTarget: true, rest: input.slice(index + 2) };
+    return {
+      kind: "op",
+      op: ">>",
+      fd,
+      targetFd: null,
+      opText: fdText + ">>",
+      takesTarget: true,
+      rest: input.slice(index + 2),
+    };
   }
   if (input.startsWith(">&", index)) {
     let digitEnd = index + 2;
@@ -46,32 +70,76 @@ function scanFileOp(input: string): ScannedFileOp {
     if (digitEnd > index + 2) {
       return {
         kind: "op",
-        op: input.slice(0, digitEnd),
+        op: ">&",
+        fd,
+        targetFd: input.slice(index + 2, digitEnd),
+        opText: input.slice(0, digitEnd),
         takesTarget: false,
         rest: input.slice(digitEnd),
       };
     }
     if (input[index + 2] === "-") {
-      return { kind: "op", op: fd + ">&-", takesTarget: false, rest: input.slice(index + 3) };
+      return {
+        kind: "op",
+        op: ">&",
+        fd,
+        targetFd: "-",
+        opText: fdText + ">&-",
+        takesTarget: false,
+        rest: input.slice(index + 3),
+      };
     }
-    // `>&` with no fd/`-` — `>&file` (duplicate both) is unsupported.
-    recordFailure(input.slice(index + 2), "a file descriptor after >&");
+    // `>&` followed by neither digits nor `-`: that's `>&file` (bash's older
+    // synonym of `&>file`, redirecting both streams), which we don't support.
+    recordFailure(
+      input.slice(index),
+      "a file descriptor after >& (>&file is not supported — use &>file)",
+    );
     return {
       kind: "committed",
-      failure: committedFailure("expected a file descriptor after >&", input),
+      failure: committedFailure(
+        ">&file (redirect both streams) is not supported — use &>file",
+        input,
+      ),
     };
   }
   if (input[index] === ">") {
-    return { kind: "op", op: fd + ">", takesTarget: true, rest: input.slice(index + 1) };
+    return {
+      kind: "op",
+      op: ">",
+      fd,
+      targetFd: null,
+      opText: fdText + ">",
+      takesTarget: true,
+      rest: input.slice(index + 1),
+    };
   }
   if (input[index] === "<") {
-    return { kind: "op", op: fd + "<", takesTarget: true, rest: input.slice(index + 1) };
+    return {
+      kind: "op",
+      op: "<",
+      fd,
+      targetFd: null,
+      opText: fdText + "<",
+      takesTarget: true,
+      rest: input.slice(index + 1),
+    };
   }
-  if (fd === "" && input.startsWith("&>")) {
-    return { kind: "op", op: "&>", takesTarget: true, rest: input.slice(2) };
+  if (fd === null && input.startsWith("&>")) {
+    return {
+      kind: "op",
+      op: "&>",
+      fd: null,
+      targetFd: null,
+      opText: "&>",
+      takesTarget: true,
+      rest: input.slice(2),
+    };
   }
   return null;
 }
+
+const attemptRawWord = attempt(rawWord);
 
 const fileRedirectScan: Parser<Omit<FileRedirect, "span">> = (input: string) => {
   const scanned = scanFileOp(input);
@@ -79,22 +147,33 @@ const fileRedirectScan: Parser<Omit<FileRedirect, "span">> = (input: string) => 
   if (scanned.kind === "committed") return scanned.failure;
   if (!scanned.takesTarget) {
     return success(
-      { type: "redirect" as const, op: scanned.op, target: null },
+      {
+        type: "redirect" as const,
+        op: scanned.op,
+        fd: scanned.fd,
+        targetFd: scanned.targetFd,
+        target: null,
+      },
       scanned.rest,
     );
   }
   const afterOperator = lx.skipWhitespace(scanned.rest);
-  const savedFailures = saveRightmostFailure();
-  const target = rawWord(afterOperator);
+  // `attempt` suppresses the inner "a word" recording on an uncommitted
+  // failure — the useful phrasing is ours; committed (`> 'oops`) propagates.
+  const target = attemptRawWord(afterOperator);
   if (!target.success) {
-    if (isCommittedFailure(target)) return target; // e.g. `> 'oops`
-    // Suppress the inner "a word" recording — the useful phrasing is ours.
-    restoreRightmostFailure(savedFailures);
-    recordFailure(afterOperator, `a target after ${scanned.op}`);
-    return committedFailure(`expected target after ${scanned.op}`, input);
+    if (isCommittedFailure(target)) return target;
+    recordFailure(afterOperator, `a target after ${scanned.opText}`);
+    return committedFailure(`expected target after ${scanned.opText}`, input);
   }
   return success(
-    { type: "redirect" as const, op: scanned.op, target: target.result },
+    {
+      type: "redirect" as const,
+      op: scanned.op,
+      fd: scanned.fd,
+      targetFd: scanned.targetFd,
+      target: target.result,
+    },
     target.rest,
   );
 };

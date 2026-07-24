@@ -300,6 +300,25 @@ export function label<T>(name: string, parser: Parser<T>): Parser<T> {
   };
 }
 
+/**
+ * Runs a parser, discarding any failure expectations it records — whether it
+ * succeeds or fails. Use this around speculative attempts (lookahead-style
+ * operator probes, rejected alternatives) whose recorded expectations would
+ * otherwise pollute error messages with noise like `expected "|", "&&", ...`.
+ * Unlike `label`, nothing is recorded in their place.
+ *
+ * @param parser - the parser to run quietly
+ * @returns - a parser with the same behavior but no failure recordings
+ */
+export function quietly<T>(parser: Parser<T>): Parser<T> {
+  return (input: string) => {
+    const saved = saveRightmostFailure();
+    const result = parser(input);
+    restoreRightmostFailure(saved);
+    return result;
+  };
+}
+
 /** A parser that matches one of " \t\n\r". */
 export const space: Parser<string> = label("whitespace", oneOf(" \t\n\r"));
 

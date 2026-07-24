@@ -1,11 +1,7 @@
 import { compileCharPredicate } from "../../parsers.js";
-import {
-  recordFailure,
-  restoreRightmostFailure,
-  saveRightmostFailure,
-} from "../../rightmostFailure.js";
+import { recordFailure } from "../../rightmostFailure.js";
 import { failure, Parser, ParserResult, success } from "../../types.js";
-import { committedFailure, isCommittedFailure } from "./committed.js";
+import { attempt, committedFailure, isCommittedFailure } from "./committed.js";
 import { nonterminal } from "./heredocQueue.js";
 import { lx } from "./lexemes.js";
 import { redirect } from "./redirects.js";
@@ -74,28 +70,27 @@ type CommandElement = BashAssignment | BashRedirect | BashWord;
 // anywhere, including before the command name and between assignments.
 // Committed-aware alternation by hand: `or` would swallow a committed
 // failure (a malformed redirect/word) and lose its message and position.
+// `attempt` keeps each rejected alternative's failure recordings out of
+// error messages; only a committed alternative contributes its recording.
+const attemptRedirect = attempt(redirect);
+const attemptAssignment = attempt(assignment);
+const attemptWord = attempt(bashWord);
+
 function parseElement(
   rest: string,
   seenWord: boolean,
 ): ParserResult<CommandElement> {
-  // Each rejected alternative wipes its own failure recordings ("<<-",
-  // "an assignment", ...) so only the alternative that commits — or the
-  // final word attempt — contributes to the error message.
-  const savedBeforeRedirect = saveRightmostFailure();
-  const redirectResult = redirect(rest);
+  const redirectResult = attemptRedirect(rest);
   if (redirectResult.success || isCommittedFailure(redirectResult)) {
     return redirectResult;
   }
-  restoreRightmostFailure(savedBeforeRedirect);
   if (!seenWord) {
-    const savedBeforeAssignment = saveRightmostFailure();
-    const assignmentResult = assignment(rest);
+    const assignmentResult = attemptAssignment(rest);
     if (assignmentResult.success || isCommittedFailure(assignmentResult)) {
       return assignmentResult;
     }
-    restoreRightmostFailure(savedBeforeAssignment);
   }
-  return bashWord(rest);
+  return attemptWord(rest);
 }
 
 /** A simple command: assignments, words, and redirects, in bash's order
@@ -112,14 +107,9 @@ export const simpleCommand: Parser<SimpleCommand> = nonterminal(
     // Terminates: every element parser consumes at least one character on
     // success, and the loop exits on the first failure.
     while (true) {
-      // Failed alternatives record noisy expectations ("2>", "an
-      // assignment", ...) at the loop's stopping point; wipe them on the
-      // ordinary end-of-command break so error messages stay readable.
-      const savedFailures = saveRightmostFailure();
       const parsed = parseElement(rest, seenWord);
       if (!parsed.success) {
         if (isCommittedFailure(parsed)) return parsed;
-        restoreRightmostFailure(savedFailures);
         break;
       }
       if (parsed.result.type === "word") seenWord = true;

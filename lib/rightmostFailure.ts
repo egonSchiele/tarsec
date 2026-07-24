@@ -46,16 +46,41 @@ export function getRightmostFailure(): {
 
 type SavedRightmostFailure = {
   pos: number;
+  /** The expectations array *by reference*, not a copy. */
   expected: string[];
+  /** Its length at save time, so appends made since can be undone. */
+  length: number;
 };
 
+/**
+ * Save the current rightmost-failure state so it can be restored later
+ * (see `label`, which suppresses a sub-parser's expectations).
+ *
+ * This deliberately keeps a *reference* to the expectations array rather than
+ * copying it, because `recordFailure` only ever does one of two things to it:
+ * append (same position) or replace it wholesale (further right). So the saved
+ * array is never mutated out from under us in a way a length mark can't undo —
+ * on the append path we truncate back, and on the replace path the saved array
+ * is untouched and truncating to its own length is a no-op.
+ *
+ * Copying here is hot: `label` and the bash grammar save/restore many times per
+ * parsed token, and the copies were pure garbage.
+ */
 export function saveRightmostFailure(): SavedRightmostFailure {
-  return { pos: rightmostFailurePos, expected: [...rightmostFailureExpected] };
+  return {
+    pos: rightmostFailurePos,
+    expected: rightmostFailureExpected,
+    length: rightmostFailureExpected.length,
+  };
 }
 
 export function restoreRightmostFailure(saved: SavedRightmostFailure) {
   rightmostFailurePos = saved.pos;
-  rightmostFailureExpected = [...saved.expected];
+  rightmostFailureExpected = saved.expected;
+  // Undo any expectations appended at this position since the save.
+  if (rightmostFailureExpected.length !== saved.length) {
+    rightmostFailureExpected.length = saved.length;
+  }
 }
 
 function formatExpected(expected: string[]): string {

@@ -36,16 +36,32 @@ export function drainHeredocs(): HeredocRedirect[] {
   return drained;
 }
 
+/** Shared sentinel for the overwhelmingly common empty-queue snapshot, so the
+ * per-nonterminal `withQueueUnwind` doesn't allocate a throwaway array on
+ * every single grammar rule entry. Never mutated. */
+const EMPTY_SNAPSHOT: readonly HeredocRedirect[] = [];
+
 /** Copy the queue. Restoring a snapshot resurrects entries drained since —
  * a drain-then-fail path must put its entries back so a re-run behaves
  * identically. Note the restored entries may carry `body` values a failed
  * drain already wrote; that's harmless, because any successful re-drain
- * overwrites them and a failed parse discards the AST they belong to. */
-export function snapshotHeredocs(): HeredocRedirect[] {
-  return queue.slice();
+ * overwrites them and a failed parse discards the AST they belong to.
+ *
+ * A length mark would NOT work here: `drainHeredocs` swaps in a fresh array,
+ * so truncating a later array to an earlier length would leave holes rather
+ * than the original entries. The copy is the point — it just isn't needed
+ * when there is nothing to copy. */
+export function snapshotHeredocs(): readonly HeredocRedirect[] {
+  return queue.length === 0 ? EMPTY_SNAPSHOT : queue.slice();
 }
 
-export function restoreHeredocs(snapshot: HeredocRedirect[]): void {
+export function restoreHeredocs(snapshot: readonly HeredocRedirect[]): void {
+  if (snapshot.length === 0) {
+    // Clear in place rather than allocating a new array. Safe because a
+    // non-empty snapshot is always a private copy, never aliased to `queue`.
+    if (queue.length !== 0) queue.length = 0;
+    return;
+  }
   queue = snapshot.slice();
 }
 

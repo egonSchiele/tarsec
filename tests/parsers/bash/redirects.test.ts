@@ -27,51 +27,51 @@ function heredocOk(input: string): { node: HeredocRedirect; rest: string } {
 
 describe("file redirects", () => {
   it.each([
-    [">out.txt x", ">", "out.txt"],
-    [">> log x", ">>", "log"],
-    ["<in x", "<", "in"],
-    ["2>err x", "2>", "err"],
-    ["&>all x", "&>", "all"],
-  ])("parses %s", (input, op, target) => {
+    [">out.txt x", ">", null, "out.txt"],
+    [">> log x", ">>", null, "log"],
+    ["<in x", "<", null, "in"],
+    ["2>err x", ">", "2", "err"],
+    ["&>all x", "&>", null, "all"],
+  ])("parses %s", (input, op, fd, target) => {
     const { node, rest } = fileRedirectOk(input);
     expect(node.op).toEqual(op);
+    expect(node.fd).toEqual(fd);
+    expect(node.targetFd).toEqual(null);
     expect(node.target?.text).toEqual(target);
     expect(rest).toEqual("x");
   });
 
-  it("parses 2>&1 with no target", () => {
-    const { node, rest } = fileRedirectOk("2>&1 x");
-    expect(node.op).toEqual("2>&1");
-    expect(node.target).toEqual(null);
-    expect(rest).toEqual("x");
-  });
-
   it.each([
-    ["2>&1 x", "2>&1"],
-    ["2>&2 x", "2>&2"],
-    ["1>&2 x", "1>&2"],
-    [">&2 x", ">&2"],
-    [">&- x", ">&-"],
-    ["2>&- x", "2>&-"],
-  ])("parses fd duplication %s with no target", (input, op) => {
+    ["2>&1 x", "2", "1"],
+    ["2>&2 x", "2", "2"],
+    ["1>&2 x", "1", "2"],
+    [">&2 x", null, "2"],
+    [">&- x", null, "-"],
+    ["2>&- x", "2", "-"],
+  ])("parses fd duplication %s with no target", (input, fd, targetFd) => {
     const { node, rest } = fileRedirectOk(input);
-    expect(node.op).toEqual(op);
+    expect(node.op).toEqual(">&");
+    expect(node.fd).toEqual(fd);
+    expect(node.targetFd).toEqual(targetFd);
     expect(node.target).toEqual(null);
     expect(rest).toEqual("x");
   });
 
   it("parses redirects with multi-digit fds", () => {
     const { node } = fileRedirectOk("22>x y");
-    expect(node.op).toEqual("22>");
+    expect(node.op).toEqual(">");
+    expect(node.fd).toEqual("22");
     expect(node.target?.text).toEqual("x");
   });
 
-  it("fails on >& with no descriptor (>&file is unsupported)", () => {
+  it("rejects >&file with a message pointing at &>file", () => {
     setInputStr(">&file x");
     const result = redirect(">&file x");
     expect(result.success).toEqual(false);
     if (!result.success) {
-      expect(result.message).toContain("a file descriptor after >&");
+      expect(result.message).toEqual(
+        ">&file (redirect both streams) is not supported — use &>file",
+      );
     }
   });
 
