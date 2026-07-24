@@ -36,6 +36,7 @@ parser("hello there"); // failure
 ## Learning tarsec
 - [A five minute introduction](/tutorials/5-minute-intro.md)
 - [The three building blocks in tarsec](/tutorials/three-building-blocks.md)
+- [Lexemes: your grammar's token vocabulary](/tutorials/lexemes.md)
 - [API reference](https://egonschiele.github.io/tarsec/)
 
 ## Features

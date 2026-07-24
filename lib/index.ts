@@ -5,3 +5,4 @@ export * from "./types.js";
 export * from "./tarsecError.js";
 export * from "./position.js";
 export * from "./rightmostFailure.js";
+export * from "./lexeme.js";
