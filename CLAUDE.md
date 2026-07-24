@@ -16,7 +16,7 @@ A parser combinator library for TypeScript, inspired by Parsec.
 - `lib/` — library source
   - `types.ts` — core types: `Parser`, `ParserSuccess`, `ParserFailure`, `CaptureParser`, etc.
   - `parsers.ts` — primitive parsers: `char`, `str`, `word`, `digit`, `regex`, etc.
-  - `combinators.ts` — combinators: `many`, `or`, `seq`, `seqR`, `seqC`, `map`, `capture`, `between`, `sepBy`, `optional`, `not`, `lazy`, `buildExpressionParser`, etc.
+  - `combinators.ts` — combinators: `many`, `or`, `seq`, `seqR`, `seqC`, `map`, `capture`, `between`, `sepBy`, `optional`, `not`, `lazy`, `repeatTill`, `matchedText`, `many1TillOneOf`, `buildExpressionParser`, etc.
   - `position.ts` — position tracking: `getOffset`, `getPosition`, `withSpan`, `buildLineTable`, `offsetToPosition`
   - `trace.ts` — debug tracing, `setInputStr`/`getInputStr`, `getDiagnostics`
   - `tarsecError.ts` — `TarsecError` class with line/column info

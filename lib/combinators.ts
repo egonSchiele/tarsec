@@ -673,6 +673,37 @@ export function manyTillOneOf(
 }
 
 /**
+ * Just like `manyTillOneOf`, but fails unless at least one character of
+ * input is consumed. Use this as the bulk "inert text" alternative inside
+ * an `or()` of chunk parsers: when a stop character is at the current
+ * position, this parser fails and `or()` moves on to the alternatives
+ * that know how to handle it.
+ *
+ * @param stops - the strings to stop at
+ * @param options - object of optional parameters. { insensitive: boolean }
+ * @returns a parser that consumes at least one character, up to a stop
+ */
+export function many1TillOneOf(
+  stops: string[],
+  { insensitive = false }: { insensitive?: boolean } = {},
+): Parser<string> {
+  const scan = manyTillOneOf(stops, { insensitive });
+  return trace(
+    `many1TillOneOf(${escape(stops.join(","))})`,
+    (input: string) => {
+      const result = scan(input);
+      if (result.success && result.result.length === 0) {
+        return failure(
+          "expected to consume at least one character of input",
+          input,
+        );
+      }
+      return result;
+    },
+  );
+}
+
+/**
  * `manyTillStr` is an optimized version of `manyTill`.
  * The `manyTill` combinator is slow because it runs the given parser
  * on every character of the string until it succeeds. However, if you
@@ -700,6 +731,97 @@ export function manyTillStr(
  */
 export function iManyTillStr(str: string): Parser<string> {
   return manyTillStr(str, { insensitive: true });
+}
+
+/**
+ * Runs `parser` and discards its structured result, producing the raw
+ * text it consumed instead. The slice is taken from the input by length
+ * arithmetic — escapes and whitespace come back exactly as written, and
+ * no intermediate strings are built.
+ *
+ * @example
+ * ```ts
+ * const number = matchedText(many1(digit));
+ * number("123abc"); // success("123", "abc")
+ * ```
+ *
+ * @param parser - the parser whose consumed text to return
+ * @returns a parser producing the exact consumed slice
+ */
+export function matchedText(parser: Parser<unknown>): Parser<string> {
+  return trace("matchedText", (input: string) => {
+    const result = parser(input);
+    if (!result.success) return result;
+    // Invariant (shared with withSpan): a parser's `rest` is a suffix of
+    // its input, so the consumed length is the difference of lengths.
+    const consumedLength = input.length - result.rest.length;
+    return success(input.slice(0, consumedLength), result.rest);
+  });
+}
+
+/**
+ * Repeats `chunk` until `terminator` succeeds. The terminator is tried
+ * FIRST each round and is NOT consumed — parsing resumes at its start.
+ * Fails if the input ends before the terminator appears, if a chunk
+ * fails mid-scan, or if a chunk succeeds without consuming input (which
+ * would otherwise loop forever).
+ *
+ * Unlike `manyTill` (which scans character-by-character for a stop
+ * parser), `repeatTill` parses structured chunks — so regions where the
+ * terminator text is inert (strings, comments) can be skipped by making
+ * them chunks. For raw text output, wrap in `matchedText`. For speed,
+ * make the first chunk alternative a `many1TillOneOf` of every character
+ * that can begin a chunk or the terminator — it swallows runs of inert
+ * text in one indexOf-driven step.
+ *
+ * @example
+ * ```ts
+ * const bodyChunk = or(
+ *   many1TillOneOf(['"', "/", "|"]), // bulk inert text — caller's triggers
+ *   stringParser,                    // terminator inside a string is inert
+ *   commentParser,
+ *   anyChar,                         // lone trigger char that started nothing
+ * );
+ * const bodyText = matchedText(repeatTill(bodyChunk, str("|]")));
+ * ```
+ *
+ * @param chunk - parser for one repeated unit
+ * @param terminator - parser marking the end of the repetition (not consumed)
+ * @returns a parser producing the array of chunk results
+ */
+export function repeatTill<T>(
+  chunk: Parser<T>,
+  terminator: Parser<unknown>,
+): Parser<T[]> {
+  return trace("repeatTill", (input: string) => {
+    const results: T[] = [];
+    let rest = input;
+    // Terminates: every iteration either returns or strictly shrinks
+    // `rest` (the progress guard below enforces it, even against a
+    // misbehaving chunk that returns a longer rest), and empty `rest`
+    // returns — at most input.length + 1 iterations.
+    while (true) {
+      const terminatorResult = terminator(rest);
+      if (terminatorResult.success) {
+        return success(results, rest);
+      }
+      if (rest.length === 0) {
+        return failure("input ended before terminator", rest);
+      }
+      const chunkResult = chunk(rest);
+      if (!chunkResult.success) {
+        return chunkResult;
+      }
+      if (chunkResult.rest.length >= rest.length) {
+        return failure(
+          "repeatTill chunk succeeded without consuming input",
+          rest,
+        );
+      }
+      results.push(chunkResult.result);
+      rest = chunkResult.rest;
+    }
+  });
 }
 
 /**
