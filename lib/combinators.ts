@@ -703,6 +703,32 @@ export function iManyTillStr(str: string): Parser<string> {
 }
 
 /**
+ * Runs `parser` and discards its structured result, producing the raw
+ * text it consumed instead. The slice is taken from the input by length
+ * arithmetic — escapes and whitespace come back exactly as written, and
+ * no intermediate strings are built.
+ *
+ * @example
+ * ```ts
+ * const number = matchedText(many1(digit));
+ * number("123abc"); // success("123", "abc")
+ * ```
+ *
+ * @param parser - the parser whose consumed text to return
+ * @returns a parser producing the exact consumed slice
+ */
+export function matchedText(parser: Parser<unknown>): Parser<string> {
+  return trace("matchedText", (input: string) => {
+    const result = parser(input);
+    if (!result.success) return result;
+    // Invariant (shared with withSpan): a parser's `rest` is a suffix of
+    // its input, so the consumed length is the difference of lengths.
+    const consumedLength = input.length - result.rest.length;
+    return success(input.slice(0, consumedLength), result.rest);
+  });
+}
+
+/**
  * `map` is a parser combinator that takes a parser and a mapper function.
  * If the parser succeeds, it maps its result using the mapper function.
  * You can think of map as a general `map`, like for functors, applied to a parser.
