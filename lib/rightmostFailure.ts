@@ -76,11 +76,24 @@ function formatExpected(expected: string[]): string {
 
 /**
  * Formats the rightmost failure into a human-readable error message with line and column info.
+ * A committed failure (see the `committed` combinator) takes precedence
+ * over the rightmost record — the committed error wins reporting even
+ * when some fallback alternative failed deeper into the input.
  * Returns `null` if no failures have been recorded.
  * Requires `setInputStr` to have been called.
  */
 export function getErrorMessage(): string | null {
   const state = getParseState();
+  const committed = state.committedFailure;
+  if (committed !== null) {
+    const source = getInputStr();
+    const lineTable = buildLineTable(source);
+    const pos = composePosition(
+      state.basePosition,
+      offsetToPosition(lineTable, source.length - committed.rest.length),
+    );
+    return `Line ${pos.line + 1}, col ${pos.column + 1}: ${committed.message}`;
+  }
   if (state.rightmostFailurePos < 0) return null;
   const source = getInputStr();
   const lineTable = buildLineTable(source);

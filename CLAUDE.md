@@ -16,7 +16,7 @@ A parser combinator library for TypeScript, inspired by Parsec.
 - `lib/` — library source
   - `types.ts` — core types: `Parser`, `ParserSuccess`, `ParserFailure`, `CaptureParser`, etc.
   - `parsers.ts` — primitive parsers: `char`, `str`, `word`, `digit`, `regex`, etc.
-  - `combinators.ts` — combinators: `many`, `or`, `seq`, `seqR`, `seqC`, `map`, `capture`, `between`, `sepBy`, `optional`, `not`, `lazy`, `repeatTill`, `matchedText`, `many1TillOneOf`, `buildExpressionParser`, etc.
+  - `combinators.ts` — combinators: `many`, `or`, `seq`, `seqR`, `seqC`, `map`, `capture`, `between`, `sepBy`, `optional`, `not`, `lazy`, `committed`, `repeatTill`, `matchedText`, `many1TillOneOf`, `buildExpressionParser`, etc.
   - `position.ts` — position tracking: `getOffset`, `getPosition`, `withSpan`, `buildLineTable`, `offsetToPosition`
   - `trace.ts` — debug tracing, `setInputStr`/`getInputStr`, `getDiagnostics`
   - `tarsecError.ts` — `TarsecError` class with line/column info
@@ -38,7 +38,8 @@ A parser combinator library for TypeScript, inspired by Parsec.
 - `ParserResult<T>` is either `ParserSuccess<T>` (with `result` and `rest`) or `ParserFailure` (with `message` and `rest`)
 - `CaptureParser<T, C>` extends this with a `captures` object for named captures
 - `rest` is the remaining unparsed string — position is derived from `originalInput.length - rest.length`
-- All per-parse mutable state (input string, rightmost-failure record, memo caches, base position) lives on a single `ParseState` object in `parseState.ts`; `setInputStr`/`getInputStr` read and write the current state. `runNested` swaps in a fresh state for a parse-within-a-parse and restores the outer one on exit
+- All per-parse mutable state (input string, rightmost-failure record, memo caches, base position, committed failure) lives on a single `ParseState` object in `parseState.ts`; `setInputStr`/`getInputStr` read and write the current state. `runNested` swaps in a fresh state for a parse-within-a-parse and restores the outer one on exit
+- `committed(prefix, rest)` marks post-prefix failures as `committed: true`; committed failures stop backtracking (`or`, `many`, `optional`, `sepBy` propagate them; `not`/`peek`/`within` contain them) and win error reporting (`getErrorMessage` prefers the committed failure over the rightmost record)
 - `lazy(() => parser)` enables recursive parser definitions by deferring evaluation
 - `buildExpressionParser(atom, operatorTable)` handles operator precedence and associativity for expression parsing. Operator table is ordered highest-to-lowest precedence. Supports left/right associativity and auto-generates `()`-based paren parsing (overridable via third arg).
 

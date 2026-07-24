@@ -7,7 +7,9 @@ import {
   optional,
   exactly,
   sepBy,
+  seqR,
 } from "@/lib/combinators";
+import { getErrorMessage } from "@/lib/rightmostFailure";
 import { str, word, label } from "@/lib/parsers";
 import { peek, not } from "@/lib/combinators";
 import { within } from "@/lib/parsers/within";
@@ -149,5 +151,34 @@ describe("committed failures: label pass-through, lookahead containment", () => 
     const result = within(committedBranch)("[|broken text");
     expect(result.success).toBe(true); // within always succeeds
     expect(getParseState().committedFailure).toBe(before);
+  });
+});
+
+describe("committed failures win error reporting end-to-end", () => {
+  it("getErrorMessage prefers the committed failure over a deeper rightmost record", () => {
+    setInputStr("[|ab");
+    // The fallback runs FIRST and wanders DEEPER (records pos 3) than the
+    // committed failure (pos 2). Without the preference, getErrorMessage
+    // reports the fallback's pos-3 record — the exact bug F3 exists to kill.
+    const fallback = seqR(str("[|a"), str("Z")); // records rightmost at pos 3
+    const committedLiteral = committed(str("[|"), str("XX")); // committed at pos 2
+    const parser = or(fallback, committedLiteral);
+    const result = parser("[|ab");
+
+    expect(result.success).toBe(false);
+    expect(isCommittedFailure(result)).toBe(true);
+    if (!result.success) {
+      expect(result.rest).toBe("ab"); // committed position, pos 2
+    }
+    // The message channel agrees with the result: pos 2 → Line 1, col 3.
+    expect(getErrorMessage()).toMatch(/^Line 1, col 3: /);
+  });
+
+  it("with no committed failure, getErrorMessage falls back to the rightmost record", () => {
+    setInputStr("abc");
+    str("abX")("abc"); // ordinary failure, records rightmost
+    const message = getErrorMessage();
+    expect(message).not.toBeNull();
+    expect(message).toMatch(/^Line 1, col /);
   });
 });
