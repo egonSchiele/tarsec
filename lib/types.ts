@@ -21,6 +21,11 @@ export type ParserFailure = {
   success: false;
   rest: string;
   message: string;
+  /** Set when the failure occurred past a commit point (see `committed`).
+   *  Backtracking combinators (`or`, `many`, `optional`) propagate a
+   *  committed failure instead of trying alternatives; lookahead
+   *  combinators (`not`, `peek`) contain it. */
+  committed?: true;
 };
 
 export type ParserResult<T> = ParserSuccess<T> | ParserFailure;
@@ -86,6 +91,23 @@ export function captureSuccess<T, C extends PlainObject>(
 /** Convenience function to return a ParserFailure */
 export function failure(message: string, rest: string): ParserFailure {
   return { success: false, message, rest };
+}
+
+/** Convenience function to return a committed ParserFailure — a failure
+ *  that stops backtracking. See the `committed` combinator. */
+export function committedFailure(
+  message: string,
+  rest: string,
+): ParserFailure {
+  return { success: false, message, rest, committed: true };
+}
+
+/** True when the result is a failure that occurred past a commit point. */
+export function isCommittedFailure(result: {
+  success: boolean;
+  committed?: true;
+}): boolean {
+  return !result.success && result.committed === true;
 }
 
 /** Prettify an intersected type, to make it easier to read. */
