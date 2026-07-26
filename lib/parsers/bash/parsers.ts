@@ -1,6 +1,6 @@
-import { CaptureParser, failure, Parser, ParserResult, success } from "@/lib/types";
-import { And, Arg, Assignment, Command, DoubleQuotedWord, FlagWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types";
-import { capture, char, label, lazy, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, sepBy, seqC, seqR, set, space, spaces, str, trace } from "../..";
+import { CaptureParser, failure, Parser, ParserResult, success } from "../../types.js";
+import { And, Arg, Assignment, Command, DoubleQuotedWord, FlagWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
+import { capture, char, label, lazy, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, sepBy, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
 export const RESERVED_WORDS = [
   "if", "then", "elif", "else", "fi",
   "do", "done", "while", "until", "for", "in",

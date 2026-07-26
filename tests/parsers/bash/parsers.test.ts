@@ -142,6 +142,15 @@ describe("paths", () => {
     // switching on the tag never sees a `literal`.
     expect(parsesFully(pathWordParser, "echo")).toBe(false);
   });
+
+  it("does not match without consuming anything", () => {
+    // A parser that succeeds on any input with an empty result matches
+    // everywhere: it turns every following alternative into dead code and
+    // injects empty words into argument lists.
+    expect(pathWordParser(" hello").success).toBe(false);
+    expect(pathWordParser("> out.txt").success).toBe(false);
+    expect(pathWordParser("").success).toBe(false);
+  });
 });
 
 describe("quoted words", () => {
@@ -166,7 +175,10 @@ describe("quoted words", () => {
   });
 
   it("parses an empty double-quoted word", () => {
-    expect(parseFully(doubleQuotedWordParser, '""').parts).toEqual([]);
+    // Either no parts or one empty part is a fine representation; what
+    // matters is that it parses and carries no text.
+    const word = parseFully(doubleQuotedWordParser, '""');
+    expect(word.parts.map(describeWord).join("")).toBe("");
   });
 
   it("treats a variable inside double quotes as a variable", () => {
@@ -290,6 +302,20 @@ describe("simple commands", () => {
 
   it("parses a quoted argument", () => {
     expect(positional(command("echo 'hello world'"))).toEqual(["hello world"]);
+  });
+});
+
+describe("input that is not a command", () => {
+  // `simpleCommandParser` currently succeeds on all of these with an empty
+  // command name, leaving the real text in `rest`. A consumer that trusts
+  // `success` without checking `rest` acts on a command it never read.
+  const notCommands = ["", "   ", "|||", "&&&", "; rm -rf /", "$(date)"];
+
+  it.each(notCommands)("rejects %j rather than returning an empty command", (input) => {
+    const result = simpleCommandParser(input);
+    const parsedNothing =
+      result.success && (result.result as SimpleCommand).command.text === "";
+    expect(parsedNothing).toBe(false);
   });
 });
 
