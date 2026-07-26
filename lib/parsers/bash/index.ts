@@ -1,65 +1,54 @@
 /**
- * A fail-closed bash parser: a deliberately smaller bash syntax that is
- * either parsed correctly or rejected with a parse error — never silently
- * mis-parsed. Intended for contexts where acting on a wrong parse is
- * worse than rejecting a valid script.
+ * A deliberately small bash parser: a narrow subset of bash that is either
+ * parsed correctly or rejected, never silently mis-parsed. Intended for
+ * contexts where acting on a wrong parse is worse than rejecting a command
+ * outright — an unsupported construct costs you a rejection, not a wrong
+ * answer.
  *
- * Soundness comes from two structural rules plus explicit cuts:
- *
- * 1. Separators between commands are MANDATORY (`;`, `&`, or newline),
- *    so text left over by a construct becomes a parse error instead of a
- *    phantom second command.
- * 2. No permissive fallbacks: a `$`, backtick, or `{`/`}` that isn't part
- *    of a supported construct fails the parse instead of degrading to a
- *    literal.
- *
- * Supported: words with single/double quoting, escapes, `$var`, `${...}`,
- * recursive `$(...)`, `$((...))`; assignments; redirects (fd prefixes,
- * `2>&1`, `>&2`, `<<<`); pipelines with `!`; `&&`/`||`; `&` background;
- * `;`/newline separators; comments and line continuations; `if`/`elif`/
- * `else`, `while`/`until`, `for`, `case`, subshells, `{ }` groups,
- * `(( ))`, and both function-definition styles.
- *
- * Deliberately UNSUPPORTED (valid bash, rejected here — fail closed):
- * arrays `x=(...)`, append `x+=`, ANSI-C `$'...'` / locale `$"..."`,
- * backtick substitution (use `$()`), `[[ ]]` (its `]]` delimiter can
- * appear inside quoted operands, so scanning for it is unsound; `[` is an
- * ordinary command and still works), brace expansion `{a,b}` and literal
- * `{`/`}` in words (quote them), bare `$` (write `\$` or '$'), heredocs,
- * process substitution `<()`, `select`/`coproc`/`time`.
- *
- * Kept as RAW TEXT (delimiters are sound, contents are not interpreted):
- * `${...}` (balanced braces), `$((...))` and `((...))` (balanced parens —
- * quotes are not delimiters in bash arithmetic).
- *
- * Out of scope by design, as in bash's own parser: glob (`*`, `?`) and
- * tilde expansion happen after parsing; consumers see the literal word
- * text and decide for themselves.
- *
- * For error positions, use the standard tarsec flow:
+ * `bashParser` is the entry point. It parses a whole script and fails
+ * unless the entire input is consumed.
  *
  * ```ts
- * setInputStr(input);
- * resetRightmostFailure();
- * const result = bashParser(input);
- * if (!result.success) console.log(getErrorMessage());
+ * const result = bashParser("git commit -m 'hi'");
+ * if (result.success) console.log(result.result);
  * ```
+ *
+ * The AST is shaped for consumers asking "what command is this, and what
+ * does it operate on?" — a `SimpleCommand` carries `command`, `args`,
+ * `assignments` and `redirects` as separate fields. There is no
+ * `subcommands` field: no syntactic rule separates `git status` from
+ * `echo status`, so `args` is one ordered list.
+ *
+ * SUPPORTED
+ * - Simple commands: a name, arguments, and `name=value` assignments
+ *   before it. A line that is only an assignment (`FOO=bar`) is a command
+ *   with a null `command`.
+ * - Words: bare words (letters, digits, and `_ - . = : +`), paths
+ *   (any word containing `/`), single and double quotes, `$var` and
+ *   `${var}`, and `-f` / `--flag` / `--flag=value` flags.
+ * - Double quotes interpolate `$var` and handle `\"`, `\\`, `\$`, `` \` ``.
+ * - Words built from adjacent parts: `$HOME/bin`, `"a"b`, `"$HOME"/x`.
+ * - Redirects: `>`, `>>`, `<`, and `&>`, with an optional attached file
+ *   descriptor on the first three (`2> err.txt`).
+ * - `&&` / `||` chains (one precedence level, left-associative, as in
+ *   bash) and `( ... )` grouping.
+ * - Commands separated by `;` or newlines, including CRLF.
+ *
+ * REJECTED, and worth knowing because a reader would not predict them
+ * - Pipelines (`|`), background (`&`), and `;` inside `( ... )` — so
+ *   `(a && b) || c` parses but `a && (b; c)` does not.
+ * - Reserved words ANYWHERE, not only at command position: `echo if` and
+ *   `echo done` are valid bash and are rejected here.
+ * - `--` as an end-of-flags marker, so `git checkout -- file` is rejected,
+ *   as is a bare `-` for stdin (`cat -`).
+ * - Compound commands: `if`, `for`, `while`, `case`, function definitions.
+ * - Command substitution `$(...)`, backticks, arithmetic `$((...))`,
+ *   parameter expansion beyond `${name}` (`${x:-y}`), and the special
+ *   parameters `$?` / `$@` / `$$`.
+ * - Globs (`*`, `?`, `[...]`), tilde (`~/x`), brace expansion, heredocs
+ *   and here-strings, `2>&1`, comments (`#`), and escapes outside double
+ *   quotes (`echo a\ b`).
+ * - Characters outside the word set above, including `@` and `%`.
  */
 export * from "./types.js";
-export * from "./lexemes.js";
-export * from "./words.js";
-export * from "./commands.js";
-export * from "./lists.js";
-
-import { seq } from "../../combinators.js";
-import { eof } from "../../parsers.js";
-import { Parser } from "../../types.js";
-import { list0 } from "./lists.js";
-import { List } from "./types.js";
-
-/** Parse a whole script (or any command list) to a `List`. Fails unless
- * the entire input is consumed. */
-export const bashParser: Parser<List> = seq(
-  [list0, eof],
-  (results) => results[0] as List,
-);
+export * from "./parsers.js";
