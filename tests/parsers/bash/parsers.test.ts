@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 import {
   commandParser,
   flagWordParser,
+  literalWordParser,
   pathWordParser,
   redirectParser,
   simpleCommandParser,
@@ -113,6 +114,26 @@ describe("bare words", () => {
   it("parses a word containing a digit", () => {
     expect(parseFully(wordParser, "file2")).toEqual({ tag: "literal", text: "file2" });
   });
+
+  it("does not match only the front of a longer word", () => {
+    // "src" is not a word here — the word is the path "src/main.ts". A word
+    // that stops mid-token leaves input no other parser can pick up.
+    expect(literalWordParser("src/main.ts").success).toBe(false);
+  });
+
+  it("parses an assignment-shaped argument as a single word", () => {
+    // `env FOO=bar` passes FOO=bar to env as one argument.
+    expect(parseFully(literalWordParser, "FOO=bar")).toEqual({
+      tag: "literal",
+      text: "FOO=bar",
+    });
+  });
+
+  it("ends a word at an operator character", () => {
+    const result = literalWordParser("a&&b");
+    expect(result.success && result.result.text).toBe("a");
+    expect(result.success && result.rest).toBe("&&b");
+  });
 });
 
 describe("paths", () => {
@@ -135,6 +156,19 @@ describe("paths", () => {
       tag: "path",
       text: "./script.sh",
     });
+  });
+
+  it("parses a bare slash", () => {
+    // `ls /` is an ordinary command.
+    expect(parseFully(pathWordParser, "/")).toEqual({ tag: "path", text: "/" });
+  });
+
+  it("parses a trailing slash", () => {
+    expect(parseFully(pathWordParser, "src/")).toEqual({ tag: "path", text: "src/" });
+  });
+
+  it("rejects a path with a doubled slash", () => {
+    expect(parsesFully(pathWordParser, "a//b")).toBe(false);
   });
 
   it("does not classify a word without a slash as a path", () => {

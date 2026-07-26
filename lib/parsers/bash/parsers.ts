@@ -1,6 +1,6 @@
 import { CaptureParser, failure, Parser, ParserResult, success } from "../../types.js";
 import { And, Arg, Assignment, BashAST, Command, DoubleQuotedWord, FlagWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
-import { buildExpressionParser, capture, char, digit, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, sepBy, sepBy1, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
+import { buildExpressionParser, capture, char, digit, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, peek, sepBy, sepBy1, seq, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
 export const RESERVED_WORDS = [
   "if", "then", "elif", "else", "fi",
   "do", "done", "while", "until", "for", "in",
@@ -43,13 +43,47 @@ export const varNameChars: Parser<string> = label(
   oneOf(LETTERS + DIGITS + "_")
 );
 
-/** Characters allowed in a bare WORD — a command name, a filename, a flag
- * value. Wider than `varNameChars` because filenames routinely contain
- * dots and hyphens (`my-file.txt`). */
+/** Characters allowed in a flag name or a flag value. Wider than
+ * `varNameChars` because filenames routinely contain dots and hyphens
+ * (`my-file.txt`).
+ *
+ * Deliberately excludes `=`, unlike `bareWordChars`: `--format=oneline`
+ * splits into a name and a value on that `=`, so a flag name that could
+ * swallow it would take the whole thing as the name. */
 export const wordChars: Parser<string> = label(
   "a word character",
   oneOf(LETTERS + DIGITS + "_-.")
 );
+
+/** Characters allowed in a bare word — a command name, a filename, an
+ * argument. Includes `=` because an assignment-shaped ARGUMENT is an
+ * ordinary word: `env FOO=bar` passes "FOO=bar" to env in one piece.
+ * (A leading assignment is still an assignment: those are parsed before
+ * the command name.) */
+export const bareWordChars: Parser<string> = label(
+  "a word character",
+  oneOf(LETTERS + DIGITS + "_-.=")
+);
+
+/** Characters that end a bare word: whitespace and the operators that
+ * separate commands. */
+const WORD_END_CHARS = " \t\n\r&|;()<>";
+
+/**
+ * Require that a word ran all the way to a boundary.
+ *
+ * Without this a word parser happily matches the FRONT of a longer token
+ * — `src` out of `src/main.ts`, `FOO` out of `FOO=bar` — and the leftover
+ * (`/main.ts`) matches nothing, so the whole command fails to parse with
+ * no indication of why. Stopping mid-token is never right: whatever
+ * follows is part of the same word.
+ */
+function wholeWord<T>(parser: Parser<T>): Parser<T> {
+  return (input: string): ParserResult<T> => {
+    const res: ParserResult<T> = getResult(seqC(result(parser), optional(peek(oneOf(WORD_END_CHARS)))))(input);
+    return res;
+  };
+}
 
 /** An identifier: `[A-Za-z_][A-Za-z0-9_]*`. `manyWithJoin`, not `many1`,
  * so a one-character name (`x=1`, `$A`) is valid. */
@@ -70,10 +104,10 @@ export const varNameParser: Parser<string> = trace("varNameParser", or(
  * recording it as an assignment would misreport what runs. */
 export const assignmentNameParser: Parser<string> = trace("assignmentNameParser", identifierParser)
 
-export const literalWordParser: Parser<LiteralWord> = (input: string) => {
+export const literalWordParser: Parser<LiteralWord> = wholeWord((input: string) => {
   const result = trace("literalWordParser", seqC(
     set("tag", "literal"),
-    capture(many1WithJoin(wordChars), "text")
+    capture(many1WithJoin(bareWordChars), "text")
   ))(input)
   if (result.success) {
     const text = result.result.text;
@@ -82,12 +116,16 @@ export const literalWordParser: Parser<LiteralWord> = (input: string) => {
     }
   }
   return result;
-}
+})
 
-export const pathWordParser: Parser<PathWord> = (input: string) => {
+// Slashes are scanned as part of the run rather than used as separators,
+// so a LEADING slash is just another character: `sepBy1` needed a segment
+// before the first separator, which made every absolute path unparseable.
+// A bare "/" and a trailing "/" are both real paths (`ls /`, `ls src/`).
+export const pathWordParser: Parser<PathWord> = wholeWord((input: string) => {
   const result = trace("pathWordParser", seqC(
     set("tag", "path"),
-    capture(map(sepBy1(char("/"), many1WithJoin(wordChars)), (parts) => parts.join("/")), "text")
+    capture(many1WithJoin(or(bareWordChars, char("/"))), "text")
   ))(input);
 
   if (result.success) {
@@ -103,7 +141,7 @@ export const pathWordParser: Parser<PathWord> = (input: string) => {
     }
   }
   return result;
-}
+})
 
 export const flagNameParser: Parser<string> = trace("flagNameParser", map(seqR(
   char("-"),
