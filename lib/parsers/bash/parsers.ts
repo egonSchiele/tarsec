@@ -228,13 +228,27 @@ export const argParser: Parser<Arg> = trace("argParser", or(
   wordParser
 ))
 
+/** Run a parser, then eat any trailing whitespace.
+ *
+ * The discipline: every token-shaped parser consumes its own TRAILING
+ * space, and leading space is eaten once at the start of the command.
+ * `sepBy(spaces, ...)` cannot express this — it only puts a separator
+ * BETWEEN elements of one group, so the space between the command name
+ * and its first argument, or between the last argument and a redirect,
+ * had nothing to consume it and the rest of the command was left
+ * unparsed. */
+function token<T>(parser: Parser<T>): Parser<T> {
+  return map(seqR(parser, optional(spaces)), (results) => results[0] as T);
+}
+
 export const simpleCommandParser: Parser<SimpleCommand> = trace("simpleCommandParser", seqC(
   set("tag", "simpleCommand"),
-  capture(sepBy(spaces, assignmentParser), "assignments"),
-  capture(scriptNameParser, "command"),
-  capture(sepBy(spaces, literalWordParser), "subcommands"),
-  capture(sepBy(spaces, argParser), "args"),
-  capture(sepBy(spaces, redirectParser), "redirects")
+  optional(spaces),
+  capture(many(token(assignmentParser)), "assignments"),
+  capture(token(scriptNameParser), "command"),
+  capture(many(token(literalWordParser)), "subcommands"),
+  capture(many(token(argParser)), "args"),
+  capture(many(token(redirectParser)), "redirects")
 ))
 
 /** An operator in a `&&` / `||` chain, absorbing the whitespace around it.

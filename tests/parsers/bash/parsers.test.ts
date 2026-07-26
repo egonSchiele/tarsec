@@ -354,6 +354,12 @@ describe("simple commands", () => {
     expect(positional(command("echo   hello\tworld"))).toEqual(["hello", "world"]);
   });
 
+  it("tolerates leading and trailing whitespace", () => {
+    const cmd = command("  echo hello  ");
+    expect(cmd.command.text).toBe("echo");
+    expect(positional(cmd)).toEqual(["hello"]);
+  });
+
   it("parses a command with a path argument", () => {
     expect(positional(command("cat src/main.ts"))).toEqual(["src/main.ts"]);
   });
