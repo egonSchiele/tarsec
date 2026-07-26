@@ -197,6 +197,40 @@ describe("quoted words", () => {
     ]);
   });
 
+  it("parses two adjacent variables inside double quotes", () => {
+    const word = parseFully(doubleQuotedWordParser, '"$A$B"');
+    expect(word.parts).toEqual([
+      { tag: "variable", name: "A" },
+      { tag: "variable", name: "B" },
+    ]);
+  });
+
+  it("parses a braced variable inside double quotes", () => {
+    const word = parseFully(doubleQuotedWordParser, '"${HOME}"');
+    expect(word.parts).toEqual([{ tag: "variable", name: "HOME" }]);
+  });
+
+  it("stops a variable name at a dot", () => {
+    // bash expands `$HOME` and leaves ".txt" as text: a dot cannot appear
+    // in a variable name.
+    const word = parseFully(doubleQuotedWordParser, '"$HOME.txt"');
+    expect(word.parts).toEqual([
+      { tag: "variable", name: "HOME" },
+      { tag: "literal", text: ".txt" },
+    ]);
+  });
+
+  it("handles an escaped double quote inside double quotes", () => {
+    // `"a\"b"` is the single word `a"b`.
+    const word = parseFully(doubleQuotedWordParser, '"a\\"b"');
+    expect(word.parts.map(describeWord).join("")).toBe('a"b');
+  });
+
+  it("rejects command substitution inside double quotes", () => {
+    // It expands in bash; treating it as text would run a different command.
+    expect(parsesFully(doubleQuotedWordParser, '"$(date)"')).toBe(false);
+  });
+
   it("rejects an unterminated single quote", () => {
     expect(parsesFully(singleQuotedWordParser, "'hello")).toBe(false);
   });
@@ -223,6 +257,38 @@ describe("variables", () => {
 
   it("parses a variable name containing an underscore", () => {
     expect(parseFully(variableWordParser, "$MY_VAR")).toEqual({
+      tag: "variable",
+      name: "MY_VAR",
+    });
+  });
+
+  it("parses a single-letter variable name", () => {
+    expect(parseFully(variableWordParser, "$A")).toEqual({ tag: "variable", name: "A" });
+  });
+
+  it("parses a variable name starting with an underscore", () => {
+    expect(parseFully(variableWordParser, "$_private")).toEqual({
+      tag: "variable",
+      name: "_private",
+    });
+  });
+
+  it("ends a variable name at a dot", () => {
+    // A dot cannot appear in a variable name: bash expands `$HOME` and
+    // leaves ".txt" as ordinary text.
+    const result = variableWordParser("$HOME.txt");
+    expect(result.success && result.result.name).toBe("HOME");
+    expect(result.success && result.rest).toBe(".txt");
+  });
+
+  it("ends a variable name at a hyphen", () => {
+    const result = variableWordParser("$HOME-x");
+    expect(result.success && result.result.name).toBe("HOME");
+    expect(result.success && result.rest).toBe("-x");
+  });
+
+  it("ends a braced variable name at the brace, not a dot", () => {
+    expect(parseFully(variableWordParser, "${MY_VAR}")).toEqual({
       tag: "variable",
       name: "MY_VAR",
     });
@@ -346,6 +412,15 @@ describe("assignments", () => {
     const cmd = command("env FOO=bar");
     expect(cmd.assignments).toEqual([]);
     expect(cmd.command).toEqual({ tag: "literal", text: "env" });
+  });
+
+  it("parses a single-letter assignment name", () => {
+    // `x=1` is an ordinary assignment.
+    expect(command("x=1 echo hi").assignments[0].name).toBe("x");
+  });
+
+  it("parses an assignment name starting with an underscore", () => {
+    expect(command("_x=1 echo hi").assignments[0].name).toBe("_x");
   });
 
   it("does not treat a name starting with a digit as an assignment", () => {
