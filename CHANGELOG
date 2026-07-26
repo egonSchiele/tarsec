@@ -1,3 +1,17 @@
+## July 24 2026 — v0.5.1
+
+### Nested parsing
+- All per-parse mutable state (input string, rightmost failure, memo caches) now lives on a single `ParseState` object.
+- New `runNested(parser, input, { basePosition })`: run an isolated parse inside another parse. Positions, spans, and error messages come out in the enclosing parse's coordinates.
+
+### Error reporting
+- `label` no longer erases failure records from strictly inside the labeled region — the deepest specific expectation surfaces instead of the outermost label's name. Tests asserting exact error text may need updating.
+- New `committed(prefix, rest)`: once `prefix` matches, a failure in `rest` stops backtracking (`or` won't try later alternatives) and wins error reporting. `ParserFailure` gains optional `committed: true`; new helpers `committedFailure` / `isCommittedFailure`.
+
+### Terminated scans
+- New `repeatTill(chunk, terminator)`: repeat chunks until an unconsumed terminator — regions where the terminator is inert (strings, comments) can be skipped as chunks.
+- New `matchedText(parser)` (raw consumed slice) and `many1TillOneOf(stops)` (`manyTillOneOf` that fails on zero consumption, for indexOf-fast bulk scans).
+
 ## July 24 2026 — v0.5.0
 - Add `makeLexemes`
 - Add bash parser
