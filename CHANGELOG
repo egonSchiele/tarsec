@@ -1,3 +1,6 @@
+## July 26 2026 — v0.5.2
+Rewrite bash parser -- better AST, fewer edge cases and poor parses.
+
 ## July 24 2026 — v0.5.1
 
 ### Nested parsing
