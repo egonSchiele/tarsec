@@ -1,0 +1,457 @@
+/**
+ * Tests for the small bash parser.
+ *
+ * Expectations are real bash semantics, restricted to the subset the
+ * parser sets out to support. Organized in three layers so failures
+ * isolate: word-level tests exercise the leaf parsers directly, command
+ * tests exercise `simpleCommandParser`, and chain tests exercise
+ * `commandParser`. A break in one layer does not hide the others.
+ *
+ * Note: there is no exported whole-input entry point, so `parseFully`
+ * below composes one. A parser that stops early and leaves input behind
+ * is treated as a failure — otherwise "parsed" would include commands
+ * with half the text quietly discarded.
+ */
+import { describe, expect, it } from "vitest";
+import {
+  commandParser,
+  flagWordParser,
+  pathWordParser,
+  redirectParser,
+  simpleCommandParser,
+  singleQuotedWordParser,
+  doubleQuotedWordParser,
+  variableWordParser,
+  wordParser,
+} from "@/lib/parsers/bash/parsers";
+import {
+  Command,
+  DoubleQuotedWord,
+  SimpleCommand,
+  Word,
+} from "@/lib/parsers/bash/types";
+import { Parser } from "@/lib/types";
+
+/** Run a parser and require that it consumed the entire input. */
+function parseFully<T>(parser: Parser<T>, input: string): T {
+  const result = parser(input);
+  if (!result.success) {
+    throw new Error(`parse failed: ${result.message}`);
+  }
+  if (result.rest !== "") {
+    throw new Error(
+      `parser stopped early, left behind: ${JSON.stringify(result.rest)}`,
+    );
+  }
+  return result.result;
+}
+
+function parsesFully<T>(parser: Parser<T>, input: string): boolean {
+  const result = parser(input);
+  return result.success && result.rest === "";
+}
+
+const command = (input: string): SimpleCommand =>
+  parseFully(simpleCommandParser, input);
+
+/** Every non-assignment, non-redirect word after the command name.
+ *
+ * Deliberately blind to the subcommands/args split: no syntactic rule can
+ * tell `git status` (subcommand) from `echo status` (argument), so tests
+ * assert on the combined list and leave that design choice open. */
+function positional(cmd: SimpleCommand): string[] {
+  return [...cmd.subcommands, ...cmd.args].map(describeWord);
+}
+
+function describeWord(word: Word): string {
+  switch (word.tag) {
+    case "literal":
+    case "path":
+    case "singleQuoted":
+      return word.text;
+    case "flag":
+      return word.flagValue === undefined
+        ? word.flagName
+        : `${word.flagName}=${word.flagValue}`;
+    case "variable":
+      return `$${word.name}`;
+    case "doubleQuoted":
+      return word.parts.map(describeWord).join("");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Layer 1: words
+// ---------------------------------------------------------------------------
+
+describe("bare words", () => {
+  it("parses a plain word as a literal", () => {
+    expect(parseFully(wordParser, "echo")).toEqual({ tag: "literal", text: "echo" });
+  });
+
+  it("parses a filename containing a dot", () => {
+    expect(parseFully(wordParser, "file.txt")).toEqual({
+      tag: "literal",
+      text: "file.txt",
+    });
+  });
+
+  it("parses a word containing a hyphen", () => {
+    expect(parseFully(wordParser, "my-file")).toEqual({
+      tag: "literal",
+      text: "my-file",
+    });
+  });
+
+  it("parses a word containing an underscore", () => {
+    expect(parseFully(wordParser, "my_file")).toEqual({
+      tag: "literal",
+      text: "my_file",
+    });
+  });
+
+  it("parses a word containing a digit", () => {
+    expect(parseFully(wordParser, "file2")).toEqual({ tag: "literal", text: "file2" });
+  });
+});
+
+describe("paths", () => {
+  it("parses an absolute path", () => {
+    expect(parseFully(pathWordParser, "/usr/bin/env")).toEqual({
+      tag: "path",
+      text: "/usr/bin/env",
+    });
+  });
+
+  it("parses a relative path", () => {
+    expect(parseFully(pathWordParser, "src/main.ts")).toEqual({
+      tag: "path",
+      text: "src/main.ts",
+    });
+  });
+
+  it("parses a dot-slash path", () => {
+    expect(parseFully(pathWordParser, "./script.sh")).toEqual({
+      tag: "path",
+      text: "./script.sh",
+    });
+  });
+
+  it("does not classify a word without a slash as a path", () => {
+    // Otherwise every plain command name is tagged `path`, and a consumer
+    // switching on the tag never sees a `literal`.
+    expect(parsesFully(pathWordParser, "echo")).toBe(false);
+  });
+});
+
+describe("quoted words", () => {
+  it("parses a single-quoted word", () => {
+    expect(parseFully(singleQuotedWordParser, "'hello world'")).toEqual({
+      tag: "singleQuoted",
+      text: "hello world",
+    });
+  });
+
+  it("parses an empty single-quoted word", () => {
+    // `echo ''` passes one empty argument in bash.
+    expect(parseFully(singleQuotedWordParser, "''")).toEqual({
+      tag: "singleQuoted",
+      text: "",
+    });
+  });
+
+  it("parses a double-quoted word", () => {
+    const word = parseFully(doubleQuotedWordParser, '"hello world"');
+    expect(word.parts).toEqual([{ tag: "literal", text: "hello world" }]);
+  });
+
+  it("parses an empty double-quoted word", () => {
+    expect(parseFully(doubleQuotedWordParser, '""').parts).toEqual([]);
+  });
+
+  it("treats a variable inside double quotes as a variable", () => {
+    // `echo "$HOME"` expands. Recording it as the literal text "$HOME"
+    // makes a consumer pass a dollar sign through to the command.
+    const word = parseFully(doubleQuotedWordParser, '"$HOME"');
+    expect(word.parts).toEqual([{ tag: "variable", name: "HOME" }]);
+  });
+
+  it("parses text around a variable inside double quotes", () => {
+    const word = parseFully(doubleQuotedWordParser, '"dir: $HOME/x"');
+    expect(word.parts).toEqual([
+      { tag: "literal", text: "dir: " },
+      { tag: "variable", name: "HOME" },
+      { tag: "literal", text: "/x" },
+    ]);
+  });
+
+  it("rejects an unterminated single quote", () => {
+    expect(parsesFully(singleQuotedWordParser, "'hello")).toBe(false);
+  });
+
+  it("rejects an unterminated double quote", () => {
+    expect(parsesFully(doubleQuotedWordParser, '"hello')).toBe(false);
+  });
+});
+
+describe("variables", () => {
+  it("parses a bare variable", () => {
+    expect(parseFully(variableWordParser, "$HOME")).toEqual({
+      tag: "variable",
+      name: "HOME",
+    });
+  });
+
+  it("parses a braced variable", () => {
+    expect(parseFully(variableWordParser, "${HOME}")).toEqual({
+      tag: "variable",
+      name: "HOME",
+    });
+  });
+
+  it("parses a variable name containing an underscore", () => {
+    expect(parseFully(variableWordParser, "$MY_VAR")).toEqual({
+      tag: "variable",
+      name: "MY_VAR",
+    });
+  });
+});
+
+describe("flags", () => {
+  it("parses a short flag", () => {
+    expect(parseFully(flagWordParser, "-l")).toEqual({ tag: "flag", flagName: "-l" });
+  });
+
+  it("parses clustered short flags", () => {
+    expect(parseFully(flagWordParser, "-la")).toEqual({ tag: "flag", flagName: "-la" });
+  });
+
+  it("parses a long flag", () => {
+    expect(parseFully(flagWordParser, "--all")).toEqual({
+      tag: "flag",
+      flagName: "--all",
+    });
+  });
+
+  it("parses a long flag containing a hyphen", () => {
+    // `--dry-run` is one flag. Splitting it leaves "-run", which then looks
+    // like a second flag.
+    expect(parseFully(flagWordParser, "--dry-run")).toEqual({
+      tag: "flag",
+      flagName: "--dry-run",
+    });
+  });
+
+  it("parses a long flag with a value", () => {
+    expect(parseFully(flagWordParser, "--format=oneline")).toEqual({
+      tag: "flag",
+      flagName: "--format",
+      flagValue: "oneline",
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Layer 2: simple commands
+// ---------------------------------------------------------------------------
+
+describe("simple commands", () => {
+  it("parses a bare command", () => {
+    expect(command("echo").command).toEqual({ tag: "literal", text: "echo" });
+  });
+
+  it("parses a command with one argument", () => {
+    expect(positional(command("echo hello"))).toEqual(["hello"]);
+  });
+
+  it("parses a command with several arguments", () => {
+    expect(positional(command("echo hello world again"))).toEqual([
+      "hello",
+      "world",
+      "again",
+    ]);
+  });
+
+  it("collapses runs of whitespace between arguments", () => {
+    expect(positional(command("echo   hello\tworld"))).toEqual(["hello", "world"]);
+  });
+
+  it("parses a command with a path argument", () => {
+    expect(positional(command("cat src/main.ts"))).toEqual(["src/main.ts"]);
+  });
+
+  it("parses a subcommand and a flag together", () => {
+    expect(positional(command("git log --oneline"))).toEqual(["log", "--oneline"]);
+  });
+
+  it("parses a flag before a positional argument", () => {
+    expect(positional(command("grep -i pattern"))).toEqual(["-i", "pattern"]);
+  });
+
+  it("parses a quoted argument", () => {
+    expect(positional(command("echo 'hello world'"))).toEqual(["hello world"]);
+  });
+});
+
+describe("assignments", () => {
+  it("parses a leading assignment", () => {
+    const cmd = command("FOO=bar echo hi");
+    expect(cmd.assignments).toHaveLength(1);
+    expect(cmd.assignments[0].name).toBe("FOO");
+    expect(cmd.command).toEqual({ tag: "literal", text: "echo" });
+  });
+
+  it("parses an assignment with an empty value", () => {
+    expect(command("FOO= echo hi").assignments[0]).toMatchObject({
+      name: "FOO",
+      value: null,
+    });
+  });
+
+  it("parses several leading assignments", () => {
+    expect(command("FOO=1 BAR=2 echo hi").assignments.map((a) => a.name)).toEqual([
+      "FOO",
+      "BAR",
+    ]);
+  });
+
+  it("does not treat an assignment-shaped argument as an assignment", () => {
+    // `env FOO=bar` passes FOO=bar to env as an argument.
+    const cmd = command("env FOO=bar");
+    expect(cmd.assignments).toEqual([]);
+    expect(cmd.command).toEqual({ tag: "literal", text: "env" });
+  });
+
+  it("does not treat a name starting with a digit as an assignment", () => {
+    // bash runs `1x=1` as a command literally named "1x=1" (exit 127), so
+    // recording an assignment named "1x" misreports what would run.
+    expect(command("1x=1").assignments).toEqual([]);
+  });
+});
+
+describe("redirects", () => {
+  it("parses an output redirect", () => {
+    const redirect = parseFully(redirectParser, "> out.txt");
+    expect(redirect.op).toBe(">");
+    expect(describeWord(redirect.target)).toBe("out.txt");
+  });
+
+  it("parses an append redirect", () => {
+    // `>>` appends where `>` truncates. Parsing it as `>` destroys a file.
+    const redirect = parseFully(redirectParser, ">> out.txt");
+    expect(redirect.op).toBe(">>");
+    expect(describeWord(redirect.target)).toBe("out.txt");
+  });
+
+  it("parses an input redirect", () => {
+    const redirect = parseFully(redirectParser, "< in.txt");
+    expect(redirect.op).toBe("<");
+  });
+
+  it("parses a redirect with no space before its target", () => {
+    const redirect = parseFully(redirectParser, ">out.txt");
+    expect(redirect.op).toBe(">");
+    expect(describeWord(redirect.target)).toBe("out.txt");
+  });
+
+  it("attaches an explicit file descriptor", () => {
+    const redirect = parseFully(redirectParser, "2> err.txt");
+    expect(redirect.fd).toBe(2);
+    expect(redirect.op).toBe(">");
+  });
+
+  it("parses a redirect as part of a command", () => {
+    const cmd = command("echo hi > out.txt");
+    expect(cmd.redirects).toHaveLength(1);
+    expect(cmd.redirects[0].op).toBe(">");
+  });
+
+  it("treats a detached number as an argument, not a file descriptor", () => {
+    // `echo 2 > out.txt` passes "2" to echo. Only an ATTACHED digit is an fd.
+    const cmd = command("echo 2 > out.txt");
+    expect(positional(cmd)).toEqual(["2"]);
+    expect(cmd.redirects[0].fd).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Layer 3: whole commands
+// ---------------------------------------------------------------------------
+
+describe("whole commands", () => {
+  it("parses a simple command through the top-level parser", () => {
+    const parsed = parseFully(commandParser, "echo hi");
+    expect(parsed.tag).toBe("simpleCommand");
+  });
+
+  it("parses an && chain", () => {
+    expect(parseFully(commandParser, "make && echo done").tag).toBe("and");
+  });
+
+  it("parses an || chain", () => {
+    expect(parseFully(commandParser, "make || echo failed").tag).toBe("or");
+  });
+
+  it("puts each side of a chain in the right slot", () => {
+    const parsed = parseFully(commandParser, "make build && echo done") as Command & {
+      tag: "and";
+      left: Command;
+      right: Command;
+    };
+    expect((parsed.left as SimpleCommand).command).toEqual({
+      tag: "literal",
+      text: "make",
+    });
+    expect((parsed.right as SimpleCommand).command).toEqual({
+      tag: "literal",
+      text: "echo",
+    });
+  });
+
+  it("parses a three-part chain", () => {
+    expect(parsesFully(commandParser, "a && b && c")).toBe(true);
+  });
+
+  it("parses a chain with no spaces around the operator", () => {
+    expect(parsesFully(commandParser, "a&&b")).toBe(true);
+  });
+
+  it("parses a parenthesized command", () => {
+    expect(parseFully(commandParser, "(echo hi)").tag).toBe("parens");
+  });
+});
+
+describe("reserved words", () => {
+  it("rejects a bare reserved word as a command", () => {
+    expect(parsesFully(commandParser, "if")).toBe(false);
+  });
+
+  it("rejects a compound command instead of mis-parsing its head", () => {
+    // `if` starts a construct this parser does not support. Parsing it as a
+    // command named `if` with arguments is a silent mis-parse.
+    expect(parsesFully(commandParser, "if true; then echo hi; fi")).toBe(false);
+  });
+
+  it("allows a reserved word as an argument", () => {
+    // `echo if` is an ordinary command in bash.
+    expect(positional(command("echo if"))).toEqual(["if"]);
+  });
+});
+
+describe("unsupported syntax is rejected, not mis-parsed", () => {
+  const unsupported: [string, string][] = [
+    ["pipeline", "ls | wc -l"],
+    ["semicolon sequence", "echo a; echo b"],
+    ["background command", "sleep 1 &"],
+    ["command substitution", "echo $(date)"],
+    ["backtick substitution", "echo `date`"],
+    ["glob", "ls *.txt"],
+    ["heredoc", "cat <<EOF"],
+    ["brace expansion", "echo {a,b}"],
+    ["tilde expansion", "cat ~/notes.txt"],
+  ];
+
+  it.each(unsupported)("rejects a %s", (_name, input) => {
+    expect(parsesFully(commandParser, input)).toBe(false);
+  });
+});
