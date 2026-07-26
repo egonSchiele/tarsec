@@ -70,3 +70,5 @@ export type Parens = {
   tag: "parens";
   command: Command;
 };
+
+export type BashAST = Command[];

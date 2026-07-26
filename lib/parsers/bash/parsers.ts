@@ -1,6 +1,6 @@
 import { CaptureParser, failure, Parser, ParserResult, success } from "../../types.js";
-import { And, Arg, Assignment, Command, DoubleQuotedWord, FlagWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
-import { capture, char, label, lazy, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, sepBy, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
+import { And, Arg, Assignment, BashAST, Command, DoubleQuotedWord, FlagWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
+import { capture, char, label, lazy, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, sepBy, sepBy1, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
 export const RESERVED_WORDS = [
   "if", "then", "elif", "else", "fi",
   "do", "done", "while", "until", "for", "in",
@@ -55,7 +55,7 @@ export const literalWordParser: Parser<LiteralWord> = (input: string) => {
 export const pathWordParser: Parser<PathWord> = (input: string) => {
   const result = trace("pathWordParser", seqC(
     set("tag", "path"),
-    capture(map(sepBy(char("/"), many1WithJoin(varNameChars)), (parts) => parts.join("/")), "text")
+    capture(map(sepBy1(char("/"), many1WithJoin(varNameChars)), (parts) => parts.join("/")), "text")
   ))(input);
 
   if (result.success) {
@@ -217,3 +217,19 @@ export const parensParser: Parser<Parens> = trace("parensParser", seqC(
   capture(lazy(() => commandParser), "command"),
   char(")")
 ))
+
+export const semicolonSeparator = seqR(
+  optional(spaces),
+  char(";"),
+  optional(spaces)
+)
+
+export function bashParserParser(input: string): ParserResult<BashAST> {
+  const result = trace("bashParser", sepBy1(semicolonSeparator, commandParser))(input);
+  if (result.success) {
+    if (result.rest.trim() !== "") {
+      return failure(`Unexpected input after commands: "${result.rest}"`, input);
+    }
+  }
+  return result;
+}
