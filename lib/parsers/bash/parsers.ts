@@ -1,5 +1,5 @@
 import { CaptureParser, failure, Parser, ParserResult, success } from "../../types.js";
-import { And, Arg, Assignment, BashAST, Command, DoubleQuotedWord, FlagWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
+import { And, Arg, Assignment, BashAST, Command, DoubleQuotedWord, FlagWord, InterpolatedVariableWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
 import { buildExpressionParser, capture, char, digit, eof, not, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, peek, sepBy, sepBy1, seq, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
 export const RESERVED_WORDS = [
   "if", "then", "elif", "else", "fi",
@@ -52,7 +52,7 @@ export const varNameChars: Parser<string> = label(
  * swallow it would take the whole thing as the name. */
 export const wordChars: Parser<string> = label(
   "a word character",
-  oneOf(LETTERS + DIGITS + "_-.")
+  oneOf(LETTERS + DIGITS + "_-./")
 );
 
 /** Characters allowed in a bare word — a command name, a filename, an
@@ -181,10 +181,10 @@ export const flagWordNameAndValueParser: Parser<FlagWord> = trace("flagWordNameA
   capture(many1WithJoin(wordChars), "flagValue")
 ))
 
-export const flagWordParser: Parser<FlagWord> = trace("flagWordParser", or(
+export const flagWordParser: Parser<FlagWord> = trace("flagWordParser", wholeWord(or(
   flagWordNameAndValueParser,
   flagWordNameOnlyParser
-))
+)))
 
 export const singleQuotedWordParser: Parser<SingleQuotedWord> = trace("singleQuotedWordParser", seqC(
   set("tag", "singleQuoted"),
@@ -265,8 +265,62 @@ export const variableWordParser: Parser<VariableWord> = trace("variableWordParse
   variableWordNoBracesParser
 ))
 
+// A run of ordinary text inside an unquoted word. Slashes are included so
+// `$HOME/bin` keeps its suffix; `$` is excluded so a variable is not eaten
+// as text.
+const interpolatedLiteralParser: Parser<LiteralWord> = trace("interpolatedLiteralParser", map(
+  many1WithJoin(or(bareWordChars, char("/"))),
+  literalWord
+))
+
+// Quoted words are parts too: `"$HOME"/x` and `"a"b` are single words.
+// The literal run cannot contain a quote, so these never overlap.
+const interpolatedPartParser: Parser<
+  LiteralWord | VariableWord | SingleQuotedWord | DoubleQuotedWord
+> = trace("interpolatedPartParser", or(
+  variableWordParser,
+  singleQuotedWordParser,
+  doubleQuotedWordParser,
+  interpolatedLiteralParser
+))
+
+/**
+ * An unquoted word that mixes literal text and variables: `$HOME.txt`,
+ * `$HOME/bin`, `prefix$NAME`, `$A$B`.
+ *
+ * These are ONE word in bash. Parsed as separate words they become
+ * separate arguments, which changes what the command means — and in an
+ * assignment (`PATH=$HOME/bin cmd`) it changes which program runs.
+ *
+ * Only matches when the word genuinely mixes: it needs at least one
+ * variable and at least two parts, so a plain `file.txt` stays a
+ * `LiteralWord` and a lone `$HOME` stays a `VariableWord` rather than
+ * every word acquiring a `parts` array a consumer has to walk.
+ */
+export const interpolatedVariableWordParser: Parser<InterpolatedVariableWord> =
+  wholeWord((input: string) => {
+    const result = trace("interpolatedVariableWordParser",
+      many1(interpolatedPartParser))(input);
+    if (!result.success) return result;
+    const parts = result.result as InterpolatedVariableWord["parts"];
+    // Two or more parts is what makes a word interpolated. A single part
+    // keeps its own simpler type: `file.txt` stays a LiteralWord, `$HOME`
+    // a VariableWord, `"a b"` a DoubleQuotedWord.
+    if (parts.length < 2) {
+      return failure("Not an interpolated word: nothing to interpolate.", input);
+    }
+    return success(
+      { tag: "interpolatedVariable", parts } satisfies InterpolatedVariableWord,
+      result.rest
+    );
+  })
+
 export const wordParser: Parser<Word> = trace("wordParser", or(
   flagWordParser,
+  // Before every single-part parser: each of those would match only the
+  // FIRST part of an interpolated word and leave the rest to become a
+  // separate argument.
+  interpolatedVariableWordParser,
   singleQuotedWordParser,
   doubleQuotedWordParser,
   variableWordParser,

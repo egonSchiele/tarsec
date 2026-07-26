@@ -17,6 +17,7 @@ import {
   bashParserParser,
   commandParser,
   flagWordParser,
+  interpolatedVariableWordParser,
   literalWordParser,
   pathWordParser,
   redirectParser,
@@ -78,6 +79,7 @@ function describeWord(word: Word): string {
     case "variable":
       return `$${word.name}`;
     case "doubleQuoted":
+    case "interpolatedVariable":
       return word.parts.map(describeWord).join("");
   }
 }
@@ -355,6 +357,146 @@ describe("variables", () => {
   });
 });
 
+describe("interpolated words", () => {
+  // An unquoted word can mix literal text and variables: `$HOME.txt` is ONE
+  // word in bash. Without this, the parts become separate arguments and the
+  // command means something else.
+  const parts = (input: string) =>
+    parseFully(interpolatedVariableWordParser, input).parts;
+
+  it("parses a variable followed by literal text", () => {
+    expect(parts("$HOME.txt")).toEqual([
+      { tag: "variable", name: "HOME" },
+      { tag: "literal", text: ".txt" },
+    ]);
+  });
+
+  it("parses a variable followed by a path segment", () => {
+    expect(parts("$HOME/bin")).toEqual([
+      { tag: "variable", name: "HOME" },
+      { tag: "literal", text: "/bin" },
+    ]);
+  });
+
+  it("parses literal text followed by a variable", () => {
+    expect(parts("prefix$NAME")).toEqual([
+      { tag: "literal", text: "prefix" },
+      { tag: "variable", name: "NAME" },
+    ]);
+  });
+
+  it("parses two adjacent variables", () => {
+    expect(parts("$A$B")).toEqual([
+      { tag: "variable", name: "A" },
+      { tag: "variable", name: "B" },
+    ]);
+  });
+
+  it("parses text on both sides of a variable", () => {
+    expect(parts("a$MID.b")).toEqual([
+      { tag: "literal", text: "a" },
+      { tag: "variable", name: "MID" },
+      { tag: "literal", text: ".b" },
+    ]);
+  });
+
+  it("parses a braced variable followed by text", () => {
+    expect(parts("${HOME}.txt")).toEqual([
+      { tag: "variable", name: "HOME" },
+      { tag: "literal", text: ".txt" },
+    ]);
+  });
+
+  it("does not match a word with no variable in it", () => {
+    // `file.txt` is a plain literal; wrapping it in an interpolated word
+    // would hide the simpler shape from consumers.
+    expect(interpolatedVariableWordParser("file.txt").success).toBe(false);
+  });
+
+  it("parses a double-quoted part next to literal text", () => {
+    // bash: `"a"b` is the single word `ab`.
+    expect(parts('"a"b')).toEqual([
+      { tag: "doubleQuoted", parts: [{ tag: "literal", text: "a" }] },
+      { tag: "literal", text: "b" },
+    ]);
+  });
+
+  it("parses a single-quoted part next to literal text", () => {
+    expect(parts("'a'b")).toEqual([
+      { tag: "singleQuoted", text: "a" },
+      { tag: "literal", text: "b" },
+    ]);
+  });
+
+  it("parses literal text on both sides of a quoted part", () => {
+    expect(describeWord(parseFully(interpolatedVariableWordParser, 'a"b"c'))).toBe("abc");
+  });
+
+  it("parses a quoted variable followed by a path suffix", () => {
+    // `"$HOME"/x` — quoting the variable then appending is idiomatic.
+    expect(parts('"$HOME"/x')).toEqual([
+      { tag: "doubleQuoted", parts: [{ tag: "variable", name: "HOME" }] },
+      { tag: "literal", text: "/x" },
+    ]);
+  });
+
+  it("does not match a lone quoted word", () => {
+    // `"a b"` is a plain DoubleQuotedWord; there is nothing to join it to.
+    expect(interpolatedVariableWordParser('"a b"').success).toBe(false);
+    expect(interpolatedVariableWordParser("'a b'").success).toBe(false);
+  });
+
+  it("does not match a lone variable", () => {
+    // `$HOME` on its own stays a plain VariableWord — there is nothing to
+    // interpolate it with.
+    expect(interpolatedVariableWordParser("$HOME").success).toBe(false);
+  });
+
+  it("parses a variable followed by a quoted part", () => {
+    // bash: `$HOME"x"` is the single word `/hx`.
+    expect(parts('$HOME"x"')).toEqual([
+      { tag: "variable", name: "HOME" },
+      { tag: "doubleQuoted", parts: [{ tag: "literal", text: "x" }] },
+    ]);
+  });
+
+  it("requires the whole word to be consumed", () => {
+    // A trailing operator character is a boundary, but a stray one that
+    // no part can start is not: refuse rather than split the word.
+    expect(interpolatedVariableWordParser("$HOME*x").success).toBe(false);
+  });
+});
+
+describe("interpolated words in a command", () => {
+  it("keeps a variable and its suffix as one argument", () => {
+    const cmd = command("cat $HOME/notes.txt");
+    expect(positional(cmd)).toEqual(["$HOME/notes.txt"]);
+    expect(cmd.args).toHaveLength(1);
+    expect(cmd.args[0].tag).toBe("interpolatedVariable");
+  });
+
+  it("keeps an interpolated assignment value with its command", () => {
+    // Previously: assignment PATH=$HOME, command "/bin", subcommand "cmd" —
+    // a different program than bash would run.
+    const cmd = command("PATH=$HOME/bin cmd");
+    expect(cmd.assignments).toHaveLength(1);
+    expect(cmd.assignments[0].name).toBe("PATH");
+    expect(describeWord(cmd.assignments[0].value as Word)).toBe("$HOME/bin");
+    expect(cmd.command.text).toBe("cmd");
+  });
+
+  it("leaves a plain variable argument alone", () => {
+    const cmd = command("echo $HOME");
+    expect(cmd.args).toEqual([{ tag: "variable", name: "HOME" }]);
+  });
+
+  it("leaves a plain path argument alone", () => {
+    const cmd = command("cat src/main.ts");
+    expect(positional(cmd)).toEqual(["src/main.ts"]);
+    expect([...cmd.subcommands, ...cmd.args][0].tag).toBe("path");
+  });
+});
+
 describe("flags", () => {
   it("parses a short flag", () => {
     expect(parseFully(flagWordParser, "-l")).toEqual({ tag: "flag", flagName: "-l" });
@@ -386,6 +528,50 @@ describe("flags", () => {
       flagName: "--format",
       flagValue: "oneline",
     });
+  });
+
+  it("parses a flag value containing a slash", () => {
+    // bash: `--file=a/b` is one word.
+    expect(parseFully(flagWordParser, "--file=a/b")).toEqual({
+      tag: "flag",
+      flagName: "--file",
+      flagValue: "a/b",
+    });
+  });
+
+  it("parses a flag name containing a path", () => {
+    // `-I/usr/include` is one word to bash; splitting it leaves a stray
+    // path argument the command was never given.
+    expect(parseFully(flagWordParser, "-I/usr/include")).toEqual({
+      tag: "flag",
+      flagName: "-I/usr/include",
+    });
+  });
+
+  it("does not leave a remainder after a flag", () => {
+    // Without a boundary check the leftover becomes a separate argument.
+    expect(flagWordParser('-x"y"').success).toBe(false);
+  });
+});
+
+describe("interpolated words in commands", () => {
+  it("keeps a quoted variable and its suffix as one argument", () => {
+    const cmd = command('cat "$HOME"/notes.txt');
+    expect(cmd.args).toHaveLength(1);
+    expect(describeWord(cmd.args[0])).toBe("$HOME/notes.txt");
+  });
+
+  it("keeps a flag-shaped word containing a variable in one piece", () => {
+    // `--file=$HOME/x` is one word; the flag parser cannot hold a variable,
+    // so it lands as an interpolated word rather than being split.
+    const cmd = command("cmd --file=$HOME/x");
+    expect(cmd.args).toHaveLength(1);
+    expect(describeWord(cmd.args[0])).toBe("--file=$HOME/x");
+  });
+
+  it("keeps an include flag and its path as one argument", () => {
+    const cmd = command("gcc -I/usr/include main.c");
+    expect(positional(cmd)).toEqual(["-I/usr/include", "main.c"]);
   });
 });
 

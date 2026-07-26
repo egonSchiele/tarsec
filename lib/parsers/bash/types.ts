@@ -6,7 +6,8 @@ export type Word =
   | FlagWord
   | SingleQuotedWord
   | DoubleQuotedWord
-  | VariableWord;
+  | VariableWord
+  | InterpolatedVariableWord;
 
 export type ScriptName = LiteralWord | PathWord
 
@@ -17,6 +18,16 @@ export type FlagWord = { tag: "flag"; flagName: string; flagValue?: string };
 export type SingleQuotedWord = { tag: "singleQuoted"; text: string };
 export type DoubleQuotedWord = { tag: "doubleQuoted"; parts: Word[] };
 export type VariableWord = { tag: "variable"; name: string };
+/** A word built from two or more adjacent parts: `$HOME.txt`, `"a"b`,
+ * `"$HOME"/x`. These are ONE word in bash; split into separate words they
+ * become separate arguments and the command means something else.
+ *
+ * Quoted parts belong here as much as variables do — quoting a variable
+ * and appending to it (`"$HOME"/bin`) is idiomatic shell. */
+export type InterpolatedVariableWord = {
+  tag: "interpolatedVariable";
+  parts: (LiteralWord | VariableWord | SingleQuotedWord | DoubleQuotedWord)[];
+};
 
 export function literalWord(text: string): LiteralWord {
   return { tag: "literal", text };
