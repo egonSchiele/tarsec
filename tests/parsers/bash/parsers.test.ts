@@ -14,6 +14,7 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  bashParserParser,
   commandParser,
   flagWordParser,
   literalWordParser,
@@ -584,6 +585,91 @@ describe("whole commands", () => {
 
   it("parses a parenthesized command", () => {
     expect(parseFully(commandParser, "(echo hi)").tag).toBe("parens");
+  });
+});
+
+describe("newlines separate commands", () => {
+  // A newline is a command separator, not whitespace. Treating it as
+  // whitespace merges commands: `ls\nrm -rf /tmp/x` becomes a single `ls`
+  // with arguments, so anything inspecting the command name sees `ls`
+  // while bash runs the `rm`.
+  function commands(input: string) {
+    const result = bashParserParser(input);
+    if (!result.success) throw new Error(`parse failed: ${result.message}`);
+    return result.result;
+  }
+
+  it("splits two commands on a newline", () => {
+    const parsed = commands("echo a\necho b");
+    expect(parsed).toHaveLength(2);
+  });
+
+  it("does not attach the second command as arguments to the first", () => {
+    const parsed = commands("ls\nrm -rf /tmp/x");
+    expect(parsed).toHaveLength(2);
+    expect((parsed[0] as SimpleCommand).command.text).toBe("ls");
+    expect((parsed[1] as SimpleCommand).command.text).toBe("rm");
+  });
+
+  it("ignores blank lines between commands", () => {
+    expect(commands("echo a\n\n\necho b")).toHaveLength(2);
+  });
+
+  it("accepts a semicolon followed by a newline", () => {
+    expect(commands("echo a;\necho b")).toHaveLength(2);
+  });
+
+  it("still splits on a semicolon", () => {
+    expect(commands("echo a; echo b")).toHaveLength(2);
+  });
+
+  it("still rejects a doubled semicolon", () => {
+    const result = bashParserParser("echo a ;; echo b");
+    expect(result.success && result.rest.trim() === "").toBe(false);
+  });
+});
+
+describe("flags reach the args field", () => {
+  // `subcommands` runs before `args` and matches bare literals; since `-`
+  // is a word character, a leading flag was landing there as a literal and
+  // `FlagWord` was unreachable for the commands that matter most.
+  it("records a leading short flag as a flag", () => {
+    const cmd = command("ls -la");
+    expect(cmd.subcommands).toEqual([]);
+    expect(cmd.args).toEqual([{ tag: "flag", flagName: "-la" }]);
+  });
+
+  it("records a long flag after a subcommand as a flag", () => {
+    const cmd = command("git log --oneline");
+    expect(cmd.subcommands.map((w) => w.text)).toEqual(["log"]);
+    expect(cmd.args).toEqual([{ tag: "flag", flagName: "--oneline" }]);
+  });
+
+  it("keeps a hyphen inside a word working", () => {
+    // The rule is about a LEADING hyphen; `my-file` is still one word.
+    expect(positional(command("cat my-file"))).toEqual(["my-file"]);
+  });
+});
+
+describe("file descriptors attached to a redirect", () => {
+  it("reads an attached digit as a file descriptor, not an argument", () => {
+    // bash: `cmd 3> x` redirects fd 3 and passes NO argument.
+    const cmd = command("cmd 3> x");
+    expect(positional(cmd)).toEqual([]);
+    expect(cmd.redirects[0].fd).toBe(3);
+  });
+
+  it("still treats a detached digit as an argument", () => {
+    const cmd = command("echo 2 > x");
+    expect(positional(cmd)).toEqual(["2"]);
+    expect(cmd.redirects[0].fd).toBeUndefined();
+  });
+
+  it("allows an argument after a redirect", () => {
+    // bash accepts redirects anywhere among the arguments.
+    const cmd = command("cmd > out.txt arg");
+    expect(positional(cmd)).toEqual(["arg"]);
+    expect(cmd.redirects).toHaveLength(1);
   });
 });
 

@@ -1,6 +1,6 @@
 import { CaptureParser, failure, Parser, ParserResult, success } from "../../types.js";
 import { And, Arg, Assignment, BashAST, Command, DoubleQuotedWord, FlagWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
-import { buildExpressionParser, capture, char, digit, eof, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, peek, sepBy, sepBy1, seq, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
+import { buildExpressionParser, capture, char, digit, eof, not, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, peek, sepBy, sepBy1, seq, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
 export const RESERVED_WORDS = [
   "if", "then", "elif", "else", "fi",
   "do", "done", "while", "until", "for", "in",
@@ -65,9 +65,28 @@ export const bareWordChars: Parser<string> = label(
   oneOf(LETTERS + DIGITS + "_-.=")
 );
 
+/** A bare word may not START with `-`: that is a flag. Without this rule
+ * `subcommands` (bare literals, parsed before `args`) swallows a leading
+ * flag as a literal and `FlagWord` is unreachable for `ls -la`. A hyphen
+ * inside a word (`my-file`) is still fine. */
+export const bareWordStartChars: Parser<string> = label(
+  "a word character",
+  oneOf(LETTERS + DIGITS + "_.=")
+);
+
 /** Characters that end a bare word: whitespace and the operators that
  * separate commands. */
 const WORD_END_CHARS = " \t\n\r&|;()<>";
+
+/**
+ * Whitespace WITHIN a command: spaces and tabs only.
+ *
+ * Deliberately not tarsec's `spaces`, which includes `\n`. A newline is a
+ * command SEPARATOR, and eating it as whitespace merges commands —
+ * `ls\nrm -rf /tmp/x` becomes a single `ls` with arguments, so anything
+ * that inspects the command name sees `ls` while bash runs the `rm`.
+ */
+const blanks: Parser<string> = manyWithJoin(oneOf(" \t"));
 
 /**
  * Require that a word ran all the way to a boundary.
@@ -108,7 +127,7 @@ export const assignmentNameParser: Parser<string> = trace("assignmentNameParser"
 export const literalWordParser: Parser<LiteralWord> = wholeWord((input: string) => {
   const result = trace("literalWordParser", seqC(
     set("tag", "literal"),
-    capture(many1WithJoin(bareWordChars), "text")
+    capture(map(seqR(bareWordStartChars, manyWithJoin(bareWordChars)), (r) => r.join("")), "text")
   ))(input)
   if (result.success) {
     const text = result.result.text;
@@ -293,7 +312,7 @@ export const redirectParser: Parser<Redirect> = trace("redirectParser", seqC(
     str(">"),
     str("<")
   ), "op"),
-  optional(space),
+  blanks,
   capture(wordParser, "target")
 ))
 
@@ -312,24 +331,55 @@ export const argParser: Parser<Arg> = trace("argParser", or(
  * had nothing to consume it and the rest of the command was left
  * unparsed. */
 function token<T>(parser: Parser<T>): Parser<T> {
-  return map(seqR(parser, optional(spaces)), (results) => results[0] as T);
+  return map(seqR(parser, blanks), (results) => results[0] as T);
 }
 
-export const simpleCommandParser: Parser<SimpleCommand> = trace("simpleCommandParser", seqC(
-  set("tag", "simpleCommand"),
-  optional(spaces),
-  capture(many(token(assignmentParser)), "assignments"),
-  capture(token(scriptNameParser), "command"),
-  capture(many(token(literalWordParser)), "subcommands"),
-  capture(many(token(argParser)), "args"),
-  capture(many(token(redirectParser)), "redirects")
+/** A redirect or an argument, tried in that order.
+ *
+ * Interleaved rather than parsed as two separate groups, for two reasons.
+ * A digit attached to an operator is a FILE DESCRIPTOR, not an argument —
+ * bash reads `cmd 3> x` as "redirect fd 3, no arguments" — and args-first
+ * would always claim the `3`. And bash allows a redirect anywhere among
+ * the arguments (`cmd > out.txt arg`), which two fixed groups reject. */
+const argOrRedirectParser: Parser<Arg | Redirect> = trace("argOrRedirectParser", or(
+  redirectParser,
+  argParser
+))
+
+const isRedirect = (item: Arg | Redirect): item is Redirect =>
+  item.tag === "redirect";
+
+export const simpleCommandParser: Parser<SimpleCommand> = trace("simpleCommandParser", map(
+  seqC(
+    set("tag", "simpleCommand"),
+    blanks,
+    capture(many(token(assignmentParser)), "assignments"),
+    capture(token(scriptNameParser), "command"),
+    // `not(redirectParser)` for the same reason: without it a bare `3`
+    // lands here as a subcommand before the redirect is ever tried.
+    capture(many(token(seqR(not(redirectParser), literalWordParser))), "subcommands"),
+    capture(many(token(argOrRedirectParser)), "items")
+  ),
+  (parsed) => {
+    const items = parsed.items as unknown as (Arg | Redirect)[];
+    return {
+      tag: "simpleCommand",
+      assignments: parsed.assignments,
+      command: parsed.command,
+      // seqR yields [null, word]; the word is what we want.
+      subcommands: (parsed.subcommands as unknown as [null, LiteralWord][])
+        .map((pair) => pair[1]),
+      args: items.filter((item): item is Arg => !isRedirect(item)),
+      redirects: items.filter(isRedirect),
+    } satisfies SimpleCommand;
+  }
 ))
 
 /** An operator in a `&&` / `||` chain, absorbing the whitespace around it.
  * `buildExpressionParser` applies this directly to the remaining input, so
  * it has to eat its own surrounding space; optional, so `a&&b` works too. */
 const chainOperator = (symbol: "&&" | "||"): Parser<string> =>
-  map(seqR(optional(spaces), str(symbol), optional(spaces)), () => symbol);
+  map(seqR(blanks, str(symbol), blanks), () => symbol);
 
 /**
  * `a && b || c`, plus `( ... )` grouping.
@@ -370,14 +420,18 @@ export const parensParser: Parser<Parens> = trace("parensParser", seqC(
   char(")")
 ))
 
-export const semicolonSeparator = seqR(
-  optional(spaces),
-  char(";"),
-  optional(spaces)
+/** What separates two commands: a `;` or a newline.
+ *
+ * The trailing run absorbs blank lines and a `;` followed by a newline,
+ * but NOT a second `;` — `echo a ;; echo b` stays a parse error. */
+export const commandSeparator = seqR(
+  blanks,
+  or(char(";"), char("\n")),
+  manyWithJoin(oneOf(" \t\n"))
 )
 
 export function bashParserParser(input: string): ParserResult<BashAST> {
-  const result = trace("bashParser", sepBy1(semicolonSeparator, commandParser))(input);
+  const result = trace("bashParser", sepBy1(commandSeparator, commandParser))(input);
   if (result.success) {
     if (result.rest.trim() !== "") {
       return failure(`Unexpected input after commands: "${result.rest}"`, input);
