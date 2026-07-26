@@ -1,6 +1,6 @@
 import { CaptureParser, failure, Parser, ParserResult, success } from "../../types.js";
 import { And, Arg, Assignment, BashAST, Command, DoubleQuotedWord, FlagWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
-import { buildExpressionParser, capture, char, digit, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, peek, sepBy, sepBy1, seq, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
+import { buildExpressionParser, capture, char, digit, eof, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, peek, sepBy, sepBy1, seq, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
 export const RESERVED_WORDS = [
   "if", "then", "elif", "else", "fi",
   "do", "done", "while", "until", "for", "in",
@@ -79,10 +79,11 @@ const WORD_END_CHARS = " \t\n\r&|;()<>";
  * follows is part of the same word.
  */
 function wholeWord<T>(parser: Parser<T>): Parser<T> {
-  return (input: string): ParserResult<T> => {
-    const res: ParserResult<T> = getResult(seqC(result(parser), optional(peek(oneOf(WORD_END_CHARS)))))(input);
-    return res;
-  };
+  // The boundary is REQUIRED, not optional: `optional(peek(...))` succeeds
+  // whether or not a boundary follows, which makes the whole check a no-op
+  // and lets `src` match out of `src/main.ts` again. `eof` covers the word
+  // that ends the input, which is the only reason it looked optional.
+  return getResult(seqC(result(parser), or(peek(oneOf(WORD_END_CHARS)), eof)));
 }
 
 /** An identifier: `[A-Za-z_][A-Za-z0-9_]*`. `manyWithJoin`, not `many1`,
@@ -254,14 +255,16 @@ export const assignmentParser: Parser<Assignment> = trace("assignmentParser", or
 export const redirectParser: Parser<Redirect> = trace("redirectParser", seqC(
   set("tag", "redirect"),
   optional(capture(map(num, parseInt), "fd")),
+  // No `<<` or `<<<`: a heredoc's body lives on the lines AFTER the
+  // command, so `cat <<EOF` is not a redirect to a file named "EOF".
+  // Parsing it as one is a silent mis-parse; leaving the operator out
+  // means the `<` alternative fails on the second `<` and the command is
+  // rejected instead. Longest alternative first, so `>>` beats `>`.
   capture(or(
-    str("<<<"),
     str(">>"),
-    str("<<"),
-    str(">"),
-    str("<"),
     str("&>"),
-    str("&<")
+    str(">"),
+    str("<")
   ), "op"),
   optional(space),
   capture(wordParser, "target")

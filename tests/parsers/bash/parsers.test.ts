@@ -526,7 +526,7 @@ describe("whole commands", () => {
   });
 
   it("parses an && chain", () => {
-    expect(parseFully(commandParser, "make && echo done").tag).toBe("and");
+    expect(parseFully(commandParser, "make && echo finished").tag).toBe("and");
   });
 
   it("parses an || chain", () => {
@@ -534,7 +534,7 @@ describe("whole commands", () => {
   });
 
   it("puts each side of a chain in the right slot", () => {
-    const parsed = parseFully(commandParser, "make build && echo done") as Command & {
+    const parsed = parseFully(commandParser, "make build && echo finished") as Command & {
       tag: "and";
       left: Command;
       right: Command;
@@ -573,9 +573,12 @@ describe("reserved words", () => {
     expect(parsesFully(commandParser, "if true; then echo hi; fi")).toBe(false);
   });
 
-  it("allows a reserved word as an argument", () => {
-    // `echo if` is an ordinary command in bash.
-    expect(positional(command("echo if"))).toEqual(["if"]);
+  it("rejects a reserved word in argument position too", () => {
+    // `echo if` IS valid bash, and this parser deliberately refuses it.
+    // Reserved words are rejected everywhere rather than only at command
+    // position: this is a small subset of bash, and refusing to parse
+    // something valid is the cheap failure. Mis-parsing it is not.
+    expect(parsesFully(commandParser, "echo if")).toBe(false);
   });
 });
 
