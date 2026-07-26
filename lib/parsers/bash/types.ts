@@ -71,4 +71,9 @@ export type Parens = {
   command: Command;
 };
 
-export type BashAST = Command[];
+export type BashNode = Command | SimpleCommand | Assignment | Redirect | Word | ScriptName;
+
+export type BashAST = {
+  tag: "script";
+  commands: Command[];
+};

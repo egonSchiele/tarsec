@@ -175,17 +175,44 @@ export const singleQuotedWordParser: Parser<SingleQuotedWord> = trace("singleQuo
 ))
 
 // A run of ordinary text inside double quotes. Stops at `$` so an
-// expansion is not swallowed as text.
+// expansion is not swallowed as text, and at `\` so an escape is not.
 const doubleQuotedLiteralParser: Parser<LiteralWord> = trace("doubleQuotedLiteralParser", map(
-  many1WithJoin(noneOf('"$')),
+  many1WithJoin(noneOf('"$\\')),
   literalWord
 ))
 
-// Neither alternative can match empty, so `many` below always terminates.
+/** The characters a backslash escapes inside double quotes. Before
+ * anything else the backslash is ordinary text: bash prints `"a\zb"` as
+ * `a\zb`, but `"a\"b"` as `a"b`. */
+const DOUBLE_QUOTE_ESCAPABLE = '"$`\\';
+
+const doubleQuotedEscapeParser: Parser<LiteralWord> = trace("doubleQuotedEscapeParser", or(
+  map(seqR(char("\\"), oneOf(DOUBLE_QUOTE_ESCAPABLE)), (results) =>
+    literalWord(results[1] as string)),
+  map(char("\\"), () => literalWord("\\"))
+))
+
+// No alternative can match empty, so `many` below always terminates.
 const doubleQuotedPartParser: Parser<Word> = trace("doubleQuotedPartParser", or(
   lazy(() => variableWordParser),
+  doubleQuotedEscapeParser,
   doubleQuotedLiteralParser
 ))
+
+/** Merge adjacent literal parts. An escape splits the text run in three
+ * (`a`, `"`, `b`), which is an artifact of how it was parsed rather than
+ * anything a consumer should have to reassemble. */
+function mergeLiterals(parts: Word[]): Word[] {
+  return parts.reduce<Word[]>((merged, part) => {
+    const previous = merged[merged.length - 1];
+    if (part.tag === "literal" && previous?.tag === "literal") {
+      merged[merged.length - 1] = literalWord(previous.text + part.text);
+      return merged;
+    }
+    merged.push(part);
+    return merged;
+  }, []);
+}
 
 /** Double quotes interpolate: `"$HOME"` expands, so the parts are text runs
  * interleaved with variables. Recording the whole thing as literal text
@@ -196,7 +223,7 @@ const doubleQuotedPartParser: Parser<Word> = trace("doubleQuotedPartParser", or(
 export const doubleQuotedWordParser: Parser<DoubleQuotedWord> = trace("doubleQuotedWordParser", seqC(
   set("tag", "doubleQuoted"),
   char('"'),
-  capture(many(doubleQuotedPartParser), "parts"),
+  capture(map(many(doubleQuotedPartParser), mergeLiterals), "parts"),
   char('"')
 ))
 

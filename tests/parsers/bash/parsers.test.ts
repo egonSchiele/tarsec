@@ -260,6 +260,31 @@ describe("quoted words", () => {
     expect(word.parts.map(describeWord).join("")).toBe('a"b');
   });
 
+  it("unescapes an escaped backslash inside double quotes", () => {
+    // bash: "a\\b" is the word a\b
+    const word = parseFully(doubleQuotedWordParser, '"a\\\\b"');
+    expect(word.parts.map(describeWord).join("")).toBe("a\\b");
+  });
+
+  it("treats an escaped dollar sign as text, not an expansion", () => {
+    // bash: "\$5" is the word $5 — no variable named 5 is expanded.
+    const word = parseFully(doubleQuotedWordParser, '"\\$5"');
+    expect(word.parts.map(describeWord).join("")).toBe("$5");
+  });
+
+  it("keeps a backslash before an ordinary character", () => {
+    // bash: "a\zb" keeps the backslash — it is only special before
+    // `"`, `$`, a backtick, or another backslash.
+    const word = parseFully(doubleQuotedWordParser, '"a\\zb"');
+    expect(word.parts.map(describeWord).join("")).toBe("a\\zb");
+  });
+
+  it("merges adjacent literal parts into one", () => {
+    // An escape splits the text run; a consumer should still see one part.
+    const word = parseFully(doubleQuotedWordParser, '"a\\"b"');
+    expect(word.parts).toEqual([{ tag: "literal", text: 'a"b' }]);
+  });
+
   it("rejects command substitution inside double quotes", () => {
     // It expands in bash; treating it as text would run a different command.
     expect(parsesFully(doubleQuotedWordParser, '"$(date)"')).toBe(false);
