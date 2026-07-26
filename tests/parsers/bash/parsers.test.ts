@@ -7,14 +7,14 @@
  * tests exercise `simpleCommandParser`, and chain tests exercise
  * `commandParser`. A break in one layer does not hide the others.
  *
- * Note: there is no exported whole-input entry point, so `parseFully`
- * below composes one. A parser that stops early and leaves input behind
- * is treated as a failure — otherwise "parsed" would include commands
- * with half the text quietly discarded.
+ * `bashParser` is the whole-input entry point; `parseFully` composes the
+ * same rule for the sub-parsers, so a parser that stops early and leaves
+ * input behind counts as a failure. Otherwise "parsed" would include
+ * commands with half the text quietly discarded.
  */
 import { describe, expect, it } from "vitest";
 import {
-  bashParserParser,
+  bashParser,
   commandParser,
   flagWordParser,
   interpolatedVariableWordParser,
@@ -57,13 +57,10 @@ function parsesFully<T>(parser: Parser<T>, input: string): boolean {
 const command = (input: string): SimpleCommand =>
   parseFully(simpleCommandParser, input);
 
-/** Every non-assignment, non-redirect word after the command name.
- *
- * Deliberately blind to the subcommands/args split: no syntactic rule can
- * tell `git status` (subcommand) from `echo status` (argument), so tests
- * assert on the combined list and leave that design choice open. */
+/** Every non-assignment, non-redirect word after the command name, in
+ *  source order. */
 function positional(cmd: SimpleCommand): string[] {
-  return [...cmd.subcommands, ...cmd.args].map(describeWord);
+  return cmd.args.map(describeWord);
 }
 
 function describeWord(word: Word): string {
@@ -170,8 +167,10 @@ describe("paths", () => {
     expect(parseFully(pathWordParser, "src/")).toEqual({ tag: "path", text: "src/" });
   });
 
-  it("rejects a path with a doubled slash", () => {
-    expect(parsesFully(pathWordParser, "a//b")).toBe(false);
+  it("accepts a doubled slash", () => {
+    // `a//b` is a valid path in bash (duplicate slashes collapse), and the
+    // `//` in a URL needs it — `curl http://example.com` depends on this.
+    expect(parseFully(pathWordParser, "a//b")).toEqual({ tag: "path", text: "a//b" });
   });
 
   it("does not classify a word without a slash as a path", () => {
@@ -493,7 +492,7 @@ describe("interpolated words in a command", () => {
   it("leaves a plain path argument alone", () => {
     const cmd = command("cat src/main.ts");
     expect(positional(cmd)).toEqual(["src/main.ts"]);
-    expect([...cmd.subcommands, ...cmd.args][0].tag).toBe("path");
+    expect(cmd.args[0].tag).toBe("path");
   });
 });
 
@@ -780,7 +779,7 @@ describe("newlines separate commands", () => {
   // with arguments, so anything inspecting the command name sees `ls`
   // while bash runs the `rm`.
   function commands(input: string) {
-    const result = bashParserParser(input);
+    const result = bashParser(input);
     if (!result.success) throw new Error(`parse failed: ${result.message}`);
     return result.result;
   }
@@ -810,25 +809,24 @@ describe("newlines separate commands", () => {
   });
 
   it("still rejects a doubled semicolon", () => {
-    const result = bashParserParser("echo a ;; echo b");
+    const result = bashParser("echo a ;; echo b");
     expect(result.success && result.rest.trim() === "").toBe(false);
   });
 });
 
 describe("flags reach the args field", () => {
-  // `subcommands` runs before `args` and matches bare literals; since `-`
-  // is a word character, a leading flag was landing there as a literal and
-  // `FlagWord` was unreachable for the commands that matter most.
+  // `-` is a word character, so a leading flag used to be matched as a
+  // bare literal and `FlagWord` was unreachable for the commands that
+  // matter most.
   it("records a leading short flag as a flag", () => {
     const cmd = command("ls -la");
-    expect(cmd.subcommands).toEqual([]);
     expect(cmd.args).toEqual([{ tag: "flag", flagName: "-la" }]);
   });
 
   it("records a long flag after a subcommand as a flag", () => {
     const cmd = command("git log --oneline");
-    expect(cmd.subcommands.map((w) => w.text)).toEqual(["log"]);
-    expect(cmd.args).toEqual([{ tag: "flag", flagName: "--oneline" }]);
+    expect(cmd.args.map(describeWord)).toEqual(["log", "--oneline"]);
+    expect(cmd.args[1]).toEqual({ tag: "flag", flagName: "--oneline" });
   });
 
   it("keeps a hyphen inside a word working", () => {
@@ -856,6 +854,121 @@ describe("file descriptors attached to a redirect", () => {
     const cmd = command("cmd > out.txt arg");
     expect(positional(cmd)).toEqual(["arg"]);
     expect(cmd.redirects).toHaveLength(1);
+  });
+});
+
+describe("arguments are one ordered list", () => {
+  // There is no syntactic rule that separates a subcommand from an
+  // argument — `git status` and `echo status` are the same shape — so
+  // every word after the command name goes in `args`, in source order.
+  const argTexts = (input: string) => command(input).args.map(describeWord);
+
+  it("keeps a subcommand-shaped word in args", () => {
+    expect(argTexts("git status")).toEqual(["status"]);
+  });
+
+  it("reports the file a command operates on", () => {
+    expect(argTexts("rm foo.txt")).toEqual(["foo.txt"]);
+  });
+
+  it("keeps every positional argument, in order", () => {
+    expect(argTexts("tar czf a.tar.gz dir/")).toEqual(["czf", "a.tar.gz", "dir/"]);
+  });
+
+  it("keeps flags and positionals in source order", () => {
+    expect(argTexts("ls -la src")).toEqual(["-la", "src"]);
+  });
+
+  it("does not reorder around a path", () => {
+    expect(argTexts("cp a.txt b.txt")).toEqual(["a.txt", "b.txt"]);
+  });
+
+  it("reports the command env runs", () => {
+    const cmd = command("env FOO=bar cmd");
+    expect(cmd.command.text).toBe("env");
+    expect(argTexts("env FOO=bar cmd")).toEqual(["FOO=bar", "cmd"]);
+  });
+});
+
+describe("leading separators", () => {
+  const parses = (input: string) => {
+    const result = bashParser(input);
+    return result.success && result.rest.trim() === "";
+  };
+
+  it("accepts input starting with a newline", () => {
+    expect(parses("\nls")).toBe(true);
+  });
+
+  it("accepts input starting with a blank line", () => {
+    expect(parses("  \n ls")).toBe(true);
+  });
+
+  it("accepts CRLF line endings", () => {
+    const result = bashParser("ls\r\nrm -rf x");
+    expect(result.success && result.result).toHaveLength(2);
+  });
+
+  it("still accepts a trailing newline", () => {
+    expect(parses("ls\n")).toBe(true);
+  });
+});
+
+describe("standalone assignments", () => {
+  it("parses an assignment with no command", () => {
+    // A bare `FOO=bar` line is ordinary in a script and cannot be
+    // mis-parsed into anything else.
+    const cmd = command("FOO=bar");
+    expect(cmd.command).toBeNull();
+    expect(cmd.assignments).toHaveLength(1);
+    expect(cmd.assignments[0].name).toBe("FOO");
+  });
+
+  it("still requires a command or an assignment", () => {
+    expect(bashParser("   ").success).toBe(false);
+  });
+});
+
+describe("redirect operators that take no file descriptor", () => {
+  it("treats a digit before &> as an argument", () => {
+    // bash has no fd-prefixed form of `&>`: in `cmd 2&> f` the `2` is an
+    // ordinary argument. Reading it as fd 2 loses the argument entirely.
+    const cmd = command("cmd 2&> f");
+    expect(cmd.args.map(describeWord)).toEqual(["2"]);
+    expect(cmd.redirects[0].op).toBe("&>");
+    expect(cmd.redirects[0].fd).toBeUndefined();
+  });
+
+  it("still attaches a digit to an operator that takes one", () => {
+    const cmd = command("cmd 3> f");
+    expect(cmd.args).toEqual([]);
+    expect(cmd.redirects[0].fd).toBe(3);
+  });
+});
+
+describe("error positions", () => {
+  it("reports the offset where the unparsed text starts", () => {
+    // tarsec derives position from originalInput.length - rest.length, so
+    // returning the whole input as `rest` puts every error at column 1.
+    const result = bashParser("echo hi | wc");
+    expect(result.success).toBe(false);
+    expect(result.success === false && result.rest).toBe("| wc");
+  });
+});
+
+describe("word characters", () => {
+  const parses = (input: string) => {
+    const result = bashParser(input);
+    return result.success && result.rest.trim() === "";
+  };
+
+  it("accepts a colon, so URLs and PATH-style values work", () => {
+    expect(parses("curl http://example.com")).toBe(true);
+    expect(parses("PATH=/a:/b cmd")).toBe(true);
+  });
+
+  it("accepts a plus, so chmod works", () => {
+    expect(parses("chmod +x run.sh")).toBe(true);
   });
 });
 

@@ -1,5 +1,5 @@
 import { CaptureParser, failure, Parser, ParserResult, success } from "../../types.js";
-import { And, Arg, Assignment, BashAST, Command, DoubleQuotedWord, FlagWord, InterpolatedVariableWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
+import { And, Assignment, BashAST, Command, DoubleQuotedWord, FlagWord, InterpolatedVariableWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
 import { buildExpressionParser, capture, char, digit, eof, not, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, peek, sepBy, sepBy1, seq, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
 export const RESERVED_WORDS = [
   "if", "then", "elif", "else", "fi",
@@ -7,15 +7,6 @@ export const RESERVED_WORDS = [
   "case", "esac", "function",
   "select", "coproc", "time", "[[", "]]",
 ];
-
-function matchFail(array: string[]) {
-  return (input: string) => {
-    if (array.includes(input)) {
-      return failure(`Reserved word "${input}" cannot be used.`, input);
-    }
-    return success(input, input);
-  };
-}
 
 function result<T>(parser: Parser<T>): CaptureParser<T, { result: T }> {
   return capture(parser, "result")
@@ -62,7 +53,7 @@ export const wordChars: Parser<string> = label(
  * the command name.) */
 export const bareWordChars: Parser<string> = label(
   "a word character",
-  oneOf(LETTERS + DIGITS + "_-.=")
+  oneOf(LETTERS + DIGITS + "_-.=:+")
 );
 
 /** A bare word may not START with `-`: that is a flag. Without this rule
@@ -71,7 +62,7 @@ export const bareWordChars: Parser<string> = label(
  * inside a word (`my-file`) is still fine. */
 export const bareWordStartChars: Parser<string> = label(
   "a word character",
-  oneOf(LETTERS + DIGITS + "_.=")
+  oneOf(LETTERS + DIGITS + "_.=:+")
 );
 
 /** Characters that end a bare word: whitespace and the operators that
@@ -124,18 +115,25 @@ export const varNameParser: Parser<string> = trace("varNameParser", or(
  * recording it as an assignment would misreport what runs. */
 export const assignmentNameParser: Parser<string> = trace("assignmentNameParser", identifierParser)
 
+/** Reserved words are refused everywhere, not only at command position:
+ * this is a small subset of bash, and refusing to parse something valid is
+ * cheaper than mis-parsing it. */
+function rejectReservedWord<T extends { text: string }>(
+  result: ParserResult<T>,
+  input: string
+): ParserResult<T> {
+  if (result.success && RESERVED_WORDS.includes(result.result.text)) {
+    return failure(`Reserved word "${result.result.text}" cannot be used.`, input);
+  }
+  return result;
+}
+
 export const literalWordParser: Parser<LiteralWord> = wholeWord((input: string) => {
   const result = trace("literalWordParser", seqC(
     set("tag", "literal"),
     capture(map(seqR(bareWordStartChars, manyWithJoin(bareWordChars)), (r) => r.join("")), "text")
   ))(input)
-  if (result.success) {
-    const text = result.result.text;
-    if (RESERVED_WORDS.includes(text)) {
-      return failure(`Reserved word "${text}" cannot be used.`, input);
-    }
-  }
-  return result;
+  return rejectReservedWord(result, input);
 })
 
 // Slashes are scanned as part of the run rather than used as separators,
@@ -150,12 +148,6 @@ export const pathWordParser: Parser<PathWord> = wholeWord((input: string) => {
 
   if (result.success) {
     const text = result.result.text;
-    if (RESERVED_WORDS.includes(text)) {
-      return failure(`Reserved word "${text}" cannot be used.`, input);
-    }
-    if (text.includes("//")) {
-      return failure(`Path cannot contain "//".`, input);
-    }
     if (!text.includes("/")) {
       return failure(`Path must contain at least one "/".`, input);
     }
@@ -292,10 +284,11 @@ const interpolatedPartParser: Parser<
  * separate arguments, which changes what the command means — and in an
  * assignment (`PATH=$HOME/bin cmd`) it changes which program runs.
  *
- * Only matches when the word genuinely mixes: it needs at least one
- * variable and at least two parts, so a plain `file.txt` stays a
- * `LiteralWord` and a lone `$HOME` stays a `VariableWord` rather than
- * every word acquiring a `parts` array a consumer has to walk.
+ * Only matches when the word genuinely mixes: two or more adjacent
+ * parts, in any combination. A single part keeps its own simpler type, so
+ * a plain `file.txt` stays a `LiteralWord` and a lone `$HOME` stays a
+ * `VariableWord` rather than every word acquiring a `parts` array a
+ * consumer has to walk.
  */
 export const interpolatedVariableWordParser: Parser<InterpolatedVariableWord> =
   wholeWord((input: string) => {
@@ -352,25 +345,35 @@ export const assignmentParser: Parser<Assignment> = trace("assignmentParser", or
   emptyAssignmentParser
 ))
 
-export const redirectParser: Parser<Redirect> = trace("redirectParser", seqC(
-  set("tag", "redirect"),
-  optional(capture(map(num, parseInt), "fd")),
-  // No `<<` or `<<<`: a heredoc's body lives on the lines AFTER the
-  // command, so `cat <<EOF` is not a redirect to a file named "EOF".
-  // Parsing it as one is a silent mis-parse; leaving the operator out
-  // means the `<` alternative fails on the second `<` and the command is
-  // rejected instead. Longest alternative first, so `>>` beats `>`.
-  capture(or(
-    str(">>"),
-    str("&>"),
-    str(">"),
-    str("<")
-  ), "op"),
-  blanks,
-  capture(wordParser, "target")
+// No `<<` or `<<<`: a heredoc's body lives on the lines AFTER the
+// command, so `cat <<EOF` is not a redirect to a file named "EOF".
+// Parsing it as one is a silent mis-parse; leaving the operator out means
+// the `<` alternative fails on the second `<` and the command is rejected
+// instead. Longest alternative first, so `>>` beats `>`.
+const fdRedirectOp: Parser<string> = or(str(">>"), str(">"), str("<"));
+
+// `&>` takes NO file descriptor. Bash reads the `2` in `cmd 2&> f` as an
+// ordinary argument, so accepting `2&>` as "fd 2" makes that argument
+// vanish from the AST — a silent mis-parse, not a rejection.
+const bareRedirectOp: Parser<string> = str("&>");
+
+export const redirectParser: Parser<Redirect> = trace("redirectParser", or(
+  seqC(
+    set("tag", "redirect"),
+    optional(capture(map(num, parseInt), "fd")),
+    capture(fdRedirectOp, "op"),
+    blanks,
+    capture(wordParser, "target")
+  ),
+  seqC(
+    set("tag", "redirect"),
+    capture(bareRedirectOp, "op"),
+    blanks,
+    capture(wordParser, "target")
+  )
 ))
 
-export const argParser: Parser<Arg> = trace("argParser", or(
+export const argParser: Parser<Word> = trace("argParser", or(
   flagWordParser,
   wordParser
 ))
@@ -395,39 +398,47 @@ function token<T>(parser: Parser<T>): Parser<T> {
  * bash reads `cmd 3> x` as "redirect fd 3, no arguments" — and args-first
  * would always claim the `3`. And bash allows a redirect anywhere among
  * the arguments (`cmd > out.txt arg`), which two fixed groups reject. */
-const argOrRedirectParser: Parser<Arg | Redirect> = trace("argOrRedirectParser", or(
+const argOrRedirectParser: Parser<Word | Redirect> = trace("argOrRedirectParser", or(
   redirectParser,
   argParser
 ))
 
-const isRedirect = (item: Arg | Redirect): item is Redirect =>
+const isRedirect = (item: Word | Redirect): item is Redirect =>
   item.tag === "redirect";
 
-export const simpleCommandParser: Parser<SimpleCommand> = trace("simpleCommandParser", map(
-  seqC(
-    set("tag", "simpleCommand"),
-    blanks,
-    capture(many(token(assignmentParser)), "assignments"),
-    capture(token(scriptNameParser), "command"),
-    // `not(redirectParser)` for the same reason: without it a bare `3`
-    // lands here as a subcommand before the redirect is ever tried.
-    capture(many(token(seqR(not(redirectParser), literalWordParser))), "subcommands"),
-    capture(many(token(argOrRedirectParser)), "items")
-  ),
-  (parsed) => {
-    const items = parsed.items as unknown as (Arg | Redirect)[];
-    return {
+const simpleCommandShape = seqC(
+  set("tag", "simpleCommand"),
+  blanks,
+  capture(many(token(assignmentParser)), "assignments"),
+  // Optional so a bare `FOO=bar` line parses. Bash requires at least one
+  // of a command name or an assignment; that check is below.
+  capture(optional(token(scriptNameParser)), "command"),
+  capture(many(token(argOrRedirectParser)), "items")
+)
+
+export const simpleCommandParser: Parser<SimpleCommand> = trace("simpleCommandParser",
+  (input: string): ParserResult<SimpleCommand> => {
+    const parsed = simpleCommandShape(input);
+    if (!parsed.success) return parsed;
+    const { assignments, command, items } = parsed.result as unknown as {
+      assignments: Assignment[];
+      command: ScriptName | null;
+      items: (Word | Redirect)[];
+    };
+    // Neither a command nor an assignment means nothing was parsed at all;
+    // without this every input "succeeds" as an empty command.
+    if (command === null && assignments.length === 0) {
+      return failure("Expected a command or an assignment.", input);
+    }
+    return success({
       tag: "simpleCommand",
-      assignments: parsed.assignments,
-      command: parsed.command,
-      // seqR yields [null, word]; the word is what we want.
-      subcommands: (parsed.subcommands as unknown as [null, LiteralWord][])
-        .map((pair) => pair[1]),
-      args: items.filter((item): item is Arg => !isRedirect(item)),
+      assignments,
+      command,
+      args: items.filter((item): item is Word => !isRedirect(item)),
       redirects: items.filter(isRedirect),
-    } satisfies SimpleCommand;
+    } satisfies SimpleCommand, parsed.rest);
   }
-))
+)
 
 /** An operator in a `&&` / `||` chain, absorbing the whitespace around it.
  * `buildExpressionParser` applies this directly to the remaining input, so
@@ -480,16 +491,28 @@ export const parensParser: Parser<Parens> = trace("parensParser", seqC(
  * but NOT a second `;` — `echo a ;; echo b` stays a parse error. */
 export const commandSeparator = seqR(
   blanks,
-  or(char(";"), char("\n")),
-  manyWithJoin(oneOf(" \t\n"))
+  or(char(";"), char("\n"), char("\r")),
+  manyWithJoin(oneOf(" \t\n\r"))
 )
 
-export function bashParserParser(input: string): ParserResult<BashAST> {
-  const result = trace("bashParser", sepBy1(commandSeparator, commandParser))(input);
-  if (result.success) {
-    if (result.rest.trim() !== "") {
-      return failure(`Unexpected input after commands: "${result.rest}"`, input);
-    }
+/** Blank lines before the first command. `simpleCommandParser` only eats
+ *  blanks (spaces and tabs), so without this a script starting with a
+ *  newline — or any CRLF file — is rejected outright. */
+const leadingSeparators: Parser<string> = manyWithJoin(oneOf(" \t\n\r"))
+
+/** Parse a whole script: commands separated by `;` or newlines. */
+export function bashParser(input: string): ParserResult<BashAST> {
+  const result = trace("bashParser", seqR(
+    leadingSeparators,
+    sepBy1(commandSeparator, commandParser)
+  ))(input);
+  if (!result.success) return result;
+  const commands = (result.result as unknown as [string, BashAST])[1];
+  if (result.rest.trim() !== "") {
+    // `result.rest`, not `input`: tarsec derives position from
+    // originalInput.length - rest.length, so returning the whole input
+    // would report every error at column 1.
+    return failure(`Unexpected input after commands: "${result.rest}"`, result.rest);
   }
-  return result;
+  return success(commands, result.rest);
 }

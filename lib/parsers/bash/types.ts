@@ -40,8 +40,10 @@ export type Assignment = {
   value: Word | null;
 };
 
-/** A redirect like `> out.txt`, `2>&1`, or `<<< "$str"`. `fd` is the
- * explicit file descriptor (`2` in `2>`), or null for the default. */
+/** A redirect like `> out.txt`, `>> log`, `2> err.txt` or `< in.txt`.
+ * `fd` is the explicit file descriptor (`2` in `2>`), or undefined for the
+ * default. Only `>`, `>>`, `<` and `&>` are recognized; `2>&1`, heredocs
+ * and here-strings are rejected rather than parsed. */
 export type Redirect = {
   tag: "redirect";
   fd?: number;
@@ -49,16 +51,17 @@ export type Redirect = {
   target: Word;
 };
 
-export type PositionalArg = Word;
-export type FlagArg = FlagWord;
-export type Arg = PositionalArg | FlagArg;
-
 export type SimpleCommand = {
   tag: "simpleCommand";
   assignments: Assignment[];
-  command: ScriptName;
-  subcommands: LiteralWord[];
-  args: Arg[];
+  /** The command name, or null for an assignment-only line (`FOO=bar`).
+   *  Bash requires at least one of a command name or an assignment. */
+  command: ScriptName | null;
+  /** Every word after the command name, in source order. There is no
+   *  `subcommands` field: no syntactic rule separates `git status` from
+   *  `echo status`, so splitting them would put a command's real
+   *  arguments in whichever bucket the preceding word happened to pick. */
+  args: Word[];
   redirects: Redirect[];
 };
 
