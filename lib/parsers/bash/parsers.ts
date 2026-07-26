@@ -1,6 +1,6 @@
 import { CaptureParser, failure, Parser, ParserResult, success } from "../../types.js";
 import { And, Arg, Assignment, BashAST, Command, DoubleQuotedWord, FlagWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
-import { capture, char, label, lazy, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, sepBy, sepBy1, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
+import { capture, char, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, sepBy, sepBy1, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
 export const RESERVED_WORDS = [
   "if", "then", "elif", "else", "fi",
   "do", "done", "while", "until", "for", "in",
@@ -37,6 +37,10 @@ export const varNameChars: Parser<string> = label(
   oneOf("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_.")
 );
 
+export const varNameParser: Parser<string> = trace("varNameParser", map(seqR(
+  letter,
+  many1WithJoin(varNameChars)
+), (result) => result.join("")))
 
 export const literalWordParser: Parser<LiteralWord> = (input: string) => {
   const result = trace("literalWordParser", seqC(
@@ -139,14 +143,14 @@ export const scriptNameParser: Parser<ScriptName> = trace("scriptNameParser", or
 
 export const emptyAssignmentParser: Parser<Assignment> = trace("emptyAssignmentParser", seqC(
   set("tag", "assignment"),
-  capture(many1WithJoin(varNameChars), "name"),
+  capture(varNameParser, "name"),
   char("="),
   set("value", null)
 ))
 
 export const assignmentWithValueParser: Parser<Assignment> = trace("assignmentWithValueParser", seqC(
   set("tag", "assignment"),
-  capture(many1WithJoin(varNameChars), "name"),
+  capture(varNameParser, "name"),
   char("="),
   capture(wordParser, "value")
 ))
@@ -160,11 +164,11 @@ export const redirectParser: Parser<Redirect> = trace("redirectParser", seqC(
   set("tag", "redirect"),
   optional(capture(map(num, parseInt), "fd")),
   capture(or(
-    str(">"),
-    str("<"),
+    str("<<<"),
     str(">>"),
     str("<<"),
-    str("<<<"),
+    str(">"),
+    str("<"),
     str("&>"),
     str("&<")
   ), "op"),
