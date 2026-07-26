@@ -95,6 +95,12 @@ export const pathWordParser: Parser<PathWord> = (input: string) => {
     if (RESERVED_WORDS.includes(text)) {
       return failure(`Reserved word "${text}" cannot be used.`, input);
     }
+    if (text.includes("//")) {
+      return failure(`Path cannot contain "//".`, input);
+    }
+    if (!text.includes("/")) {
+      return failure(`Path must contain at least one "/".`, input);
+    }
   }
   return result;
 }
