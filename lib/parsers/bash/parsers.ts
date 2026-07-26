@@ -1,6 +1,6 @@
 import { CaptureParser, failure, Parser, ParserResult, success } from "../../types.js";
 import { And, Arg, Assignment, BashAST, Command, DoubleQuotedWord, FlagWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
-import { capture, char, digit, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, sepBy, sepBy1, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
+import { buildExpressionParser, capture, char, digit, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, sepBy, sepBy1, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
 export const RESERVED_WORDS = [
   "if", "then", "elif", "else", "fi",
   "do", "done", "while", "until", "for", "in",
@@ -237,29 +237,42 @@ export const simpleCommandParser: Parser<SimpleCommand> = trace("simpleCommandPa
   capture(sepBy(spaces, redirectParser), "redirects")
 ))
 
-export const andParser: Parser<And> = trace("andParser", seqC(
-  set("tag", "and"),
-  capture(lazy(() => commandParser), "left"),
-  spaces,
-  str("&&"),
-  spaces,
-  capture(lazy(() => commandParser), "right")
-))
+/** An operator in a `&&` / `||` chain, absorbing the whitespace around it.
+ * `buildExpressionParser` applies this directly to the remaining input, so
+ * it has to eat its own surrounding space; optional, so `a&&b` works too. */
+const chainOperator = (symbol: "&&" | "||"): Parser<string> =>
+  map(seqR(optional(spaces), str(symbol), optional(spaces)), () => symbol);
 
-export const orParser: Parser<Or> = trace("orParser", seqC(
-  set("tag", "or"),
-  capture(lazy(() => commandParser), "left"),
-  spaces,
-  str("||"),
-  spaces,
-  capture(lazy(() => commandParser), "right")
-))
-
-export const commandParser: Parser<Command> = trace("commandParser", or(
-  andParser,
-  orParser,
-  lazy(() => parensParser),
-  simpleCommandParser
+/**
+ * `a && b || c`, plus `( ... )` grouping.
+ *
+ * Built with `buildExpressionParser` rather than by hand because the naive
+ * shape is left-recursive: an `and` parser whose first move is to call the
+ * command parser recurses forever on the same input. Here the atom
+ * (`simpleCommandParser`) always consumes before any operator is tried.
+ *
+ * Both operators sit at ONE precedence level, left-associative, because
+ * that is what bash does: `a || b && c` is `((a || b) && c)`, not
+ * `(a || (b && c))`. Splitting them across two levels would silently
+ * change the meaning of every mixed chain.
+ */
+export const commandParser: Parser<Command> = trace("commandParser", buildExpressionParser<Command>(
+  simpleCommandParser,
+  [[
+    {
+      op: chainOperator("&&"),
+      assoc: "left",
+      apply: (left, right): And => ({ tag: "and", left, right }),
+    },
+    {
+      op: chainOperator("||"),
+      assoc: "left",
+      apply: (left, right): Or => ({ tag: "or", left, right }),
+    },
+  ]],
+  // Passed explicitly: the default paren parser returns the inner
+  // expression unwrapped, which would drop the `Parens` node.
+  lazy(() => parensParser)
 ))
 
 export const parensParser: Parser<Parens> = trace("parensParser", seqC(
