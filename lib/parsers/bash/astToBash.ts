@@ -8,6 +8,11 @@
  * charset forbids `;` — but a consumer can construct or mutate one, and a
  * naive emitter would hand that straight to a shell.
  *
+ * Where quoting cannot rescue a field — a variable name, an assignment
+ * target, a redirect operator — an `AstToBashError` is thrown instead.
+ * Quoting those would stop them being a variable, a target or an operator
+ * at all, so refusing is the only way to keep the guarantee.
+ *
  * ```ts
  * const ast = bashParser("git commit -m 'hi'").result;
  * astToBash(ast); // "git commit -m 'hi'"
@@ -19,6 +24,7 @@ import {
   BashNode,
   Command,
   DoubleQuotedWord,
+  FlagWord,
   InterpolatedVariableWord,
   Redirect,
   SimpleCommand,
@@ -28,15 +34,64 @@ import {
 const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const DIGITS = "0123456789";
 
-/** The characters the parser reads as a bare word. Text made only of these
- *  can be emitted unquoted and read back as the same word. Kept in sync
- *  with `bareWordChars` / `bareWordStartChars` in parsers.ts. */
+/** The characters the parser reads as a bare word or a path. Text made
+ *  only of these can be emitted unquoted and read back as the same word.
+ *  This is `bareWordChars` / `bareWordStartChars` from parsers.ts plus
+ *  `/`, since `literalWordParser` and `pathWordParser` between them cover
+ *  both. */
 const BARE_WORD_CHARS = new Set(LETTERS + DIGITS + "_-.=:+/");
 const BARE_WORD_START_CHARS = new Set(LETTERS + DIGITS + "_.=:+/");
 
 /** Characters that can continue a variable name. A variable part followed
  *  by one of these has to be braced. */
 const VAR_NAME_CHARS = new Set(LETTERS + DIGITS + "_");
+
+/** Characters the parser allows in a flag name or value. */
+const FLAG_CHARS = new Set(LETTERS + DIGITS + "_-./");
+
+/** The redirect operators the parser recognizes. `&>` is separate: bash
+ *  has no fd-prefixed form of it, and the parser rejects `2&> f`. */
+const FD_REDIRECT_OPS = new Set([">", ">>", "<"]);
+const BARE_REDIRECT_OPS = new Set(["&>"]);
+
+/**
+ * Thrown for an AST that cannot be written as bash at all.
+ *
+ * Quoting rescues word TEXT — `'; rm -rf /'` is one harmless argument.
+ * It cannot rescue a variable name, an assignment target or a redirect
+ * operator: quoting those stops them being a variable, a target or an
+ * operator. Emitting them raw would let a hand-built AST inject a second
+ * command, so the only way to keep the safety guarantee is to refuse.
+ */
+export class AstToBashError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AstToBashError";
+  }
+}
+
+/** `[A-Za-z_][A-Za-z0-9_]*`, matching the parser's identifier rule. */
+function isIdentifier(text: string): boolean {
+  if (text.length === 0) return false;
+  if (!(LETTERS + "_").includes(text[0])) return false;
+  for (const character of text) {
+    if (!VAR_NAME_CHARS.has(character)) return false;
+  }
+  return true;
+}
+
+/** A variable name: an identifier, or a single digit for a positional
+ *  parameter (`$1`), matching `varNameParser`. */
+function isVariableName(text: string): boolean {
+  return isIdentifier(text) || (text.length === 1 && DIGITS.includes(text));
+}
+
+function isFlagText(text: string): boolean {
+  for (const character of text) {
+    if (!FLAG_CHARS.has(character)) return false;
+  }
+  return text.length > 0;
+}
 
 /** Can this text be written without quotes and read back unchanged?
  *
@@ -120,22 +175,57 @@ function wordToBash(word: Word): string {
     case "doubleQuoted":
       return doubleQuotedToBash(word);
     case "variable":
+      if (!isVariableName(word.name)) {
+        throw new AstToBashError(
+          `Not a valid variable name: ${JSON.stringify(word.name)}`,
+        );
+      }
       return `$${word.name}`;
     case "flag":
-      return word.flagValue === undefined
-        ? word.flagName
-        : `${word.flagName}=${word.flagValue}`;
+      return flagToBash(word);
     case "interpolatedVariable":
       return interpolatedToBash(word);
   }
 }
 
+/** A flag CAN be rescued by quoting: the whole token becomes a single
+ *  argument. It reads back as a quoted word rather than a flag, which is
+ *  the documented trade for hand-built nodes — one argument that means
+ *  what it says beats a flag that starts a second command. */
+function flagToBash(word: FlagWord): string {
+  const rendered =
+    word.flagValue === undefined
+      ? word.flagName
+      : `${word.flagName}=${word.flagValue}`;
+  const isSafe =
+    word.flagName.startsWith("-") &&
+    isFlagText(word.flagName.replace(/^--?/, "")) &&
+    (word.flagValue === undefined || isFlagText(word.flagValue));
+  return isSafe ? rendered : singleQuote(rendered);
+}
+
 function assignmentToBash(assignment: Assignment): string {
+  if (!isIdentifier(assignment.name)) {
+    throw new AstToBashError(
+      `Not a valid assignment name: ${JSON.stringify(assignment.name)}`,
+    );
+  }
   const value = assignment.value === null ? "" : wordToBash(assignment.value);
   return `${assignment.name}=${value}`;
 }
 
 function redirectToBash(redirect: Redirect): string {
+  const takesFd = FD_REDIRECT_OPS.has(redirect.op);
+  if (!takesFd && !BARE_REDIRECT_OPS.has(redirect.op)) {
+    throw new AstToBashError(
+      `Not a supported redirect operator: ${JSON.stringify(redirect.op)}`,
+    );
+  }
+  if (redirect.fd !== undefined && !takesFd) {
+    throw new AstToBashError(
+      `\`${redirect.op}\` takes no file descriptor.`,
+    );
+  }
   const fd = redirect.fd === undefined ? "" : String(redirect.fd);
   return `${fd}${redirect.op} ${wordToBash(redirect.target)}`;
 }

@@ -183,6 +183,75 @@ describe("quoting text that could not have come from the parser", () => {
   });
 });
 
+describe("fields that cannot be made safe by quoting", () => {
+  // Quoting rescues word TEXT: `'; rm -rf /'` is one argument. It cannot
+  // rescue a variable name, an assignment target or a redirect operator —
+  // quoting those stops them being a variable, a target or an operator at
+  // all. The only way to keep the "always safe" guarantee is to refuse.
+  it("throws on a variable name that is not an identifier", () => {
+    expect(() => astToBash({ tag: "variable", name: "HOME; rm -rf /" })).toThrow();
+  });
+
+  it("accepts a valid variable name", () => {
+    expect(astToBash({ tag: "variable", name: "HOME" })).toBe("$HOME");
+  });
+
+  it("accepts a positional parameter", () => {
+    expect(astToBash({ tag: "variable", name: "1" })).toBe("$1");
+  });
+
+  it("throws on an assignment name that is not an identifier", () => {
+    expect(() =>
+      astToBash({
+        tag: "assignment",
+        name: "FOO; rm -rf /",
+        value: literalWord("b"),
+      }),
+    ).toThrow();
+  });
+
+  it("throws on a redirect operator the parser does not support", () => {
+    expect(() =>
+      astToBash({ tag: "redirect", op: "; rm -rf /", target: literalWord("f") }),
+    ).toThrow();
+  });
+
+  it("throws on a file descriptor attached to &>", () => {
+    // The parser rejects `2&> f` — bash reads the 2 as an argument — so
+    // emitting it would produce something that cannot be read back.
+    expect(() =>
+      astToBash({ tag: "redirect", fd: 2, op: "&>", target: literalWord("f") }),
+    ).toThrow();
+  });
+
+  it("accepts a file descriptor on an operator that takes one", () => {
+    expect(
+      astToBash({ tag: "redirect", fd: 2, op: ">", target: literalWord("err.txt") }),
+    ).toBe("2> err.txt");
+  });
+});
+
+describe("flags with unsafe text", () => {
+  // A flag CAN be rescued by quoting: the whole token becomes one
+  // argument. It reads back as a quoted word rather than a flag, which is
+  // the documented trade for hand-built nodes.
+  it("quotes a flag whose value contains a metacharacter", () => {
+    expect(astToBash({ tag: "flag", flagName: "-x", flagValue: "; rm -rf /" })).toBe(
+      "'-x=; rm -rf /'",
+    );
+  });
+
+  it("quotes a flag whose name contains a metacharacter", () => {
+    expect(astToBash({ tag: "flag", flagName: "; rm -rf /" })).toBe("'; rm -rf /'");
+  });
+
+  it("leaves an ordinary flag bare", () => {
+    expect(astToBash({ tag: "flag", flagName: "--format", flagValue: "oneline" })).toBe(
+      "--format=oneline",
+    );
+  });
+});
+
 describe("a variable followed by text needs braces", () => {
   it("braces a variable when the next part could continue its name", () => {
     // `$Abc` would parse as a variable named "Abc" — a different command.
@@ -290,7 +359,20 @@ describe("a right-nested chain needs parens", () => {
 // Differential: does bash build the argv the AST describes?
 // ---------------------------------------------------------------------------
 
-describe("emitted commands run as the AST describes", () => {
+/** Is a bash binary available? The differential assertions below shell
+ *  out, so they are skipped rather than failed where bash is missing. */
+const hasBash = (() => {
+  try {
+    execFileSync("bash", ["-c", "exit 0"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+const describeIfBash = hasBash ? describe : describe.skip;
+
+describeIfBash("emitted commands run as the AST describes", () => {
   /** Run the emitted text with a function that prints its own argv. */
   function bashArgv(command: string): string[] {
     const script = `cmd() { printf '%s\\0' "$@"; }\nHOME=/h; export HOME\n${command}\n`;

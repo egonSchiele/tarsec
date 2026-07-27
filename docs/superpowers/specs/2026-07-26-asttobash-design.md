@@ -38,6 +38,20 @@ that is exactly the case where a naive emitter hands an attacker a shell.
 | `parens` | `(inner)` |
 | `simpleCommand` | assignments, command, args, redirects — space separated |
 
+## Where quoting cannot help
+
+Quoting rescues word *text*: `'; rm -rf /'` is one harmless argument. It cannot
+rescue a field that stops being itself once quoted — a variable name, an
+assignment target, a redirect operator. Emitting those raw would let a
+hand-built AST inject a second command, so they are validated against the
+parser's own grammar and an `AstToBashError` is thrown when they do not match.
+The same applies to a file descriptor on `&>`, which the parser rejects.
+
+A flag is the exception: it *can* be quoted, because the whole token becomes a
+single argument. `{ flagName: "-x", flagValue: "; rm -rf /" }` emits
+`'-x=; rm -rf /'` and reads back as a quoted word rather than a flag — the
+documented trade for hand-built nodes.
+
 ## Two cases the rules do not cover on their own
 
 **A variable followed by literal text needs braces.** The parts
