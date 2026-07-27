@@ -1,3 +1,6 @@
+## July 26 2026 — v0.5.3
+astToBash
+
 ## July 26 2026 — v0.5.2
 Rewrite bash parser -- better AST, fewer edge cases and poor parses.
 

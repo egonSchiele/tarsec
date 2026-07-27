@@ -51,4 +51,5 @@
  * - Characters outside the word set above, including `@` and `%`.
  */
 export * from "./types.js";
+export * from "./astToBash.js";
 export * from "./parsers.js";
