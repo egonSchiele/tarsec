@@ -144,8 +144,9 @@ const closingFence: Parser<unknown> = seqR(fence, optional(hSpaces), newlineOrEo
 export const frontmatterParser: Parser<Frontmatter> = map(
   seqC(fenceLine, capture(yamlBody, "entries"), closingFence),
   ({ entries }) => {
-    const data: Record<string, FrontmatterValue> = {};
-    for (const [k, v] of entries) data[k] = v;
+    // fromEntries defines own properties, so a `__proto__` key is stored as
+    // data rather than hitting the inherited prototype setter.
+    const data: Record<string, FrontmatterValue> = Object.fromEntries(entries);
     return { type: "frontmatter" as const, data };
   }
 );
@@ -195,9 +196,9 @@ function quoteValue(value: string): string | null {
  *
  * Values that would be coerced when bare (numbers, booleans, null, trimmed
  * whitespace, flow-list or quote syntax) are quoted; throws on keys the
- * grammar cannot spell and on values no quote char can hold (a value
- * containing all three of `"`, `'`, and `` ` `` that cannot be written bare,
- * or one ending in an odd run of backslashes).
+ * grammar cannot spell and on values that need quoting but no quote char can
+ * hold: ones containing all three of `"`, `'`, and `` ` ``, or ending in an
+ * odd run of backslashes (which would escape any closing quote).
  */
 export function stringifyFrontmatter(fields: Record<string, string>): string {
   const lines: string[] = ["---"];

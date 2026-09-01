@@ -102,6 +102,13 @@ describe("stringifyFrontmatter", () => {
     expect(roundTrip(fields)).toEqual(fields);
   });
 
+  it("round-trips a __proto__ key as an own property", () => {
+    const fields = { ["__proto__"]: "not a prototype" };
+    const data = roundTrip(fields);
+    expect(Object.keys(data)).toEqual(["__proto__"]);
+    expect(data["__proto__"]).toBe("not a prototype");
+  });
+
   it("throws on a key the grammar cannot spell", () => {
     expect(() => stringifyFrontmatter({ "bad key": "x" })).toThrow(/key/);
     expect(() => stringifyFrontmatter({ "": "x" })).toThrow(/key/);
