@@ -1,47 +1,67 @@
+## Aug 31 2026 — v0.5.4
+
+### Frontmatter serializer
+
+- New `stringifyFrontmatter(fields)` in `tarsec/parsers/markdown` serializes a flat string-to-string record to a block the frontmatter parser can round-trip.
+
 ## July 26 2026 — v0.5.3
+
 astToBash
 
 ## July 26 2026 — v0.5.2
+
 Rewrite bash parser -- better AST, fewer edge cases and poor parses.
 
 ## July 24 2026 — v0.5.1
 
 ### Nested parsing
+
 - All per-parse mutable state (input string, rightmost failure, memo caches) now lives on a single `ParseState` object.
 - New `runNested(parser, input, { basePosition })`: run an isolated parse inside another parse. Positions, spans, and error messages come out in the enclosing parse's coordinates.
 
 ### Error reporting
+
 - `label` no longer erases failure records from strictly inside the labeled region — the deepest specific expectation surfaces instead of the outermost label's name. Tests asserting exact error text may need updating.
 - New `committed(prefix, rest)`: once `prefix` matches, a failure in `rest` stops backtracking (`or` won't try later alternatives) and wins error reporting. `ParserFailure` gains optional `committed: true`; new helpers `committedFailure` / `isCommittedFailure`.
 
 ### Terminated scans
+
 - New `repeatTill(chunk, terminator)`: repeat chunks until an unconsumed terminator — regions where the terminator is inert (strings, comments) can be skipped as chunks.
 - New `matchedText(parser)` (raw consumed slice) and `many1TillOneOf(stops)` (`manyTillOneOf` that fails on zero consumption, for indexOf-fast bulk scans).
 
 ## July 24 2026 — v0.5.0
+
 - Add `makeLexemes`
 - Add bash parser
 
 ## June 3 2026 — v0.4.4
+
 - Add `memo`, cache line table instead of rebuilding it on every call to buildLineTable.
 
 ## June 3 2026 — v0.4.0
+
 - Remove backtracking support, add `peek` parser combinator for lookaheads.
 
 ## June 2 2026 — v0.3.1
+
 - Fix: Markdown parser now parses markdown if headers don't have a blank line after them.
 
 ## May 28 2026 — v0.3.0
-- New: `tarsec/parsers/markdown` subpath export — a CommonMark-ish markdown parser built entirely from Tarsec combinators, with ATX/setext headings, lists (incl. GFM `- [ ]` task items), tables, block quotes, autolinks (angled and bare-URL), inline HTML (open/close/self-closing tags and comments), HTML entity decoding, reference-style links / footnotes, frontmatter, and a nested-inline AST that round-trips constructs like ``**[link](u)**`` and ``*a `code` b*``.
+
+- New: `tarsec/parsers/markdown` subpath export — a CommonMark-ish markdown parser built entirely from Tarsec combinators, with ATX/setext headings, lists (incl. GFM `- [ ]` task items), tables, block quotes, autolinks (angled and bare-URL), inline HTML (open/close/self-closing tags and comments), HTML entity decoding, reference-style links / footnotes, frontmatter, and a nested-inline AST that round-trips constructs like `**[link](u)**` and ``*a `code` b*``.
 
 ## Apr 15 2026 — v0.2.2
+
 - `quotedString` now allows backslash-escaping the inner quote — e.g. `"a \"b\" c"` parses as one quoted string of length 9.
 
 ## Apr 13 2026 — v0.2.1
+
 - `quote` / `quotedString` accept backticks in addition to `'` and `"`, and the closing quote must match the opener (so a single-quoted string can freely contain `"` and backticks, etc.).
 
 ## Apr 2 2026 — v0.2.0
+
 - Better parse-error reporting via rightmost-failure tracking — diagnostics surface the deepest failure across alternatives, with line/column info and a pretty rendered message.
 
 ## v0.0.19
+
 - adds `captureCaptures`
