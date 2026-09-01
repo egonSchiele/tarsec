@@ -149,3 +149,81 @@ export const frontmatterParser: Parser<Frontmatter> = map(
     return { type: "frontmatter" as const, data };
   }
 );
+
+// --- serializer --------------------------------------------------------------
+
+const QUOTE_CHARS = ['"', "'", "`"];
+
+/**
+ * A value can be written bare only if the parser hands it back verbatim:
+ * `bareValueLine` stops at newlines, `yamlValue` tries the flow-list and
+ * quoted branches first (so leading `[` or a quote char would be
+ * misinterpreted), and `classifyBare` trims and coerces bools/null/numbers.
+ */
+function isBareSafe(value: string): boolean {
+  if (value.length === 0 || value.includes("\n")) return false;
+  const first = value[0];
+  if (first === "[" || QUOTE_CHARS.includes(first)) return false;
+  return classifyBare(value) === value;
+}
+
+// `quotedString` treats a quote preceded by an odd run of backslashes as
+// escaped, so such a value would swallow its own closing quote.
+function endsWithOddBackslashRun(value: string): boolean {
+  let run = 0;
+  for (let i = value.length - 1; i >= 0 && value[i] === "\\"; i--) run++;
+  return run % 2 === 1;
+}
+
+/**
+ * Quote a value for `quotedScalar`. The parser strips the surrounding quotes
+ * but does NOT decode escapes, so the only option is a quote char that never
+ * appears in the value. Returns null when no quote char can hold it.
+ */
+function quoteValue(value: string): string | null {
+  if (endsWithOddBackslashRun(value)) return null;
+  for (const q of QUOTE_CHARS) {
+    if (!value.includes(q)) return q + value + q;
+  }
+  return null;
+}
+
+/**
+ * Serialize a flat record to a frontmatter block that `frontmatterParser`
+ * round-trips: `parse(stringifyFrontmatter(x))` deep-equals `x` for every
+ * `x` in the supported domain (flat string-to-string records).
+ *
+ * Values that would be coerced when bare (numbers, booleans, null, trimmed
+ * whitespace, flow-list or quote syntax) are quoted; throws on keys the
+ * grammar cannot spell and on values no quote char can hold (a value
+ * containing all three of `"`, `'`, and `` ` `` that cannot be written bare,
+ * or one ending in an odd run of backslashes).
+ */
+export function stringifyFrontmatter(fields: Record<string, string>): string {
+  const lines: string[] = ["---"];
+  for (const [key, value] of Object.entries(fields)) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(key)) {
+      throw new Error(
+        `stringifyFrontmatter: key ${JSON.stringify(key)} cannot be spelled ` +
+          `by the frontmatter grammar (keys are [a-zA-Z0-9_-]+)`
+      );
+    }
+    if (typeof value !== "string") {
+      throw new Error(
+        `stringifyFrontmatter: expected a string value for key ` +
+          `${JSON.stringify(key)}, got ${typeof value}`
+      );
+    }
+    const encoded = isBareSafe(value) ? value : quoteValue(value);
+    if (encoded === null) {
+      throw new Error(
+        `stringifyFrontmatter: cannot serialize value for key ` +
+          `${JSON.stringify(key)}: no quote character can hold ` +
+          `${JSON.stringify(value)}`
+      );
+    }
+    lines.push(`${key}: ${encoded}`);
+  }
+  lines.push("---");
+  return lines.join("\n") + "\n";
+}
