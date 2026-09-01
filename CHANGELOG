@@ -1,3 +1,11 @@
+## Aug 31 2026 — v0.5.4
+
+### Frontmatter serializer
+- New `stringifyFrontmatter(fields)` in `tarsec/parsers/markdown`: serializes a flat string-to-string record to a block the frontmatter parser round-trips — quotes values that would be coerced or misparsed bare, throws on unspellable keys and unquotable values. Backed by a round-trip property test.
+
+### Fixes
+- Frontmatter parser stores a `__proto__` key as an own property instead of silently dropping it via the inherited prototype setter.
+
 ## July 26 2026 — v0.5.3
 astToBash
 
