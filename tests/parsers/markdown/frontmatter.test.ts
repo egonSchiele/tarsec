@@ -105,6 +105,15 @@ describe("markdownParser with frontmatter", () => {
     }
   });
 
+  it("stores a __proto__ key as an own data property", () => {
+    const res = frontmatterParser("---\n__proto__: x\n---\n");
+    expect(res.success).toBe(true);
+    if (res.success) {
+      expect(Object.keys(res.result.data)).toEqual(["__proto__"]);
+      expect(Object.getPrototypeOf(res.result.data)).toBe(Object.prototype);
+    }
+  });
+
   it("still parses documents that have no frontmatter", () => {
     const res = markdownParser("# Hello");
     expect(res.success).toBe(true);
