@@ -7,24 +7,27 @@ import {
   ParserFailure,
 } from "./types.js";
 import { escape, round, shorten } from "./utils.js";
-import process from "process";
-import { execSync } from "child_process";
 import { TarsecErrorData } from "./tarsecError.js";
 import { resetRightmostFailure } from "./rightmostFailure.js";
 import { getParseState } from "./parseState.js";
 import { composePosition } from "./position.js";
 
-const isNode =
-  typeof process !== "undefined" &&
-  process.versions != null &&
-  process.versions.node != null;
+// tarsec runs in browsers too, so it never imports Node modules. Node's
+// `process` is reached through globalThis, where it exists only in Node.
+type NodeProcess = {
+  env?: Record<string, string | undefined>;
+  getBuiltinModule?: (id: string) => any;
+};
+const nodeProcess: NodeProcess | undefined = (
+  globalThis as { process?: NodeProcess }
+).process;
 
 const STEP = 2;
 
 let level = 0;
 let counts: Record<string, number> = {};
 let times: Record<string, number> = {};
-let debugFlag = isNode ? !!process.env.DEBUG : false;
+let debugFlag = !!nodeProcess?.env?.DEBUG;
 
 let stepCount = 0;
 let stepLimit = -1;
@@ -42,6 +45,36 @@ export function getTraceHost(): string {
 
 export function setTraceId(id: string) {
   traceId = id;
+}
+
+/**
+ * Sends one trace event to the trace host. In Node, it posts synchronously
+ * with curl so events arrive in order before the parse continues. Where
+ * that isn't available (browsers, Node before 20.16), it falls back to a
+ * fire-and-forget fetch.
+ */
+function postTraceEvent(event: Record<string, unknown>): void {
+  const url = `${traceHost}/api/logs`;
+  const json = JSON.stringify(event);
+  const childProcess = nodeProcess?.getBuiltinModule?.("child_process");
+  if (childProcess) {
+    childProcess.execFileSync("curl", [
+      "-s",
+      "-X",
+      "POST",
+      "-H",
+      "Content-Type: application/json",
+      "-d",
+      json,
+      url,
+    ]);
+  } else if (typeof fetch === "function") {
+    fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: json,
+    }).catch(() => {});
+  }
 }
 
 /**
@@ -139,16 +172,13 @@ export function trace<T, C extends PlainObject>(
         " ".repeat(level) + `🔍 ${name} -- input: ${shorten(escape(input))}`,
       );
       if (traceHost && traceHost.length > 0) {
-        const json = JSON.stringify({
+        postTraceEvent({
           traceId,
           name,
           type: "start",
           level,
           timestamp: Date.now(),
         });
-        execSync(
-          `curl -s -X POST -H "Content-Type: application/json" -d '${json}' ${traceHost}/api/logs`,
-        );
       }
 
       let result: any;
@@ -173,7 +203,7 @@ export function trace<T, C extends PlainObject>(
       }
 
       if (traceHost && traceHost.length > 0) {
-        const json = JSON.stringify({
+        postTraceEvent({
           traceId,
           name,
           type: "end",
@@ -181,9 +211,6 @@ export function trace<T, C extends PlainObject>(
           timestamp: Date.now(),
           result,
         });
-        execSync(
-          `curl -s -X POST -H "Content-Type: application/json" -d '${json}' ${traceHost}/api/logs`,
-        );
       }
       return result;
     } else {

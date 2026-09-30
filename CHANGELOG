@@ -1,3 +1,10 @@
+## Unreleased
+
+### Works in the browser
+
+- tarsec no longer imports Node modules (`process`, `child_process`), so browser bundlers no longer stub them out. Vite 8's stub made tarsec throw on load (`Cannot read properties of undefined (reading 'DEBUG')`). `DEBUG` is read from `globalThis.process` when it exists.
+- Trace-host events (`setTraceHost`) still post synchronously with curl in Node 20.16+, now without a shell, so parser input containing `'` no longer breaks the command. Browsers and older Node fall back to a fire-and-forget `fetch`.
+
 ## Aug 31 2026 — v0.5.4
 
 ### Frontmatter serializer

@@ -46,6 +46,7 @@ A parser combinator library for TypeScript, inspired by Parsec.
 ## Conventions
 
 - Parsers are wrapped in `trace(name, fn)` for debug output (enabled via `DEBUG=1` env var)
+- `lib/` must run in browsers: never import Node modules (`process`, `fs`, `child_process`, ...). Reach Node-only features through `globalThis.process` at runtime. `tests/browserSafe.test.ts` enforces this
 - Tests use `@/lib/...` path alias (configured in vitest)
 - `seqR(...parsers)` returns results array, `seqC(...parsers)` returns merged captures — both use rest params, not an array argument
 - `success(result, rest)` and `failure(message, rest)` are the standard constructors
