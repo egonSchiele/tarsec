@@ -354,15 +354,22 @@ const plainWordParsers: Parser<Word>[] = [
   literalWordParser,
 ];
 
-export const wordParser: Parser<Word> = trace("wordParser", or(
+/** The boundary check sits on the whole word, not only on the bare-word
+ * alternatives. A quoted or variable word is one word with whatever
+ * follows it (`$HOME/*.ts`, `'a'~`); the interpolated parser absorbs the
+ * parts it knows, and anything left over must end the word, or the
+ * command is rejected. Without this, the leftover (`/*.ts`, `~`) would
+ * parse as a SECOND word and the rendered text would run a different
+ * command. */
+export const wordParser: Parser<Word> = trace("wordParser", wholeWord(or(
   globWordParser,
   ...plainWordParsers,
-))
+)))
 
 /** A redirect target is any word but a glob: `> *.txt` is rejected. */
-export const redirectTargetParser: Parser<Word> = trace("redirectTargetParser", or(
+export const redirectTargetParser: Parser<Word> = trace("redirectTargetParser", wholeWord(or(
   ...plainWordParsers,
-))
+)))
 
 export const scriptNameParser: Parser<ScriptName> = trace("scriptNameParser", or(
   pathWordParser,

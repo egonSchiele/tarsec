@@ -20,16 +20,21 @@ export const GLOB_WORD_CHARS = "*?[]";
  * `echo a]b` prints `a]b`. */
 export const GLOB_TRIGGER_CHARS = "*?[";
 
+const GLOB_START = new Set(BARE_WORD_START_CHAR_STRING + "/" + GLOB_WORD_CHARS);
 const GLOB_BODY = new Set(BARE_WORD_CHAR_STRING + "/" + GLOB_WORD_CHARS);
 const GLOB_TRIGGERS = new Set(GLOB_TRIGGER_CHARS);
 
-/** True for text the glob word parser could have produced: path
- * characters and glob characters only, with at least one trigger. */
+/** True for text the glob word parser could have produced: a first
+ * character from the start set (so `~/*.md` is a glob and `-*` is not),
+ * the rest path or glob characters, and at least one trigger. */
 export function isGlobText(text: string): boolean {
   if (text.length === 0) return false;
+  if (!GLOB_START.has(text[0])) return false;
   let triggered = false;
-  for (const character of text) {
+  for (const character of text.slice(1)) {
     if (!GLOB_BODY.has(character)) return false;
+  }
+  for (const character of text) {
     if (GLOB_TRIGGERS.has(character)) triggered = true;
   }
   return triggered;

@@ -1008,6 +1008,17 @@ describe("unsupported syntax is rejected, not mis-parsed", () => {
     ["glob as a redirect target", "echo > *.txt"],
     ["glob that starts like a flag", "ls -*"],
     ["tilde inside a word", "echo a~b"],
+    // A quoted or variable word followed by a glob or tilde is ONE word in
+    // bash. Splitting it would render a different command, so it is
+    // rejected rather than parsed as two words.
+    ["variable followed by a glob", "cmd $X*"],
+    ["variable followed by a path glob", "cmd $HOME/*.ts"],
+    ["quoted word followed by a glob", "cmd 'a'*"],
+    ["double-quoted word followed by a glob", "cmd \"$HOME\"/*.ts"],
+    ["variable followed by a tilde", "cmd $X~/y"],
+    ["quoted word followed by a tilde", "cmd 'a'~"],
+    ["assignment value ending in a tilde", "X='a'~ cmd"],
+    ["redirect target with a trailing glob", "cmd > $X*"],
     ["semicolon sequence", "echo a; echo b"],
     ["background command", "sleep 1 &"],
     ["command substitution", "echo $(date)"],
@@ -1164,7 +1175,7 @@ describe("globs", () => {
   const glob = (text: string) => ({ tag: "glob", text });
   const literal = (text: string) => ({ tag: "literal", text });
 
-  it.each(["*.ts", "src/*.md", "src/**/*.md", "file?.txt", "[abc"])("parses %s as a glob word", (text) => {
+  it.each(["*.ts", "src/*.md", "src/**/*.md", "file?.txt", "[abc", "~/*.md", "~/Downloads/*.pdf"])("parses %s as a glob word", (text) => {
     expect(parseFully(wordParser, text)).toEqual(glob(text));
   });
 
@@ -1199,6 +1210,13 @@ describe("a glob as a flag value", () => {
       flagName: "--include",
       flagValue: "*.ts",
       valueIsGlob: true,
+    });
+  });
+
+  it("keeps a quoted glob value as text", () => {
+    expect(parseFully(wordParser, "--include='*.ts'")).toEqual({
+      tag: "interpolatedVariable",
+      parts: [{ tag: "literal", text: "--include=" }, { tag: "singleQuoted", text: "*.ts" }],
     });
   });
 
