@@ -1180,3 +1180,22 @@ describe("globs", () => {
     expect(parseFully(simpleCommandParser, 'echo "*.ts"').args[0].tag).toBe("doubleQuoted");
   });
 });
+
+describe("a glob as a flag value", () => {
+  it("marks --include=*.ts as a glob value", () => {
+    expect(parseFully(simpleCommandParser, "grep -rn x --include=*.ts src").args[2]).toEqual({
+      tag: "flag",
+      flagName: "--include",
+      flagValue: "*.ts",
+      valueIsGlob: true,
+    });
+  });
+
+  it("leaves a plain value unmarked", () => {
+    expect(parseFully(wordParser, "--include=foo.ts")).toEqual({
+      tag: "flag",
+      flagName: "--include",
+      flagValue: "foo.ts",
+    });
+  });
+});

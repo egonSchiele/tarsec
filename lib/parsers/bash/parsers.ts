@@ -186,11 +186,19 @@ export const flagWordNameOnlyParser: Parser<FlagWord> = trace("flagWordNameOnlyP
   capture(flagNameParser, "flagName"),
 ))
 
-export const flagWordNameAndValueParser: Parser<FlagWord> = trace("flagWordNameAndValueParser", seqC(
-  set("tag", "flag"),
-  capture(flagNameParser, "flagName"),
-  char("="),
-  capture(many1WithJoin(wordChars), "flagValue")
+export const flagWordNameAndValueParser: Parser<FlagWord> = trace("flagWordNameAndValueParser", map(
+  seqC(
+    set("tag", "flag"),
+    capture(flagNameParser, "flagName"),
+    char("="),
+    capture(many1WithJoin(or(wordChars, globChars)), "flagValue")
+  ),
+  (flag) => {
+    if (isGlobText(flag.flagValue)) {
+      flag.valueIsGlob = true;
+    }
+    return flag;
+  }
 ))
 
 export const flagWordParser: Parser<FlagWord> = trace("flagWordParser", wholeWord(or(

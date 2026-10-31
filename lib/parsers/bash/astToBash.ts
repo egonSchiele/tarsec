@@ -205,10 +205,15 @@ function flagToBash(word: FlagWord): string {
     word.flagValue === undefined
       ? word.flagName
       : `${word.flagName}=${word.flagValue}`;
+  // A glob value stays unquoted, or bash would stop expanding it.
+  const valueIsSafe =
+    word.flagValue === undefined ||
+    isFlagText(word.flagValue) ||
+    (word.valueIsGlob === true && isGlobText(word.flagValue));
   const isSafe =
     word.flagName.startsWith("-") &&
     isFlagText(word.flagName.replace(/^--?/, "")) &&
-    (word.flagValue === undefined || isFlagText(word.flagValue));
+    valueIsSafe;
   return isSafe ? rendered : singleQuote(rendered);
 }
 

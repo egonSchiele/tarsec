@@ -67,6 +67,7 @@ describe("round trip", () => {
     "grep foo src/*.ts",
     "cat src/**/*.md",
     "echo '*.ts'",
+    "grep -rn x --include=*.ts src",
     "/usr/bin/env node",
     "ls /",
     "echo 'hello world'",

@@ -19,7 +19,10 @@ export type PathWord = { tag: "path"; text: string };
  * which bash passes through. Never a command word or a redirect target. */
 export type GlobWord = { tag: "glob"; text: string };
 
-export type FlagWord = { tag: "flag"; flagName: string; flagValue?: string };
+/** `valueIsGlob` is present, and true, only when the value is an unquoted
+ * glob (`--include=*.ts`); bash expands it where it would pass
+ * `--include='*.ts'` through as text. */
+export type FlagWord = { tag: "flag"; flagName: string; flagValue?: string; valueIsGlob?: boolean };
 export type SingleQuotedWord = { tag: "singleQuoted"; text: string };
 export type DoubleQuotedWord = { tag: "doubleQuoted"; parts: Word[] };
 export type VariableWord = { tag: "variable"; name: string };
