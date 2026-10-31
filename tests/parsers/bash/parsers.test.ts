@@ -67,6 +67,7 @@ function describeWord(word: Word): string {
   switch (word.tag) {
     case "literal":
     case "path":
+    case "glob":
     case "singleQuoted":
       return word.text;
     case "flag":

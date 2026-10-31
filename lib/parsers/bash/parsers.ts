@@ -196,8 +196,9 @@ export const flagWordNameAndValueParser: Parser<FlagWord> = trace("flagWordNameA
     char("="),
     capture(many1WithJoin(or(wordChars, globChars)), "flagValue")
   ),
-  (flag) => {
-    if (isGlobText(flag.flagValue)) {
+  (captured) => {
+    const flag: FlagWord = captured;
+    if (flag.flagValue !== undefined && isGlobText(flag.flagValue)) {
       flag.valueIsGlob = true;
     }
     return flag;
