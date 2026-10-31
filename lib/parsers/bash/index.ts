@@ -30,12 +30,14 @@
  * - Words built from adjacent parts: `$HOME/bin`, `"a"b`, `"$HOME"/x`.
  * - Redirects: `>`, `>>`, `<`, and `&>`, with an optional attached file
  *   descriptor on the first three (`2> err.txt`).
+ * - Pipelines (`a | b | c`), flat, binding tighter than `&&` / `||`. A
+ *   stage is a simple command or a `( ... )` group.
  * - `&&` / `||` chains (one precedence level, left-associative, as in
  *   bash) and `( ... )` grouping.
  * - Commands separated by `;` or newlines, including CRLF.
  *
  * REJECTED, and worth knowing because a reader would not predict them
- * - Pipelines (`|`), background (`&`), and `;` inside `( ... )` — so
+ * - `|&`, background (`&`), and `;` inside `( ... )` — so
  *   `(a && b) || c` parses but `a && (b; c)` does not.
  * - Reserved words ANYWHERE, not only at command position: `echo if` and
  *   `echo done` are valid bash and are rejected here.

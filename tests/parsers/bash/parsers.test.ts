@@ -950,9 +950,9 @@ describe("error positions", () => {
   it("reports the offset where the unparsed text starts", () => {
     // tarsec derives position from originalInput.length - rest.length, so
     // returning the whole input as `rest` puts every error at column 1.
-    const result = bashParser("echo hi | wc");
+    const result = bashParser("echo hi $(date)");
     expect(result.success).toBe(false);
-    expect(result.success === false && result.rest).toBe("| wc");
+    expect(result.success === false && result.rest).toBe("$(date)");
   });
 });
 
@@ -994,7 +994,12 @@ describe("reserved words", () => {
 
 describe("unsupported syntax is rejected, not mis-parsed", () => {
   const unsupported: [string, string][] = [
-    ["pipeline", "ls | wc -l"],
+    ["stderr-merging pipe", "ls |& wc -l"],
+    ["pipe with no right side", "ls |"],
+    ["pipe with no left side", "| ls"],
+    // The error points at `&&`, not `|`: the chain's right operand fails
+    // with a committed failure and the chain ends at `a`. Rejected either way.
+    ["pipe with no right side after a chain", "a && b |"],
     ["semicolon sequence", "echo a; echo b"],
     ["background command", "sleep 1 &"],
     ["command substitution", "echo $(date)"],
@@ -1007,5 +1012,99 @@ describe("unsupported syntax is rejected, not mis-parsed", () => {
 
   it.each(unsupported)("rejects a %s", (_name, input) => {
     expect(parsesFully(commandParser, input)).toBe(false);
+  });
+});
+
+describe("pipelines", () => {
+  const simple = (name: string, ...args: string[]): SimpleCommand => ({
+    tag: "simpleCommand",
+    assignments: [],
+    command: { tag: "literal", text: name },
+    args: args.map((text) => ({ tag: "literal", text })),
+    redirects: [],
+  });
+  const wcDashL: SimpleCommand = { ...simple("wc"), args: [{ tag: "flag", flagName: "-l" }] };
+
+  it("parses two stages", () => {
+    expect(parseFully(commandParser, "ls | wc -l")).toEqual({
+      tag: "pipeline",
+      stages: [simple("ls"), wcDashL],
+    });
+  });
+
+  it("keeps three stages flat", () => {
+    expect(parseFully(commandParser, "a | b | c")).toEqual({
+      tag: "pipeline",
+      stages: [simple("a"), simple("b"), simple("c")],
+    });
+  });
+
+  it("binds tighter than && on the left", () => {
+    expect(parseFully(commandParser, "a | b && c")).toEqual({
+      tag: "and",
+      left: { tag: "pipeline", stages: [simple("a"), simple("b")] },
+      right: simple("c"),
+    });
+  });
+
+  it("binds tighter than && on the right", () => {
+    expect(parseFully(commandParser, "a && b | c")).toEqual({
+      tag: "and",
+      left: simple("a"),
+      right: { tag: "pipeline", stages: [simple("b"), simple("c")] },
+    });
+  });
+
+  it("accepts a parenthesized stage", () => {
+    expect(parseFully(commandParser, "(a && b) | c")).toEqual({
+      tag: "pipeline",
+      stages: [
+        { tag: "parens", command: { tag: "and", left: simple("a"), right: simple("b") } },
+        simple("c"),
+      ],
+    });
+  });
+
+  it("groups a pipeline inside a parenthesized right operand", () => {
+    expect(parseFully(commandParser, "a && (b | c)")).toEqual({
+      tag: "and",
+      left: simple("a"),
+      right: { tag: "parens", command: { tag: "pipeline", stages: [simple("b"), simple("c")] } },
+    });
+  });
+
+  it("still parses a lone parenthesized group", () => {
+    expect(parseFully(commandParser, "(a && b)")).toEqual({
+      tag: "parens",
+      command: { tag: "and", left: simple("a"), right: simple("b") },
+    });
+  });
+
+  it("does not confuse || with a pipe", () => {
+    expect(parseFully(commandParser, "a || b")).toEqual({
+      tag: "or",
+      left: simple("a"),
+      right: simple("b"),
+    });
+  });
+
+  it("tolerates no spaces around the pipe", () => {
+    expect(parseFully(commandParser, "a|b")).toEqual({
+      tag: "pipeline",
+      stages: [simple("a"), simple("b")],
+    });
+  });
+
+  it("keeps a redirect on its stage", () => {
+    expect(parseFully(commandParser, "cat f 2> err | wc -l")).toEqual({
+      tag: "pipeline",
+      stages: [
+        {
+          ...simple("cat", "f"),
+          redirects: [{ tag: "redirect", fd: 2, op: ">", target: { tag: "literal", text: "err" } }],
+        },
+        wcDashL,
+      ],
+    });
   });
 });

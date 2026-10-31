@@ -1,6 +1,6 @@
 import { CaptureParser, failure, Parser, ParserResult, success } from "../../types.js";
-import { And, Assignment, BashAST, Command, DoubleQuotedWord, FlagWord, InterpolatedVariableWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
-import { buildExpressionParser, capture, char, digit, eof, not, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, peek, sepBy, sepBy1, seq, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
+import { And, Assignment, BashAST, Command, Pipeline, PipelineStage, DoubleQuotedWord, FlagWord, InterpolatedVariableWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
+import { buildExpressionParser, capture, char, committed, digit, eof, fail, not, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, peek, sepBy, sepBy1, seq, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
 export const RESERVED_WORDS = [
   "if", "then", "elif", "else", "fi",
   "do", "done", "while", "until", "for", "in",
@@ -460,7 +460,7 @@ const chainOperator = (symbol: "&&" | "||"): Parser<string> =>
  * change the meaning of every mixed chain.
  */
 export const commandParser: Parser<Command> = trace("commandParser", buildExpressionParser<Command>(
-  simpleCommandParser,
+  lazy(() => pipelineParser),
   [[
     {
       op: chainOperator("&&"),
@@ -473,10 +473,38 @@ export const commandParser: Parser<Command> = trace("commandParser", buildExpres
       apply: (left, right): Or => ({ tag: "or", left, right }),
     },
   ]],
-  // Passed explicitly: the default paren parser returns the inner
-  // expression unwrapped, which would drop the `Parens` node.
-  lazy(() => parensParser)
+  // Parentheses are a pipeline STAGE, parsed inside pipelineParser.
+  // buildExpressionParser tries its paren parser BEFORE the atom and
+  // returns when it succeeds, so a real paren parser here would consume
+  // `(a && b)` whole and `(a && b) | c` could never be a pipeline.
+  fail("parentheses are parsed as a pipeline stage")
 ))
+
+/** The `|` of a pipeline, absorbing the whitespace around it. Not `||`,
+ * which is a chain operator, and not `|&`, which stays rejected. */
+const pipeOperator: Parser<string> =
+  map(seqR(blanks, char("|"), not(oneOf("|&")), blanks), () => "|");
+
+const pipelineStage: Parser<PipelineStage> = trace("pipelineStage", or(
+  lazy(() => parensParser),
+  simpleCommandParser
+));
+
+/** `a | b | c`, flat. The operator COMMITS: once a `|` is seen, a missing
+ * stage is a parse error, not the end of the pipeline. Without the commit,
+ * `sepBy` returns past a matched separator and `ls |` would parse as `ls`.
+ * One stage is that command; two or more are a Pipeline. */
+export const pipelineParser: Parser<Command> = trace("pipelineParser", map(
+  seqR(pipelineStage, many(committed(pipeOperator, pipelineStage))),
+  (parsed) => {
+    const [first, rest] = parsed as unknown as [PipelineStage, PipelineStage[]];
+    if (rest.length === 0) {
+      return first;
+    }
+    const pipeline: Pipeline = { tag: "pipeline", stages: [first, ...rest] };
+    return pipeline;
+  }
+));
 
 export const parensParser: Parser<Parens> = trace("parensParser", seqC(
   set("tag", "parens"),

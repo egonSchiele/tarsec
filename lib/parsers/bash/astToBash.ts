@@ -275,6 +275,8 @@ function commandToBash(command: Command): string {
       const right = chainOperandToBash(command.right, true);
       return `${left} ${operator} ${right}`;
     }
+    case "pipeline":
+      return command.stages.map(commandToBash).join(" | ");
     case "parens":
       return `(${commandToBash(command.command)})`;
   }
@@ -283,6 +285,7 @@ function commandToBash(command: Command): string {
 function isCommand(node: BashNode): node is Command {
   return (
     node.tag === "simpleCommand" ||
+    node.tag === "pipeline" ||
     node.tag === "and" ||
     node.tag === "or" ||
     node.tag === "parens"
