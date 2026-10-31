@@ -29,7 +29,8 @@
  * - Double quotes interpolate `$var` and handle `\"`, `\\`, `\$`, `` \` ``.
  * - Words built from adjacent parts: `$HOME/bin`, `"a"b`, `"$HOME"/x`.
  * - Redirects: `>`, `>>`, `<`, and `&>`, with an optional attached file
- *   descriptor on the first three (`2> err.txt`).
+ *   descriptor on the first three (`2> err.txt`), and the dup forms
+ *   `2>&1` / `>&2` (one digit on each side, no space).
  * - Pipelines (`a | b | c`), flat, binding tighter than `&&` / `||`. A
  *   stage is a simple command or a `( ... )` group.
  * - `&&` / `||` chains (one precedence level, left-associative, as in
@@ -48,8 +49,8 @@
  *   parameter expansion beyond `${name}` (`${x:-y}`), and the special
  *   parameters `$?` / `$@` / `$$`.
  * - Globs (`*`, `?`, `[...]`), tilde (`~/x`), brace expansion, heredocs
- *   and here-strings, `2>&1`, comments (`#`), and escapes outside double
- *   quotes (`echo a\ b`).
+ *   and here-strings, comments (`#`), and escapes outside double quotes
+ *   (`echo a\ b`).
  * - Characters outside the word set above, including `@` and `%`.
  */
 export * from "./types.js";

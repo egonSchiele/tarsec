@@ -1000,6 +1000,9 @@ describe("unsupported syntax is rejected, not mis-parsed", () => {
     // The error points at `&&`, not `|`: the chain's right operand fails
     // with a committed failure and the chain ends at `a`. Rejected either way.
     ["pipe with no right side after a chain", "a && b |"],
+    ["dup to a two-digit fd", "cmd 2>&12"],
+    ["dup with a space", "cmd 2>& 1"],
+    ["dup to a name", "cmd 2>&out"],
     ["semicolon sequence", "echo a; echo b"],
     ["background command", "sleep 1 &"],
     ["command substitution", "echo $(date)"],
@@ -1106,5 +1109,40 @@ describe("pipelines", () => {
         wcDashL,
       ],
     });
+  });
+});
+
+describe("dup redirects", () => {
+  const dup = (fd: number | undefined, to: string) =>
+    fd === undefined
+      ? { tag: "redirect", op: ">&", target: { tag: "literal", text: to } }
+      : { tag: "redirect", fd, op: ">&", target: { tag: "literal", text: to } };
+
+  it("parses 2>&1", () => {
+    expect(parseFully(simpleCommandParser, "make 2>&1").redirects).toEqual([dup(2, "1")]);
+  });
+
+  it("parses >&2 with no file descriptor", () => {
+    expect(parseFully(simpleCommandParser, "echo x >&2").redirects).toEqual([dup(undefined, "2")]);
+  });
+
+  it("keeps a dup after a file redirect in order", () => {
+    expect(parseFully(simpleCommandParser, "cmd >out 2>&1").redirects).toEqual([
+      { tag: "redirect", op: ">", target: { tag: "literal", text: "out" } },
+      dup(2, "1"),
+    ]);
+  });
+
+  it("keeps a dup before a file redirect in order", () => {
+    expect(parseFully(simpleCommandParser, "cmd 2>&1 >out").redirects).toEqual([
+      dup(2, "1"),
+      { tag: "redirect", op: ">", target: { tag: "literal", text: "out" } },
+    ]);
+  });
+
+  it("parses a dup on the first stage of a pipeline", () => {
+    const parsed = parseFully(commandParser, "make 2>&1 | tail -100");
+    expect(parsed.tag).toBe("pipeline");
+    expect((parsed as any).stages[0].redirects).toEqual([dup(2, "1")]);
   });
 });

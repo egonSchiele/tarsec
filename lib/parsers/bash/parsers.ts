@@ -357,7 +357,19 @@ const fdRedirectOp: Parser<string> = or(str(">>"), str(">"), str("<"));
 // vanish from the AST — a silent mis-parse, not a rejection.
 const bareRedirectOp: Parser<string> = str("&>");
 
+// `2>&1` and `>&2`: one stream duplicated onto another. The target is one
+// digit and nothing else; `2>&12`, `2>& 1` and `2>&out` are rejected
+// rather than read as a dup followed by something. Tried first because
+// the fd form would otherwise consume `2>` and fail on `&1`.
+const dupRedirectParser: Parser<Redirect> = seqC(
+  set("tag", "redirect"),
+  optional(capture(map(digit, parseInt), "fd")),
+  capture(str(">&"), "op"),
+  capture(wholeWord(map(digit, literalWord)), "target")
+);
+
 export const redirectParser: Parser<Redirect> = trace("redirectParser", or(
+  dupRedirectParser,
   seqC(
     set("tag", "redirect"),
     optional(capture(map(num, parseInt), "fd")),

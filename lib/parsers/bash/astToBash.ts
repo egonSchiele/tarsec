@@ -53,6 +53,8 @@ const FLAG_CHARS = new Set(LETTERS + DIGITS + "_-./");
  *  has no fd-prefixed form of it, and the parser rejects `2&> f`. */
 const FD_REDIRECT_OPS = new Set([">", ">>", "<"]);
 const BARE_REDIRECT_OPS = new Set(["&>"]);
+/** `2>&1`: an optional fd, then one digit with no space. */
+const DUP_REDIRECT_OP = ">&";
 
 /**
  * Thrown for an AST that cannot be written as bash at all.
@@ -214,7 +216,21 @@ function assignmentToBash(assignment: Assignment): string {
   return `${assignment.name}=${value}`;
 }
 
+function dupRedirectToBash(redirect: Redirect): string {
+  const target = redirect.target;
+  if (target.tag !== "literal" || !/^[0-9]$/.test(target.text)) {
+    throw new AstToBashError(
+      `A \`>&\` redirect duplicates onto one digit; got ${JSON.stringify(target)}.`,
+    );
+  }
+  const fd = redirect.fd === undefined ? "" : String(redirect.fd);
+  return `${fd}${DUP_REDIRECT_OP}${target.text}`;
+}
+
 function redirectToBash(redirect: Redirect): string {
+  if (redirect.op === DUP_REDIRECT_OP) {
+    return dupRedirectToBash(redirect);
+  }
   const takesFd = FD_REDIRECT_OPS.has(redirect.op);
   if (!takesFd && !BARE_REDIRECT_OPS.has(redirect.op)) {
     throw new AstToBashError(
