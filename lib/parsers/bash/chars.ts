@@ -8,8 +8,10 @@ export const DIGITS = "0123456789";
  * assignment-shaped ARGUMENT is an ordinary word: `env FOO=bar`. */
 export const BARE_WORD_CHAR_STRING = LETTERS + DIGITS + "_-.=:+";
 
-/** Characters a bare word may START with. No `-`: that is a flag. */
-export const BARE_WORD_START_CHAR_STRING = LETTERS + DIGITS + "_.=:+";
+/** Characters a bare word may START with. No `-`: that is a flag. `~` is
+ * allowed here and nowhere else, so `~/x` and `~user` parse and `a~b`
+ * does not. */
+export const BARE_WORD_START_CHAR_STRING = LETTERS + DIGITS + "_.=:+~";
 
 /** Characters a glob word may contain beyond a path's. */
 export const GLOB_WORD_CHARS = "*?[]";

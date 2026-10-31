@@ -143,7 +143,10 @@ export const literalWordParser: Parser<LiteralWord> = wholeWord((input: string) 
 export const pathWordParser: Parser<PathWord> = wholeWord((input: string) => {
   const result = trace("pathWordParser", seqC(
     set("tag", "path"),
-    capture(many1WithJoin(or(bareWordChars, char("/"))), "text")
+    capture(map(seqR(
+      or(bareWordStartChars, char("/")),
+      manyWithJoin(or(bareWordChars, char("/")))
+    ), (parts) => parts.join("")), "text")
   ))(input);
 
   if (result.success) {

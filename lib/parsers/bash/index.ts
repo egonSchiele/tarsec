@@ -29,6 +29,8 @@
  * - Globs: an unquoted word containing `* ? [`, kept unexpanded as a
  *   `glob` word. A lone `]` is text. Never a command word or a redirect
  *   target.
+ * - A leading `~` (`~`, `~/x`, `~user/x`), kept as written in a literal
+ *   or path word. `a~b` is rejected.
  * - Double quotes interpolate `$var` and handle `\"`, `\\`, `\$`, `` \` ``.
  * - Words built from adjacent parts: `$HOME/bin`, `"a"b`, `"$HOME"/x`.
  * - Redirects: `>`, `>>`, `<`, and `&>`, with an optional attached file
@@ -51,7 +53,7 @@
  * - Command substitution `$(...)`, backticks, arithmetic `$((...))`,
  *   parameter expansion beyond `${name}` (`${x:-y}`), and the special
  *   parameters `$?` / `$@` / `$$`.
- * - Tilde (`~/x`), brace expansion, heredocs
+ * - Brace expansion, heredocs
  *   and here-strings, comments (`#`), and escapes outside double quotes
  *   (`echo a\ b`).
  * - Characters outside the word set above, including `@` and `%`.

@@ -101,7 +101,9 @@ function isFlagText(text: string): boolean {
 function isBareWord(text: string): boolean {
   if (text.length === 0) return false;
   if (!BARE_WORD_START_CHARS.has(text[0])) return false;
-  for (const character of text) {
+  // The first character has its own set (it may be `~`, which is not
+  // allowed later in a word); the rest use the body set.
+  for (const character of text.slice(1)) {
     if (!BARE_WORD_CHARS.has(character)) return false;
   }
   return true;

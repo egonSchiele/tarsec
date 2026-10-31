@@ -1006,13 +1006,13 @@ describe("unsupported syntax is rejected, not mis-parsed", () => {
     ["glob as a command word", "*.sh arg"],
     ["glob as a redirect target", "echo > *.txt"],
     ["glob that starts like a flag", "ls -*"],
+    ["tilde inside a word", "echo a~b"],
     ["semicolon sequence", "echo a; echo b"],
     ["background command", "sleep 1 &"],
     ["command substitution", "echo $(date)"],
     ["backtick substitution", "echo `date`"],
     ["heredoc", "cat <<EOF"],
     ["brace expansion", "echo {a,b}"],
-    ["tilde expansion", "cat ~/notes.txt"],
   ];
 
   it.each(unsupported)("rejects a %s", (_name, input) => {
@@ -1197,5 +1197,19 @@ describe("a glob as a flag value", () => {
       flagName: "--include",
       flagValue: "foo.ts",
     });
+  });
+});
+
+describe("a leading tilde", () => {
+  it("parses ~ alone as a literal", () => {
+    expect(parseFully(wordParser, "~")).toEqual({ tag: "literal", text: "~" });
+  });
+
+  it.each(["~/notes.txt", "~/.ssh", "~user/x"])("parses %s as a path", (text) => {
+    expect(parseFully(wordParser, text)).toEqual({ tag: "path", text });
+  });
+
+  it("keeps a tilde path as an argument", () => {
+    expect(parseFully(simpleCommandParser, "cat ~/notes.txt").args).toEqual([{ tag: "path", text: "~/notes.txt" }]);
   });
 });
