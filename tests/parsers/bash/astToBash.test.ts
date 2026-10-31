@@ -72,6 +72,7 @@ describe("round trip", () => {
     "echo ~",
     "ls ~/.ssh",
     "cat ~/*.md",
+    "cmd --name=[abc",
     "cmd 12>&1",
     "/usr/bin/env node",
     "ls /",

@@ -30,12 +30,20 @@ const GLOB_TRIGGERS = new Set(GLOB_TRIGGER_CHARS);
 export function isGlobText(text: string): boolean {
   if (text.length === 0) return false;
   if (!GLOB_START.has(text[0])) return false;
-  let triggered = false;
+  let triggered = GLOB_TRIGGERS.has(text[0]);
   for (const character of text.slice(1)) {
     if (!GLOB_BODY.has(character)) return false;
-  }
-  for (const character of text) {
     if (GLOB_TRIGGERS.has(character)) triggered = true;
   }
   return triggered;
+}
+
+const GLOB_CHARS = new Set(GLOB_WORD_CHARS);
+
+/** True when any glob character, trigger or not, appears in the text. */
+export function hasGlobChar(text: string): boolean {
+  for (const character of text) {
+    if (GLOB_CHARS.has(character)) return true;
+  }
+  return false;
 }

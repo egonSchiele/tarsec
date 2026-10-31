@@ -1019,6 +1019,9 @@ describe("unsupported syntax is rejected, not mis-parsed", () => {
     ["quoted word followed by a tilde", "cmd 'a'~"],
     ["assignment value ending in a tilde", "X='a'~ cmd"],
     ["redirect target with a trailing glob", "cmd > $X*"],
+    // `]` without a trigger is not a glob, and a flag value that is not a
+    // glob may not carry glob characters, or it would not round-trip.
+    ["flag value with a lone ]", "cmd --name=a]b"],
     ["semicolon sequence", "echo a; echo b"],
     ["background command", "sleep 1 &"],
     ["command substitution", "echo $(date)"],

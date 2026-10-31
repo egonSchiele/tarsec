@@ -23,7 +23,7 @@ function getResult<T>(parser: Parser<{ result: T }>): Parser<T> {
   };
 }
 
-import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, GLOB_WORD_CHARS, isGlobText, LETTERS } from "./chars.js";
+import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, GLOB_WORD_CHARS, hasGlobChar, isGlobText, LETTERS } from "./chars.js";
 
 /** Characters allowed inside a VARIABLE name. Deliberately narrower than
  * `wordChars`: a dot or hyphen ends the name, so `$HOME.txt` is `$HOME`
@@ -189,21 +189,30 @@ export const flagWordNameOnlyParser: Parser<FlagWord> = trace("flagWordNameOnlyP
   capture(flagNameParser, "flagName"),
 ))
 
-export const flagWordNameAndValueParser: Parser<FlagWord> = trace("flagWordNameAndValueParser", map(
-  seqC(
+/** A flag value is either plain flag text or a glob. A value with a glob
+ * character that is not a glob (`--name=a]b`) is refused, the same
+ * post-check globWordParser makes, because the renderer would have to
+ * quote it and the quoted form reads back as a different word. */
+export const flagWordNameAndValueParser: Parser<FlagWord> = trace("flagWordNameAndValueParser", (input: string) => {
+  const result = seqC(
     set("tag", "flag"),
     capture(flagNameParser, "flagName"),
     char("="),
     capture(many1WithJoin(or(wordChars, globChars)), "flagValue")
-  ),
-  (captured) => {
-    const flag: FlagWord = captured;
-    if (flag.flagValue !== undefined && isGlobText(flag.flagValue)) {
-      flag.valueIsGlob = true;
-    }
-    return flag;
+  )(input);
+  if (!result.success) {
+    return result;
   }
-))
+  const flag: FlagWord = result.result;
+  const value = flag.flagValue ?? "";
+  if (hasGlobChar(value)) {
+    if (!isGlobText(value)) {
+      return failure("Not a glob.", input);
+    }
+    flag.valueIsGlob = true;
+  }
+  return success(flag, result.rest);
+})
 
 export const flagWordParser: Parser<FlagWord> = trace("flagWordParser", wholeWord(or(
   flagWordNameAndValueParser,
