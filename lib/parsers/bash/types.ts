@@ -3,6 +3,7 @@
 export type Word =
   | LiteralWord
   | PathWord
+  | GlobWord
   | FlagWord
   | SingleQuotedWord
   | DoubleQuotedWord
@@ -13,8 +14,15 @@ export type ScriptName = LiteralWord | PathWord
 
 export type LiteralWord = { tag: "literal"; text: string };
 export type PathWord = { tag: "path"; text: string };
+/** An unquoted word bash will expand (`*.ts`, `src/*.md`, `file?.txt`).
+ * Its own node so a consumer can tell it from the quoted text `'*.ts'`,
+ * which bash passes through. Never a command word or a redirect target. */
+export type GlobWord = { tag: "glob"; text: string };
 
-export type FlagWord = { tag: "flag"; flagName: string; flagValue?: string };
+/** `valueIsGlob` is present, and true, only when the value is an unquoted
+ * glob (`--include=*.ts`); bash expands it where it would pass
+ * `--include='*.ts'` through as text. */
+export type FlagWord = { tag: "flag"; flagName: string; flagValue?: string; valueIsGlob?: boolean };
 export type SingleQuotedWord = { tag: "singleQuoted"; text: string };
 export type DoubleQuotedWord = { tag: "doubleQuoted"; parts: Word[] };
 export type VariableWord = { tag: "variable"; name: string };
@@ -40,10 +48,10 @@ export type Assignment = {
   value: Word | null;
 };
 
-/** A redirect like `> out.txt`, `>> log`, `2> err.txt` or `< in.txt`.
- * `fd` is the explicit file descriptor (`2` in `2>`), or undefined for the
- * default. Only `>`, `>>`, `<` and `&>` are recognized; `2>&1`, heredocs
- * and here-strings are rejected rather than parsed. */
+/** A redirect like `> out.txt`, `>> log`, `2> err.txt`, `< in.txt`, or
+ * the dup `2>&1` (op `>&`, target a one-digit literal). `fd` is the
+ * explicit file descriptor (`2` in `2>`), or undefined for the default.
+ * Heredocs and here-strings are rejected rather than parsed. */
 export type Redirect = {
   tag: "redirect";
   fd?: number;

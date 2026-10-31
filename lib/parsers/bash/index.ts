@@ -26,6 +26,12 @@
  * - Words: bare words (letters, digits, and `_ - . = : +`), paths
  *   (any word containing `/`), single and double quotes, `$var` and
  *   `${var}`, and `-f` / `--flag` / `--flag=value` flags.
+ * - Globs: an unquoted word containing `* ? [`, kept unexpanded as a
+ *   `glob` word (`*.ts`, `~/*.md`). `]` is accepted only inside a glob
+ *   word; `a]b` is rejected. Never a command word or a redirect target.
+ * - A leading `~` (`~`, `~/x`, `~user/x`), kept as written in a literal
+ *   or path word. `a~b` is rejected, and so is `~` after `=` or `:`
+ *   inside a word.
  * - Double quotes interpolate `$var` and handle `\"`, `\\`, `\$`, `` \` ``.
  * - Words built from adjacent parts: `$HOME/bin`, `"a"b`, `"$HOME"/x`.
  * - Redirects: `>`, `>>`, `<`, and `&>`, with an optional attached file
@@ -39,7 +45,11 @@
  *
  * REJECTED, and worth knowing because a reader would not predict them
  * - `|&`, background (`&`), and `;` inside `( ... )` — so
- *   `(a && b) || c` parses but `a && (b; c)` does not.
+ *   `(a && b) || c` parses but `a && (b; c)` does not. A `|` must be
+ *   followed by its stage on the same line.
+ * - A quoted or variable word followed by a glob or a tilde (`$HOME/*.ts`,
+ *   `'a'~`). Bash reads those as one word; splitting them would change
+ *   the command, so they are rejected.
  * - Reserved words ANYWHERE, not only at command position: `echo if` and
  *   `echo done` are valid bash and are rejected here.
  * - `--` as an end-of-flags marker, so `git checkout -- file` is rejected,
@@ -48,9 +58,8 @@
  * - Command substitution `$(...)`, backticks, arithmetic `$((...))`,
  *   parameter expansion beyond `${name}` (`${x:-y}`), and the special
  *   parameters `$?` / `$@` / `$$`.
- * - Globs (`*`, `?`, `[...]`), tilde (`~/x`), brace expansion, heredocs
- *   and here-strings, comments (`#`), and escapes outside double quotes
- *   (`echo a\ b`).
+ * - Brace expansion, heredocs and here-strings, comments (`#`), and
+ *   escapes outside double quotes (`echo a\ b`).
  * - Characters outside the word set above, including `@` and `%`.
  */
 export * from "./types.js";

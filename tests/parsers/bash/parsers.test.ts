@@ -67,6 +67,7 @@ function describeWord(word: Word): string {
   switch (word.tag) {
     case "literal":
     case "path":
+    case "glob":
     case "singleQuoted":
       return word.text;
     case "flag":
@@ -1003,14 +1004,30 @@ describe("unsupported syntax is rejected, not mis-parsed", () => {
     ["dup to a two-digit fd", "cmd 2>&12"],
     ["dup with a space", "cmd 2>& 1"],
     ["dup to a name", "cmd 2>&out"],
+    ["glob as a command word", "*.sh arg"],
+    ["glob as a redirect target", "echo > *.txt"],
+    ["glob that starts like a flag", "ls -*"],
+    ["tilde inside a word", "echo a~b"],
+    // A quoted or variable word followed by a glob or tilde is ONE word in
+    // bash. Splitting it would render a different command, so it is
+    // rejected rather than parsed as two words.
+    ["variable followed by a glob", "cmd $X*"],
+    ["variable followed by a path glob", "cmd $HOME/*.ts"],
+    ["quoted word followed by a glob", "cmd 'a'*"],
+    ["double-quoted word followed by a glob", "cmd \"$HOME\"/*.ts"],
+    ["variable followed by a tilde", "cmd $X~/y"],
+    ["quoted word followed by a tilde", "cmd 'a'~"],
+    ["assignment value ending in a tilde", "X='a'~ cmd"],
+    ["redirect target with a trailing glob", "cmd > $X*"],
+    // `]` without a trigger is not a glob, and a flag value that is not a
+    // glob may not carry glob characters, or it would not round-trip.
+    ["flag value with a lone ]", "cmd --name=a]b"],
     ["semicolon sequence", "echo a; echo b"],
     ["background command", "sleep 1 &"],
     ["command substitution", "echo $(date)"],
     ["backtick substitution", "echo `date`"],
-    ["glob", "ls *.txt"],
     ["heredoc", "cat <<EOF"],
     ["brace expansion", "echo {a,b}"],
-    ["tilde expansion", "cat ~/notes.txt"],
   ];
 
   it.each(unsupported)("rejects a %s", (_name, input) => {
@@ -1154,5 +1171,77 @@ describe("dup redirects", () => {
     const parsed = parseFully(commandParser, "make 2>&1 | tail -100");
     expect(parsed.tag).toBe("pipeline");
     expect((parsed as any).stages[0].redirects).toEqual([dup(2, "1")]);
+  });
+});
+
+describe("globs", () => {
+  const glob = (text: string) => ({ tag: "glob", text });
+  const literal = (text: string) => ({ tag: "literal", text });
+
+  it.each(["*.ts", "src/*.md", "src/**/*.md", "file?.txt", "[abc", "~/*.md", "~/Downloads/*.pdf"])("parses %s as a glob word", (text) => {
+    expect(parseFully(wordParser, text)).toEqual(glob(text));
+  });
+
+  it("does not treat a lone ] as a glob", () => {
+    // `]` is outside the bare-word set, so `a]b` is rejected as it was
+    // before globs existed. The point pinned here is that it is not
+    // mis-parsed as a glob either.
+    expect(parsesFully(wordParser, "a]b")).toBe(false);
+  });
+
+  it("parses a glob argument", () => {
+    expect(parseFully(simpleCommandParser, "ls *.txt").args).toEqual([glob("*.txt")]);
+  });
+
+  it("keeps a literal before a glob", () => {
+    expect(parseFully(simpleCommandParser, "grep foo src/*.ts").args).toEqual([literal("foo"), glob("src/*.ts")]);
+  });
+
+  it("keeps a single-quoted glob as text", () => {
+    expect(parseFully(simpleCommandParser, "echo '*.ts'").args).toEqual([{ tag: "singleQuoted", text: "*.ts" }]);
+  });
+
+  it("keeps a double-quoted glob as text", () => {
+    expect(parseFully(simpleCommandParser, 'echo "*.ts"').args[0].tag).toBe("doubleQuoted");
+  });
+});
+
+describe("a glob as a flag value", () => {
+  it("marks --include=*.ts as a glob value", () => {
+    expect(parseFully(simpleCommandParser, "grep -rn x --include=*.ts src").args[2]).toEqual({
+      tag: "flag",
+      flagName: "--include",
+      flagValue: "*.ts",
+      valueIsGlob: true,
+    });
+  });
+
+  it("keeps a quoted glob value as text", () => {
+    expect(parseFully(wordParser, "--include='*.ts'")).toEqual({
+      tag: "interpolatedVariable",
+      parts: [{ tag: "literal", text: "--include=" }, { tag: "singleQuoted", text: "*.ts" }],
+    });
+  });
+
+  it("leaves a plain value unmarked", () => {
+    expect(parseFully(wordParser, "--include=foo.ts")).toEqual({
+      tag: "flag",
+      flagName: "--include",
+      flagValue: "foo.ts",
+    });
+  });
+});
+
+describe("a leading tilde", () => {
+  it("parses ~ alone as a literal", () => {
+    expect(parseFully(wordParser, "~")).toEqual({ tag: "literal", text: "~" });
+  });
+
+  it.each(["~/notes.txt", "~/.ssh", "~user/x"])("parses %s as a path", (text) => {
+    expect(parseFully(wordParser, text)).toEqual({ tag: "path", text });
+  });
+
+  it("keeps a tilde path as an argument", () => {
+    expect(parseFully(simpleCommandParser, "cat ~/notes.txt").args).toEqual([{ tag: "path", text: "~/notes.txt" }]);
   });
 });
