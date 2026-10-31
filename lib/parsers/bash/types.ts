@@ -48,10 +48,10 @@ export type Assignment = {
   value: Word | null;
 };
 
-/** A redirect like `> out.txt`, `>> log`, `2> err.txt` or `< in.txt`.
- * `fd` is the explicit file descriptor (`2` in `2>`), or undefined for the
- * default. Only `>`, `>>`, `<` and `&>` are recognized; `2>&1`, heredocs
- * and here-strings are rejected rather than parsed. */
+/** A redirect like `> out.txt`, `>> log`, `2> err.txt`, `< in.txt`, or
+ * the dup `2>&1` (op `>&`, target a one-digit literal). `fd` is the
+ * explicit file descriptor (`2` in `2>`), or undefined for the default.
+ * Heredocs and here-strings are rejected rather than parsed. */
 export type Redirect = {
   tag: "redirect";
   fd?: number;
