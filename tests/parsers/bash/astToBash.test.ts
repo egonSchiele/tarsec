@@ -71,6 +71,7 @@ describe("round trip", () => {
     "cat ~/notes.txt",
     "echo ~",
     "ls ~/.ssh",
+    "cmd 12>&1",
     "/usr/bin/env node",
     "ls /",
     "echo 'hello world'",

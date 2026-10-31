@@ -406,7 +406,7 @@ const bareRedirectOp: Parser<string> = str("&>");
 // the fd form would otherwise consume `2>` and fail on `&1`.
 const dupRedirectParser: Parser<Redirect> = seqC(
   set("tag", "redirect"),
-  optional(capture(map(digit, parseInt), "fd")),
+  optional(capture(map(num, parseInt), "fd")),
   capture(str(">&"), "op"),
   capture(wholeWord(map(digit, literalWord)), "target")
 );
