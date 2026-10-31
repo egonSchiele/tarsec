@@ -31,16 +31,15 @@ import {
   Word,
 } from "./types.js";
 
-const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const DIGITS = "0123456789";
+import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, isGlobText, LETTERS } from "./chars.js";
 
 /** The characters the parser reads as a bare word or a path. Text made
  *  only of these can be emitted unquoted and read back as the same word.
  *  This is `bareWordChars` / `bareWordStartChars` from parsers.ts plus
  *  `/`, since `literalWordParser` and `pathWordParser` between them cover
  *  both. */
-const BARE_WORD_CHARS = new Set(LETTERS + DIGITS + "_-.=:+/");
-const BARE_WORD_START_CHARS = new Set(LETTERS + DIGITS + "_.=:+/");
+const BARE_WORD_CHARS = new Set(BARE_WORD_CHAR_STRING + "/");
+const BARE_WORD_START_CHARS = new Set(BARE_WORD_START_CHAR_STRING + "/");
 
 /** Characters that can continue a variable name. A variable part followed
  *  by one of these has to be braced. */
@@ -172,6 +171,13 @@ function wordToBash(word: Word): string {
     case "literal":
     case "path":
       return quoteIfNeeded(word.text);
+    case "glob":
+      // Quoting would stop it being a glob, so a glob the parser could not
+      // have produced cannot be rescued; refuse it like a bad variable name.
+      if (!isGlobText(word.text)) {
+        throw new AstToBashError(`Not a valid glob: ${JSON.stringify(word.text)}`);
+      }
+      return word.text;
     case "singleQuoted":
       return singleQuote(word.text);
     case "doubleQuoted":

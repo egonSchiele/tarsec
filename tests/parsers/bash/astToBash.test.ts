@@ -63,6 +63,10 @@ describe("round trip", () => {
     "echo x >&2",
     "cmd >out 2>&1",
     "make 2>&1 | tail -100",
+    "ls *.txt",
+    "grep foo src/*.ts",
+    "cat src/**/*.md",
+    "echo '*.ts'",
     "/usr/bin/env node",
     "ls /",
     "echo 'hello world'",
@@ -434,5 +438,18 @@ describe("dup redirects are checked on render", () => {
       redirects: [{ tag: "redirect", fd: 2, op: ">&", target: literalWord("out") }],
     };
     expect(() => astToBash(command)).toThrow(/digit/);
+  });
+});
+
+describe("globs are checked on render", () => {
+  it("throws for text that is not a glob the parser could produce", () => {
+    const command: SimpleCommand = {
+      tag: "simpleCommand",
+      assignments: [],
+      command: literalWord("ls"),
+      args: [{ tag: "glob", text: "*; rm -rf /" }],
+      redirects: [],
+    };
+    expect(() => astToBash(command)).toThrow(/glob/);
   });
 });

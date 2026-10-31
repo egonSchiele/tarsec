@@ -1,5 +1,5 @@
 import { CaptureParser, failure, Parser, ParserResult, success } from "../../types.js";
-import { And, Assignment, BashAST, Command, Pipeline, PipelineStage, DoubleQuotedWord, FlagWord, InterpolatedVariableWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
+import { And, Assignment, BashAST, Command, Pipeline, PipelineStage, DoubleQuotedWord, FlagWord, GlobWord, InterpolatedVariableWord, literalWord, LiteralWord, Or, Parens, PathWord, Redirect, ScriptName, SimpleCommand, SingleQuotedWord, VariableWord, Word } from "./types.js";
 import { buildExpressionParser, capture, char, committed, digit, eof, fail, not, label, lazy, letter, many, many1, many1WithJoin, manyWithJoin, map, noneOf, num, oneOf, optional, or, peek, sepBy, sepBy1, seq, seqC, seqR, set, space, spaces, str, trace } from "../../index.js";
 export const RESERVED_WORDS = [
   "if", "then", "elif", "else", "fi",
@@ -23,8 +23,7 @@ function getResult<T>(parser: Parser<{ result: T }>): Parser<T> {
   };
 }
 
-const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-const DIGITS = "0123456789";
+import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, GLOB_WORD_CHARS, isGlobText, LETTERS } from "./chars.js";
 
 /** Characters allowed inside a VARIABLE name. Deliberately narrower than
  * `wordChars`: a dot or hyphen ends the name, so `$HOME.txt` is `$HOME`
@@ -53,7 +52,7 @@ export const wordChars: Parser<string> = label(
  * the command name.) */
 export const bareWordChars: Parser<string> = label(
   "a word character",
-  oneOf(LETTERS + DIGITS + "_-.=:+")
+  oneOf(BARE_WORD_CHAR_STRING)
 );
 
 /** A bare word may not START with `-`: that is a flag. Without this rule
@@ -62,8 +61,9 @@ export const bareWordChars: Parser<string> = label(
  * inside a word (`my-file`) is still fine. */
 export const bareWordStartChars: Parser<string> = label(
   "a word character",
-  oneOf(LETTERS + DIGITS + "_.=:+")
+  oneOf(BARE_WORD_START_CHAR_STRING)
 );
+
 
 /** Characters that end a bare word: whitespace and the operators that
  * separate commands. */
@@ -154,6 +154,26 @@ export const pathWordParser: Parser<PathWord> = wholeWord((input: string) => {
   }
   return result;
 })
+
+const globChars: Parser<string> = label("a glob character", oneOf(GLOB_WORD_CHARS));
+
+/** A bare or path word containing at least one glob character. Tried
+ * before the literal and path words, which would fail on the `*`. The
+ * post-check mirrors the one pathWordParser does for `/`. The first
+ * character comes from the start set, so `-*` stays a rejected flag. */
+export const globWordParser: Parser<GlobWord> = wholeWord((input: string) => {
+  const result = trace("globWordParser", seqC(
+    set("tag", "glob"),
+    capture(map(seqR(
+      or(bareWordStartChars, char("/"), globChars),
+      manyWithJoin(or(bareWordChars, char("/"), globChars))
+    ), (parts) => parts.join("")), "text")
+  ))(input);
+  if (result.success && !isGlobText(result.result.text)) {
+    return failure("Not a glob.", input);
+  }
+  return result;
+});
 
 export const flagNameParser: Parser<string> = trace("flagNameParser", map(seqR(
   char("-"),
@@ -308,7 +328,8 @@ export const interpolatedVariableWordParser: Parser<InterpolatedVariableWord> =
     );
   })
 
-export const wordParser: Parser<Word> = trace("wordParser", or(
+/** Every word that is not a glob, in the order they are tried. */
+const plainWordParsers: Parser<Word>[] = [
   flagWordParser,
   // Before every single-part parser: each of those would match only the
   // FIRST part of an interpolated word and leave the rest to become a
@@ -319,6 +340,16 @@ export const wordParser: Parser<Word> = trace("wordParser", or(
   variableWordParser,
   pathWordParser,
   literalWordParser,
+];
+
+export const wordParser: Parser<Word> = trace("wordParser", or(
+  globWordParser,
+  ...plainWordParsers,
+))
+
+/** A redirect target is any word but a glob: `> *.txt` is rejected. */
+export const redirectTargetParser: Parser<Word> = trace("redirectTargetParser", or(
+  ...plainWordParsers,
 ))
 
 export const scriptNameParser: Parser<ScriptName> = trace("scriptNameParser", or(
@@ -375,13 +406,13 @@ export const redirectParser: Parser<Redirect> = trace("redirectParser", or(
     optional(capture(map(num, parseInt), "fd")),
     capture(fdRedirectOp, "op"),
     blanks,
-    capture(wordParser, "target")
+    capture(redirectTargetParser, "target")
   ),
   seqC(
     set("tag", "redirect"),
     capture(bareRedirectOp, "op"),
     blanks,
-    capture(wordParser, "target")
+    capture(redirectTargetParser, "target")
   )
 ))
 

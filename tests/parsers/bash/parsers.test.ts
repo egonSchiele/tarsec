@@ -1003,11 +1003,13 @@ describe("unsupported syntax is rejected, not mis-parsed", () => {
     ["dup to a two-digit fd", "cmd 2>&12"],
     ["dup with a space", "cmd 2>& 1"],
     ["dup to a name", "cmd 2>&out"],
+    ["glob as a command word", "*.sh arg"],
+    ["glob as a redirect target", "echo > *.txt"],
+    ["glob that starts like a flag", "ls -*"],
     ["semicolon sequence", "echo a; echo b"],
     ["background command", "sleep 1 &"],
     ["command substitution", "echo $(date)"],
     ["backtick substitution", "echo `date`"],
-    ["glob", "ls *.txt"],
     ["heredoc", "cat <<EOF"],
     ["brace expansion", "echo {a,b}"],
     ["tilde expansion", "cat ~/notes.txt"],
@@ -1144,5 +1146,37 @@ describe("dup redirects", () => {
     const parsed = parseFully(commandParser, "make 2>&1 | tail -100");
     expect(parsed.tag).toBe("pipeline");
     expect((parsed as any).stages[0].redirects).toEqual([dup(2, "1")]);
+  });
+});
+
+describe("globs", () => {
+  const glob = (text: string) => ({ tag: "glob", text });
+  const literal = (text: string) => ({ tag: "literal", text });
+
+  it.each(["*.ts", "src/*.md", "src/**/*.md", "file?.txt", "[abc"])("parses %s as a glob word", (text) => {
+    expect(parseFully(wordParser, text)).toEqual(glob(text));
+  });
+
+  it("does not treat a lone ] as a glob", () => {
+    // `]` is outside the bare-word set, so `a]b` is rejected as it was
+    // before globs existed. The point pinned here is that it is not
+    // mis-parsed as a glob either.
+    expect(parsesFully(wordParser, "a]b")).toBe(false);
+  });
+
+  it("parses a glob argument", () => {
+    expect(parseFully(simpleCommandParser, "ls *.txt").args).toEqual([glob("*.txt")]);
+  });
+
+  it("keeps a literal before a glob", () => {
+    expect(parseFully(simpleCommandParser, "grep foo src/*.ts").args).toEqual([literal("foo"), glob("src/*.ts")]);
+  });
+
+  it("keeps a single-quoted glob as text", () => {
+    expect(parseFully(simpleCommandParser, "echo '*.ts'").args).toEqual([{ tag: "singleQuoted", text: "*.ts" }]);
+  });
+
+  it("keeps a double-quoted glob as text", () => {
+    expect(parseFully(simpleCommandParser, 'echo "*.ts"').args[0].tag).toBe("doubleQuoted");
   });
 });

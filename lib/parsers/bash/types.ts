@@ -3,6 +3,7 @@
 export type Word =
   | LiteralWord
   | PathWord
+  | GlobWord
   | FlagWord
   | SingleQuotedWord
   | DoubleQuotedWord
@@ -13,6 +14,10 @@ export type ScriptName = LiteralWord | PathWord
 
 export type LiteralWord = { tag: "literal"; text: string };
 export type PathWord = { tag: "path"; text: string };
+/** An unquoted word bash will expand (`*.ts`, `src/*.md`, `file?.txt`).
+ * Its own node so a consumer can tell it from the quoted text `'*.ts'`,
+ * which bash passes through. Never a command word or a redirect target. */
+export type GlobWord = { tag: "glob"; text: string };
 
 export type FlagWord = { tag: "flag"; flagName: string; flagValue?: string };
 export type SingleQuotedWord = { tag: "singleQuoted"; text: string };
