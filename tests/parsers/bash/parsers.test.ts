@@ -1122,6 +1122,16 @@ describe("dup redirects", () => {
     expect(parseFully(simpleCommandParser, "make 2>&1").redirects).toEqual([dup(2, "1")]);
   });
 
+  it("parses a two-digit file descriptor on a dup", () => {
+    expect(parseFully(simpleCommandParser, "cmd 12>&1")).toEqual({
+      tag: "simpleCommand",
+      assignments: [],
+      command: { tag: "literal", text: "cmd" },
+      args: [],
+      redirects: [dup(12, "1")],
+    });
+  });
+
   it("parses >&2 with no file descriptor", () => {
     expect(parseFully(simpleCommandParser, "echo x >&2").redirects).toEqual([dup(undefined, "2")]);
   });
