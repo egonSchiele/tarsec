@@ -65,7 +65,19 @@ export type SimpleCommand = {
   redirects: Redirect[];
 };
 
-export type Command = SimpleCommand | And | Or | Parens;
+export type Command = SimpleCommand | Pipeline | And | Or | Parens;
+
+/** What may sit between pipes: a simple command or a parenthesized group,
+ * never a chain, because `|` binds tighter than `&&` and `||`. */
+export type PipelineStage = SimpleCommand | Parens;
+
+/** `a | b | c`: each stage's stdout feeds the next stage's stdin. Flat,
+ * always two or more stages, because bash runs them as one unit and a
+ * consumer walking them wants a list. `a | b && c` is `(a | b) && c`. */
+export type Pipeline = {
+  tag: "pipeline";
+  stages: PipelineStage[];
+};
 
 export type And = {
   tag: "and";

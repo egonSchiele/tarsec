@@ -52,6 +52,18 @@ describe("round trip", () => {
     "ls -la src",
     "cat file.txt",
     "cat src/main.ts",
+    "ls | wc -l",
+    "grep -rn foo src | head -20 | sort",
+    "a | b && c",
+    "a && b | c",
+    "(a && b) | c",
+    "a && (b | c)",
+    "cat f 2> err | wc -l",
+    "make 2>&1",
+    "echo x >&2",
+    "cmd >out 2>&1",
+    "make 2>&1 | tail -100",
+    "cmd 12>&1",
     "/usr/bin/env node",
     "ls /",
     "echo 'hello world'",
@@ -410,5 +422,18 @@ describeIfBash("emitted commands run as the AST describes", () => {
       redirects: [],
     };
     expect(bashArgv(astToBash(command))).toEqual(["; rm -rf /"]);
+  });
+});
+
+describe("dup redirects are checked on render", () => {
+  it("throws for a dup whose target is not one digit", () => {
+    const command: SimpleCommand = {
+      tag: "simpleCommand",
+      assignments: [],
+      command: literalWord("cmd"),
+      args: [],
+      redirects: [{ tag: "redirect", fd: 2, op: ">&", target: literalWord("out") }],
+    };
+    expect(() => astToBash(command)).toThrow(/digit/);
   });
 });
