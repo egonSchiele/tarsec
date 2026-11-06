@@ -21,7 +21,13 @@ export type GlobWord = { tag: "glob"; text: string };
 
 /** `valueIsGlob` is present, and true, only when the value is an unquoted
  * glob (`--include=*.ts`); bash expands it where it would pass
- * `--include='*.ts'` through as text. */
+ * `--include='*.ts'` through as text.
+ *
+ * A flag whose name is `--` and that has no value is the end-of-flags
+ * marker (`git checkout -- file`). Only the FIRST one in a command is the
+ * marker. The words after it are still tagged as usual, so a consumer
+ * that honours `--` reads every later word as an operand, a later `-x`
+ * or `--` included. */
 export type FlagWord = { tag: "flag"; flagName: string; flagValue?: string; valueIsGlob?: boolean };
 export type SingleQuotedWord = { tag: "singleQuoted"; text: string };
 export type DoubleQuotedWord = { tag: "doubleQuoted"; parts: Word[] };

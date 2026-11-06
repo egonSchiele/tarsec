@@ -1246,6 +1246,20 @@ describe("a tilde or caret inside a word", () => {
     expect(parseFully(wordParser, "origin/main~1")).toEqual({ tag: "path", text: "origin/main~1" });
   });
 
+  it("parses a revision and path joined by a colon", () => {
+    expect(parseFully(wordParser, "HEAD~1:src/x.ts")).toEqual({ tag: "path", text: "HEAD~1:src/x.ts" });
+  });
+
+  it("parses one as an assignment value", () => {
+    expect(parseFully(simpleCommandParser, "FOO=HEAD~1 cmd").assignments).toEqual([
+      { tag: "assignment", name: "FOO", value: { tag: "literal", text: "HEAD~1" } },
+    ]);
+  });
+
+  it("rejects one in a flag value", () => {
+    expect(bashParser("git log --since=HEAD~1").success).toBe(false);
+  });
+
   it("keeps the word as one argument", () => {
     expect(parseFully(simpleCommandParser, "git diff HEAD~1 HEAD").args).toEqual([
       { tag: "literal", text: "diff" },
@@ -1268,6 +1282,13 @@ describe("the end-of-flags marker", () => {
     expect(parseFully(simpleCommandParser, "git diff main --").args).toEqual([
       { tag: "literal", text: "diff" },
       { tag: "literal", text: "main" },
+      { tag: "flag", flagName: "--" },
+    ]);
+  });
+
+  it("tags a second -- the same way", () => {
+    expect(parseFully(simpleCommandParser, "cmd -- --").args).toEqual([
+      { tag: "flag", flagName: "--" },
       { tag: "flag", flagName: "--" },
     ]);
   });

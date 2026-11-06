@@ -33,7 +33,7 @@
  *   or path word.
  * - `~` and `^` inside a literal or path word (`HEAD~1`, `HEAD^`), which
  *   bash reads as text. A `~` after `=` or `:` is rejected, because bash
- *   expands it there.
+ *   expands it there. Not in a flag value: `--since=HEAD~1` is rejected.
  * - `--` as an end-of-flags marker (`git checkout -- file`), as a flag
  *   whose name is `--`. Words after it are still parsed as usual, so a
  *   consumer decides what a `-x` after it means.

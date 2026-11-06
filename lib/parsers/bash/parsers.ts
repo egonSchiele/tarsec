@@ -64,11 +64,12 @@ export const bareWordStartChars: Parser<string> = label(
   oneOf(BARE_WORD_START_CHAR_STRING)
 );
 
-/** `~` and `^` after the first character of a literal or path word:
- * `HEAD~1`, `HEAD^`, `main~2`. */
-const innerWordChars: Parser<string> = label(
+/** Characters after the first one of a literal or path word: the bare
+ * word set plus `~` and `^` (`HEAD~1`, `HEAD^`, `main~2`). One set, so
+ * each character is one lookup. */
+const wordBodyChars: Parser<string> = label(
   "a word character",
-  oneOf(INNER_WORD_CHAR_STRING)
+  oneOf(BARE_WORD_CHAR_STRING + INNER_WORD_CHAR_STRING)
 );
 
 /** Refuse a word bash would not read as written: one with a `~` after
@@ -149,7 +150,7 @@ function rejectReservedWord<T extends { text: string }>(
 export const literalWordParser: Parser<LiteralWord> = wholeWord((input: string) => {
   const result = trace("literalWordParser", seqC(
     set("tag", "literal"),
-    capture(map(seqR(bareWordStartChars, manyWithJoin(or(bareWordChars, innerWordChars))), (r) => r.join("")), "text")
+    capture(map(seqR(bareWordStartChars, manyWithJoin(wordBodyChars)), (r) => r.join("")), "text")
   ))(input)
   return rejectAssignmentTilde(rejectReservedWord(result, input), input);
 })
@@ -163,7 +164,7 @@ export const pathWordParser: Parser<PathWord> = wholeWord((input: string) => {
     set("tag", "path"),
     capture(map(seqR(
       or(bareWordStartChars, char("/")),
-      manyWithJoin(or(bareWordChars, char("/"), innerWordChars))
+      manyWithJoin(or(wordBodyChars, char("/")))
     ), (parts) => parts.join("")), "text")
   ))(input);
 
