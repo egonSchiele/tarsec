@@ -31,15 +31,20 @@ import {
   Word,
 } from "./types.js";
 
-import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, isGlobText, LETTERS } from "./chars.js";
+import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, END_OF_FLAGS, hasAssignmentTilde, INNER_WORD_CHAR_STRING, isGlobText, LETTERS } from "./chars.js";
 
 /** The characters the parser reads as a bare word or a path. Text made
  *  only of these can be emitted unquoted and read back as the same word.
- *  This is `bareWordChars` / `bareWordStartChars` from parsers.ts plus
- *  `/`, since `literalWordParser` and `pathWordParser` between them cover
- *  both. */
-const BARE_WORD_CHARS = new Set(BARE_WORD_CHAR_STRING + "/");
+ *  This is the body and start sets of `literalWordParser` and
+ *  `pathWordParser` from parsers.ts: the bare word characters, `/`, and
+ *  `~` and `^` after the first character. */
+const BARE_WORD_CHARS = new Set(BARE_WORD_CHAR_STRING + INNER_WORD_CHAR_STRING + "/");
 const BARE_WORD_START_CHARS = new Set(BARE_WORD_START_CHAR_STRING + "/");
+
+/** The characters the parser reads as text inside a word built from
+ *  parts (`interpolatedLiteralParser`). Narrower than a whole word's: no
+ *  `~` and no `^`, at any position. */
+const BARE_PART_CHARS = new Set(BARE_WORD_CHAR_STRING + "/");
 
 /** Characters that can continue a variable name. A variable part followed
  *  by one of these has to be braced. */
@@ -101,12 +106,11 @@ function isFlagText(text: string): boolean {
 function isBareWord(text: string): boolean {
   if (text.length === 0) return false;
   if (!BARE_WORD_START_CHARS.has(text[0])) return false;
-  // The first character has its own set (it may be `~`, which is not
-  // allowed later in a word); the rest use the body set.
+  // The first character has its own set; the rest use the body set.
   for (const character of text.slice(1)) {
     if (!BARE_WORD_CHARS.has(character)) return false;
   }
-  return true;
+  return !hasAssignmentTilde(text);
 }
 
 /** Wrap text in single quotes. Bash has no escape inside single quotes,
@@ -119,6 +123,23 @@ function singleQuote(text: string): string {
 /** Emit bare where that reads back unchanged, quoted otherwise. */
 function quoteIfNeeded(text: string): string {
   return isBareWord(text) ? text : singleQuote(text);
+}
+
+/** Can this text sit unquoted inside a word built from parts?
+ *
+ *  A part is joined to its neighbours, so it is checked against the
+ *  narrower set. That keeps every `~` quoted: `a=` followed by `~/y`
+ *  would otherwise join into `a=~/y`, which bash expands. */
+function isBarePart(text: string): boolean {
+  if (text.length === 0) return false;
+  for (const character of text) {
+    if (!BARE_PART_CHARS.has(character)) return false;
+  }
+  return true;
+}
+
+function quotePartIfNeeded(text: string): string {
+  return isBarePart(text) ? text : singleQuote(text);
 }
 
 /** Escape the characters that stay special inside double quotes. */
@@ -163,6 +184,9 @@ function interpolatedToBash(word: InterpolatedVariableWord): string {
       if (part.tag === "variable" && continuesVariableName(word.parts[index + 1])) {
         return `\${${part.name}}`;
       }
+      if (part.tag === "literal") {
+        return quotePartIfNeeded(part.text);
+      }
       return wordToBash(part);
     })
     .join("");
@@ -203,6 +227,9 @@ function wordToBash(word: Word): string {
  *  the documented trade for hand-built nodes — one argument that means
  *  what it says beats a flag that starts a second command. */
 function flagToBash(word: FlagWord): string {
+  if (word.flagName === END_OF_FLAGS && word.flagValue === undefined) {
+    return END_OF_FLAGS;
+  }
   const rendered =
     word.flagValue === undefined
       ? word.flagName

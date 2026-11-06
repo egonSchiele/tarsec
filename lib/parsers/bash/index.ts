@@ -30,8 +30,13 @@
  *   `glob` word (`*.ts`, `~/*.md`). `]` is accepted only inside a glob
  *   word; `a]b` is rejected. Never a command word or a redirect target.
  * - A leading `~` (`~`, `~/x`, `~user/x`), kept as written in a literal
- *   or path word. `a~b` is rejected, and so is `~` after `=` or `:`
- *   inside a word.
+ *   or path word.
+ * - `~` and `^` inside a literal or path word (`HEAD~1`, `HEAD^`), which
+ *   bash reads as text. A `~` after `=` or `:` is rejected, because bash
+ *   expands it there. Not in a flag value: `--since=HEAD~1` is rejected.
+ * - `--` as an end-of-flags marker (`git checkout -- file`), as a flag
+ *   whose name is `--`. Words after it are still parsed as usual, so a
+ *   consumer decides what a `-x` after it means.
  * - Double quotes interpolate `$var` and handle `\"`, `\\`, `\$`, `` \` ``.
  * - Words built from adjacent parts: `$HOME/bin`, `"a"b`, `"$HOME"/x`.
  * - Redirects: `>`, `>>`, `<`, and `&>`, with an optional attached file
@@ -52,8 +57,7 @@
  *   the command, so they are rejected.
  * - Reserved words ANYWHERE, not only at command position: `echo if` and
  *   `echo done` are valid bash and are rejected here.
- * - `--` as an end-of-flags marker, so `git checkout -- file` is rejected,
- *   as is a bare `-` for stdin (`cat -`).
+ * - A bare `-` for stdin (`cat -`).
  * - Compound commands: `if`, `for`, `while`, `case`, function definitions.
  * - Command substitution `$(...)`, backticks, arithmetic `$((...))`,
  *   parameter expansion beyond `${name}` (`${x:-y}`), and the special

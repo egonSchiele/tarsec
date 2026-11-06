@@ -48,6 +48,10 @@ describe("round trip", () => {
     "echo hello world",
     "git status",
     "git log --oneline",
+    "git diff HEAD~1 HEAD^",
+    "git log origin/main~2",
+    "git checkout -- file.txt",
+    "git diff main -- src/app.ts",
     "ls -la",
     "ls -la src",
     "cat file.txt",
@@ -187,6 +191,21 @@ describe("quoting text that could not have come from the parser", () => {
     expect(astToBash(literalWord(""))).toBe("''");
   });
 
+  it("quotes a literal with a tilde bash would expand", () => {
+    // `~` is a word character now, but after `=` or `:` bash expands it.
+    expect(astToBash(literalWord("DIR=~/x"))).toBe("'DIR=~/x'");
+    expect(astToBash(literalWord("a:~b"))).toBe("'a:~b'");
+  });
+
+  it("quotes a literal that starts with a caret", () => {
+    expect(astToBash(literalWord("^a"))).toBe("'^a'");
+  });
+
+  it("leaves a tilde or caret inside a literal bare", () => {
+    expect(astToBash(literalWord("HEAD~1"))).toBe("HEAD~1");
+    expect(astToBash(literalWord("HEAD^"))).toBe("HEAD^");
+  });
+
   it("escapes a single quote inside a single-quoted word", () => {
     // bash has no escape inside single quotes; the idiom is to close,
     // emit an escaped quote, and reopen.
@@ -310,6 +329,36 @@ describe("a variable followed by text needs braces", () => {
   });
 });
 
+describe("a tilde or caret in a part of a word", () => {
+  // The parser refuses `~` and `^` in a word built from parts, so a part
+  // holding one is quoted. Bare, the word could not be read back.
+  it("quotes a part with a tilde inside", () => {
+    const word: Word = {
+      tag: "interpolatedVariable",
+      parts: [{ tag: "variable", name: "X" }, literalWord("/a~b")],
+    };
+    expect(astToBash(word)).toBe("$X'/a~b'");
+    expect(firstCommand(`echo ${astToBash(word)}`).args).toHaveLength(1);
+  });
+
+  it("quotes a part with a caret inside", () => {
+    const word: Word = {
+      tag: "interpolatedVariable",
+      parts: [{ tag: "variable", name: "X" }, literalWord("a^")],
+    };
+    expect(astToBash(word)).toBe("${X}'a^'");
+  });
+
+  it("quotes a part that starts with a tilde", () => {
+    // Joined bare this is `a=~/y`, and bash expands the tilde.
+    const word: Word = {
+      tag: "interpolatedVariable",
+      parts: [literalWord("a="), literalWord("~/y")],
+    };
+    expect(astToBash(word)).toBe("a='~/y'");
+  });
+});
+
 describe("commands", () => {
   it("emits a simple command", () => {
     expect(astToBash(parse("echo hello world"))).toBe("echo hello world");
@@ -414,6 +463,10 @@ describeIfBash("emitted commands run as the AST describes", () => {
     ["cmd $HOME/x", ["/h/x"]],
     ["cmd \"$HOME\"/x", ["/h/x"]],
     ["cmd file.txt", ["file.txt"]],
+    // Real bash agrees these are plain text: no tilde or history expansion.
+    ["cmd HEAD~1 HEAD^ a~b", ["HEAD~1", "HEAD^", "a~b"]],
+    ["cmd -- -x", ["--", "-x"]],
+    ["cmd HEAD~1:src/x.ts", ["HEAD~1:src/x.ts"]],
   ];
 
   it.each(cases)("%s keeps its argv through a round trip", (input, expected) => {

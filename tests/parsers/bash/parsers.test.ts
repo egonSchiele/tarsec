@@ -1007,7 +1007,12 @@ describe("unsupported syntax is rejected, not mis-parsed", () => {
     ["glob as a command word", "*.sh arg"],
     ["glob as a redirect target", "echo > *.txt"],
     ["glob that starts like a flag", "ls -*"],
-    ["tilde inside a word", "echo a~b"],
+    ["tilde after = in an argument", "make DIR=~/x"],
+    ["tilde after : in an argument", "cmd a:~/x"],
+    ["caret at the start of a word", "echo ^a"],
+    ["glob with a tilde inside", "ls HEAD~*"],
+    ["lone dash", "cat -"],
+    ["double dash with a value", "cmd --=x"],
     // A quoted or variable word followed by a glob or tilde is ONE word in
     // bash. Splitting it would render a different command, so it is
     // rejected rather than parsed as two words.
@@ -1229,6 +1234,74 @@ describe("a glob as a flag value", () => {
       flagName: "--include",
       flagValue: "foo.ts",
     });
+  });
+});
+
+describe("a tilde or caret inside a word", () => {
+  it.each(["HEAD~1", "HEAD^", "main~2^", "a~b"])("parses %s as a literal", (text) => {
+    expect(parseFully(wordParser, text)).toEqual({ tag: "literal", text });
+  });
+
+  it("parses a path holding one as a path", () => {
+    expect(parseFully(wordParser, "origin/main~1")).toEqual({ tag: "path", text: "origin/main~1" });
+  });
+
+  it("parses a revision and path joined by a colon", () => {
+    expect(parseFully(wordParser, "HEAD~1:src/x.ts")).toEqual({ tag: "path", text: "HEAD~1:src/x.ts" });
+  });
+
+  it("parses one as an assignment value", () => {
+    expect(parseFully(simpleCommandParser, "FOO=HEAD~1 cmd").assignments).toEqual([
+      { tag: "assignment", name: "FOO", value: { tag: "literal", text: "HEAD~1" } },
+    ]);
+  });
+
+  it("rejects one in a flag value", () => {
+    expect(bashParser("git log --since=HEAD~1").success).toBe(false);
+  });
+
+  it("keeps the word as one argument", () => {
+    expect(parseFully(simpleCommandParser, "git diff HEAD~1 HEAD").args).toEqual([
+      { tag: "literal", text: "diff" },
+      { tag: "literal", text: "HEAD~1" },
+      { tag: "literal", text: "HEAD" },
+    ]);
+  });
+});
+
+describe("the end-of-flags marker", () => {
+  it("parses -- as a flag named --", () => {
+    expect(parseFully(simpleCommandParser, "git checkout -- file.txt").args).toEqual([
+      { tag: "literal", text: "checkout" },
+      { tag: "flag", flagName: "--" },
+      { tag: "literal", text: "file.txt" },
+    ]);
+  });
+
+  it("parses -- as the last word", () => {
+    expect(parseFully(simpleCommandParser, "git diff main --").args).toEqual([
+      { tag: "literal", text: "diff" },
+      { tag: "literal", text: "main" },
+      { tag: "flag", flagName: "--" },
+    ]);
+  });
+
+  it("tags a second -- the same way", () => {
+    expect(parseFully(simpleCommandParser, "cmd -- --").args).toEqual([
+      { tag: "flag", flagName: "--" },
+      { tag: "flag", flagName: "--" },
+    ]);
+  });
+
+  it("still tags a dashed word after it as a flag", () => {
+    expect(parseFully(simpleCommandParser, "cmd -- -x").args).toEqual([
+      { tag: "flag", flagName: "--" },
+      { tag: "flag", flagName: "-x" },
+    ]);
+  });
+
+  it("does not take the front of a long flag", () => {
+    expect(parseFully(wordParser, "--staged")).toEqual({ tag: "flag", flagName: "--staged" });
   });
 });
 

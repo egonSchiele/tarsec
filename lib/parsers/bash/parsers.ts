@@ -23,7 +23,7 @@ function getResult<T>(parser: Parser<{ result: T }>): Parser<T> {
   };
 }
 
-import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, GLOB_WORD_CHARS, hasGlobChar, isGlobText, LETTERS } from "./chars.js";
+import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, END_OF_FLAGS, GLOB_WORD_CHARS, hasAssignmentTilde, hasGlobChar, INNER_WORD_CHAR_STRING, isGlobText, LETTERS } from "./chars.js";
 
 /** Characters allowed inside a VARIABLE name. Deliberately narrower than
  * `wordChars`: a dot or hyphen ends the name, so `$HOME.txt` is `$HOME`
@@ -64,6 +64,25 @@ export const bareWordStartChars: Parser<string> = label(
   oneOf(BARE_WORD_START_CHAR_STRING)
 );
 
+/** Characters after the first one of a literal or path word: the bare
+ * word set plus `~` and `^` (`HEAD~1`, `HEAD^`, `main~2`). One set, so
+ * each character is one lookup. */
+const wordBodyChars: Parser<string> = label(
+  "a word character",
+  oneOf(BARE_WORD_CHAR_STRING + INNER_WORD_CHAR_STRING)
+);
+
+/** Refuse a word bash would not read as written: one with a `~` after
+ * `=` or `:`, which bash expands (`make DIR=~/x`). */
+function rejectAssignmentTilde<T extends { text: string }>(
+  result: ParserResult<T>,
+  input: string
+): ParserResult<T> {
+  if (result.success && hasAssignmentTilde(result.result.text)) {
+    return failure("A `~` after `=` or `:` is expanded by bash.", input);
+  }
+  return result;
+}
 
 /** Characters that end a bare word: whitespace and the operators that
  * separate commands. */
@@ -131,9 +150,9 @@ function rejectReservedWord<T extends { text: string }>(
 export const literalWordParser: Parser<LiteralWord> = wholeWord((input: string) => {
   const result = trace("literalWordParser", seqC(
     set("tag", "literal"),
-    capture(map(seqR(bareWordStartChars, manyWithJoin(bareWordChars)), (r) => r.join("")), "text")
+    capture(map(seqR(bareWordStartChars, manyWithJoin(wordBodyChars)), (r) => r.join("")), "text")
   ))(input)
-  return rejectReservedWord(result, input);
+  return rejectAssignmentTilde(rejectReservedWord(result, input), input);
 })
 
 // Slashes are scanned as part of the run rather than used as separators,
@@ -145,7 +164,7 @@ export const pathWordParser: Parser<PathWord> = wholeWord((input: string) => {
     set("tag", "path"),
     capture(map(seqR(
       or(bareWordStartChars, char("/")),
-      manyWithJoin(or(bareWordChars, char("/")))
+      manyWithJoin(or(wordBodyChars, char("/")))
     ), (parts) => parts.join("")), "text")
   ))(input);
 
@@ -155,7 +174,7 @@ export const pathWordParser: Parser<PathWord> = wholeWord((input: string) => {
       return failure(`Path must contain at least one "/".`, input);
     }
   }
-  return result;
+  return rejectAssignmentTilde(result, input);
 })
 
 const globChars: Parser<string> = label("a glob character", oneOf(GLOB_WORD_CHARS));
@@ -214,9 +233,19 @@ export const flagWordNameAndValueParser: Parser<FlagWord> = trace("flagWordNameA
   return success(flag, result.rest);
 })
 
+/** A bare `--`, which ends the flags: `git checkout -- file`. It is a
+ * flag whose name is `--`. The words after it are parsed as usual, so a
+ * `-x` after it is still tagged a flag; a consumer that honours `--`
+ * reads every later word as an operand. */
+export const endOfFlagsParser: Parser<FlagWord> = trace("endOfFlagsParser", seqC(
+  set("tag", "flag"),
+  capture(str(END_OF_FLAGS), "flagName"),
+))
+
 export const flagWordParser: Parser<FlagWord> = trace("flagWordParser", wholeWord(or(
   flagWordNameAndValueParser,
-  flagWordNameOnlyParser
+  flagWordNameOnlyParser,
+  endOfFlagsParser
 )))
 
 export const singleQuotedWordParser: Parser<SingleQuotedWord> = trace("singleQuotedWordParser", seqC(
