@@ -1,5 +1,9 @@
 ## Unreleased
 
+### Nov 6 2026 - v0.5.7
+
+- bash parser: accept --, and ~ and ^ inside a word
+
 ### Oct 31 2026 - v0.5.6
 
 Bash parser parses more stuff: pipelines and dup redirects, glob words and a leading tilde
