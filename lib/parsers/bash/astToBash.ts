@@ -31,14 +31,14 @@ import {
   Word,
 } from "./types.js";
 
-import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, isGlobText, LETTERS } from "./chars.js";
+import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, END_OF_FLAGS, hasAssignmentTilde, INNER_WORD_CHAR_STRING, isGlobText, LETTERS } from "./chars.js";
 
 /** The characters the parser reads as a bare word or a path. Text made
  *  only of these can be emitted unquoted and read back as the same word.
  *  This is `bareWordChars` / `bareWordStartChars` from parsers.ts plus
  *  `/`, since `literalWordParser` and `pathWordParser` between them cover
  *  both. */
-const BARE_WORD_CHARS = new Set(BARE_WORD_CHAR_STRING + "/");
+const BARE_WORD_CHARS = new Set(BARE_WORD_CHAR_STRING + INNER_WORD_CHAR_STRING + "/");
 const BARE_WORD_START_CHARS = new Set(BARE_WORD_START_CHAR_STRING + "/");
 
 /** Characters that can continue a variable name. A variable part followed
@@ -101,12 +101,11 @@ function isFlagText(text: string): boolean {
 function isBareWord(text: string): boolean {
   if (text.length === 0) return false;
   if (!BARE_WORD_START_CHARS.has(text[0])) return false;
-  // The first character has its own set (it may be `~`, which is not
-  // allowed later in a word); the rest use the body set.
+  // The first character has its own set; the rest use the body set.
   for (const character of text.slice(1)) {
     if (!BARE_WORD_CHARS.has(character)) return false;
   }
-  return true;
+  return !hasAssignmentTilde(text);
 }
 
 /** Wrap text in single quotes. Bash has no escape inside single quotes,
@@ -212,6 +211,9 @@ function flagToBash(word: FlagWord): string {
     word.flagValue === undefined ||
     isFlagText(word.flagValue) ||
     (word.valueIsGlob === true && isGlobText(word.flagValue));
+  if (word.flagName === END_OF_FLAGS && word.flagValue === undefined) {
+    return END_OF_FLAGS;
+  }
   const isSafe =
     word.flagName.startsWith("-") &&
     isFlagText(word.flagName.replace(/^--?/, "")) &&

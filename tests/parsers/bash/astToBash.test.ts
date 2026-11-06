@@ -48,6 +48,10 @@ describe("round trip", () => {
     "echo hello world",
     "git status",
     "git log --oneline",
+    "git diff HEAD~1 HEAD^",
+    "git log origin/main~2",
+    "git checkout -- file.txt",
+    "git diff main -- src/app.ts",
     "ls -la",
     "ls -la src",
     "cat file.txt",
@@ -414,6 +418,9 @@ describeIfBash("emitted commands run as the AST describes", () => {
     ["cmd $HOME/x", ["/h/x"]],
     ["cmd \"$HOME\"/x", ["/h/x"]],
     ["cmd file.txt", ["file.txt"]],
+    // Real bash agrees these are plain text: no tilde or history expansion.
+    ["cmd HEAD~1 HEAD^ a~b", ["HEAD~1", "HEAD^", "a~b"]],
+    ["cmd -- -x", ["--", "-x"]],
   ];
 
   it.each(cases)("%s keeps its argv through a round trip", (input, expected) => {

@@ -8,10 +8,27 @@ export const DIGITS = "0123456789";
  * assignment-shaped ARGUMENT is an ordinary word: `env FOO=bar`. */
 export const BARE_WORD_CHAR_STRING = LETTERS + DIGITS + "_-.=:+";
 
-/** Characters a bare word may START with. No `-`: that is a flag. `~` is
- * allowed here and nowhere else, so `~/x` and `~user` parse and `a~b`
- * does not. */
+/** Characters a bare word may START with. No `-`: that is a flag. `~`
+ * starts a word here (`~/x`, `~user`); inside a word it is one of
+ * `INNER_WORD_CHAR_STRING`. */
 export const BARE_WORD_START_CHAR_STRING = LETTERS + DIGITS + "_.=:+~";
+
+/** Characters a literal or path word may hold after its first character,
+ * beyond the bare word set. Bash expands `~` only at the start of a word
+ * and reads `^` as text outside interactive history, so `HEAD~1` and
+ * `HEAD^` are plain words. Not in the bare word set itself: a word built
+ * from parts (`$X~/y`, `'a'~`) and a glob still refuse them. */
+export const INNER_WORD_CHAR_STRING = "~^";
+
+/** True when a `~` follows `=` or `:`. Bash expands that tilde in an
+ * assignment-shaped word (`PATH=~/bin:~/tools`), so the word is not the
+ * text it shows. */
+export function hasAssignmentTilde(text: string): boolean {
+  return text.includes("=~") || text.includes(":~");
+}
+
+/** The flag that ends the flags: `git checkout -- file`. */
+export const END_OF_FLAGS = "--";
 
 /** Characters a glob word may contain beyond a path's. */
 export const GLOB_WORD_CHARS = "*?[]";
