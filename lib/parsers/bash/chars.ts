@@ -41,6 +41,13 @@ export function hasBraceExpansion(text: string): boolean {
   return /\{[\s\S]*(,|\.\.)[\s\S]*\}/.test(text);
 }
 
+/** True for `{name}`, a variable name in braces. Joined to a redirect
+ * (`{fd}>log`), bash 4.1 and later read it as a file descriptor to open
+ * and store in `name`, not as an argument. */
+export function isDescriptorName(text: string): boolean {
+  return /^\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(text);
+}
+
 /** True for a word that is a lone brace, which opens or closes a group. */
 export function isLoneBrace(text: string): boolean {
   return text === "{" || text === "}";

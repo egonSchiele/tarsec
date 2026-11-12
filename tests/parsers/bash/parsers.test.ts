@@ -1382,8 +1382,26 @@ describe("braces bash does not expand", () => {
     "echo {",
     "echo }",
     "{ echo hi; }",
+    // From bash 4.1, `{name}` joined to a redirect names a file descriptor
+    // that bash opens and stores in `name`. It is not an argument.
+    "echo {out}>/dev/null",
+    "echo {fd}<in.txt",
+    "echo {fd}>>log.txt",
+    "echo {fd}>&2",
+    "{out}>/dev/null",
   ])("refuses %s", (input) => {
     expect(bashParser(input).success).toBe(false);
+  });
+
+  it("reads {name} as an argument when a space comes before the redirect", () => {
+    const cmd = command("echo {out} >/dev/null");
+    expect(cmd.args).toEqual([{ tag: "literal", text: "{out}" }]);
+    expect(cmd.redirects).toEqual([{ tag: "redirect", op: ">", target: { tag: "path", text: "/dev/null" } }]);
+  });
+
+  it("reads braces that are not the whole word as text before a redirect", () => {
+    expect(command("git show HEAD@{1}>out.txt").args[1]).toEqual({ tag: "literal", text: "HEAD@{1}" });
+    expect(command("echo {a}x>out.txt").args[0]).toEqual({ tag: "literal", text: "{a}x" });
   });
 
   it("still reads ${HOME} as a variable", () => {

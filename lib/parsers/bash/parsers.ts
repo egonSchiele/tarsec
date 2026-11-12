@@ -23,7 +23,7 @@ function getResult<T>(parser: Parser<{ result: T }>): Parser<T> {
   };
 }
 
-import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, BRACE_CHAR_STRING, DIGITS, END_OF_FLAGS, FLAG_CHAR_STRING, GLOB_WORD_CHARS, hasAssignmentTilde, hasBraceExpansion, hasGlobChar, INNER_WORD_CHAR_STRING, isGlobText, isLoneBrace, LETTERS } from "./chars.js";
+import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, BRACE_CHAR_STRING, DIGITS, END_OF_FLAGS, FLAG_CHAR_STRING, GLOB_WORD_CHARS, hasAssignmentTilde, hasBraceExpansion, hasGlobChar, INNER_WORD_CHAR_STRING, isDescriptorName, isGlobText, isLoneBrace, LETTERS } from "./chars.js";
 
 /** Characters allowed inside a VARIABLE name. Deliberately narrower than
  * `wordChars`: a dot or hyphen ends the name, so `$HOME.txt` is `$HOME`
@@ -92,16 +92,24 @@ function rejectAssignmentTilde<T extends { text: string }>(
 }
 
 /** Refuse a word bash would not read as written: one whose braces bash
- * could expand (`a{b,c}`), or a lone brace, which opens or closes a group. */
+ * could expand (`a{b,c}`), a lone brace, which opens or closes a group, or
+ * a `{name}` joined to a redirect (`{fd}>log`), which names a descriptor. */
 function rejectBraces<T extends { text: string }>(
   result: ParserResult<T>,
   input: string
 ): ParserResult<T> {
-  if (result.success && hasBraceExpansion(result.result.text)) {
+  if (!result.success) {
+    return result;
+  }
+  const text = result.result.text;
+  if (hasBraceExpansion(text)) {
     return failure("A brace with a `,` or `..` inside is expanded by bash.", input);
   }
-  if (result.success && isLoneBrace(result.result.text)) {
+  if (isLoneBrace(text)) {
     return failure("A lone brace opens or closes a group.", input);
+  }
+  if (isDescriptorName(text) && /^[<>]/.test(result.rest)) {
+    return failure("A `{name}` joined to a redirect names a file descriptor.", input);
   }
   return result;
 }

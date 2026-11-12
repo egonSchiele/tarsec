@@ -125,6 +125,7 @@ describe("round trip", () => {
     "git show HEAD@{1}",
     "echo {a}",
     "echo x{}y",
+    "echo {out} >/dev/null",
   ];
 
   it.each(corpus)("re-parses to the same AST: %s", (input) => {
