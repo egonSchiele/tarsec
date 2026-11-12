@@ -36,9 +36,19 @@ export const BRACE_CHAR_STRING = "{}";
 
 /** True when bash could brace-expand the text: a `{`, then a `,` or `..`
  * somewhere after it, then a `}` after that. This refuses more than bash
- * expands (`{a..}` is literal to bash), which is the safe direction. */
+ * expands (`{a..}` is literal to bash), which is the safe direction.
+ *
+ * Checking between the first `{` and the last `}` gives the same answer as
+ * checking every pair, in linear time. A regex with two open-ended runs
+ * takes seconds on a few kilobytes of `{,{,{,`. */
 export function hasBraceExpansion(text: string): boolean {
-  return /\{[\s\S]*(,|\.\.)[\s\S]*\}/.test(text);
+  const open = text.indexOf("{");
+  const close = text.lastIndexOf("}");
+  if (open === -1 || close < open) {
+    return false;
+  }
+  const inside = text.slice(open + 1, close);
+  return inside.includes(",") || inside.includes("..");
 }
 
 /** True for `{name}`, a variable name in braces. Joined to a redirect

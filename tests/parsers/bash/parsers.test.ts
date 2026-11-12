@@ -27,6 +27,7 @@ import {
   variableWordParser,
   wordParser,
 } from "@/lib/parsers/bash/parsers";
+import { hasBraceExpansion } from "@/lib/parsers/bash/chars";
 import {
   Command,
   DoubleQuotedWord,
@@ -1391,6 +1392,34 @@ describe("braces bash does not expand", () => {
     "{out}>/dev/null",
   ])("refuses %s", (input) => {
     expect(bashParser(input).success).toBe(false);
+  });
+
+  it.each([
+    ["a{b,c}", true],
+    ["x{1..3}", true],
+    ["{,}", true],
+    ["{a}{b},c}", true],
+    ["{a..}", true],
+    ["{a}", false],
+    ["x{}y", false],
+    ["a,{b}", false],
+    ["{a}b,c", false],
+    ["a.{.b}", false],
+    ["}{,", false],
+    ["{,", false],
+  ] as const)("hasBraceExpansion(%s) is %s", (text, expected) => {
+    expect(hasBraceExpansion(text)).toBe(expected);
+  });
+
+  it("checks a long brace-heavy word in linear time", () => {
+    // A pattern with two open-ended runs backtracks on this input: about
+    // 2.5 seconds at 4 KiB, eight times longer for each doubling. With no
+    // `}` bash expands nothing, so the word is plain text.
+    const text = "{,".repeat(8192);
+    const start = performance.now();
+    expect(hasBraceExpansion(text)).toBe(false);
+    expect(bashParser(`echo ${text}`).success).toBe(true);
+    expect(performance.now() - start).toBeLessThan(1000);
   });
 
   it("reads {name} as an argument when a space comes before the redirect", () => {
