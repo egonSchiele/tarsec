@@ -1,4 +1,6 @@
-## Unreleased
+### Nov 11 2026 - v0.5.8
+
+bash parser: accept , @ % and braces bash does not expand
 
 ### Nov 6 2026 - v0.5.7
 
