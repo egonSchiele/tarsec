@@ -23,7 +23,7 @@ function getResult<T>(parser: Parser<{ result: T }>): Parser<T> {
   };
 }
 
-import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, END_OF_FLAGS, GLOB_WORD_CHARS, hasAssignmentTilde, hasGlobChar, INNER_WORD_CHAR_STRING, isGlobText, LETTERS } from "./chars.js";
+import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, BRACE_CHAR_STRING, DIGITS, END_OF_FLAGS, FLAG_CHAR_STRING, GLOB_WORD_CHARS, hasAssignmentTilde, hasBraceExpansion, hasGlobChar, INNER_WORD_CHAR_STRING, isDescriptorName, isGlobText, isLoneBrace, LETTERS } from "./chars.js";
 
 /** Characters allowed inside a VARIABLE name. Deliberately narrower than
  * `wordChars`: a dot or hyphen ends the name, so `$HOME.txt` is `$HOME`
@@ -42,7 +42,7 @@ export const varNameChars: Parser<string> = label(
  * swallow it would take the whole thing as the name. */
 export const wordChars: Parser<string> = label(
   "a word character",
-  oneOf(LETTERS + DIGITS + "_-./")
+  oneOf(FLAG_CHAR_STRING)
 );
 
 /** Characters allowed in a bare word — a command name, a filename, an
@@ -64,12 +64,19 @@ export const bareWordStartChars: Parser<string> = label(
   oneOf(BARE_WORD_START_CHAR_STRING)
 );
 
+/** The first character of a literal or path word: the bare word start set
+ * plus braces (`{a}`). */
+const wordStartChars: Parser<string> = label(
+  "a word character",
+  oneOf(BARE_WORD_START_CHAR_STRING + BRACE_CHAR_STRING)
+);
+
 /** Characters after the first one of a literal or path word: the bare
- * word set plus `~` and `^` (`HEAD~1`, `HEAD^`, `main~2`). One set, so
- * each character is one lookup. */
+ * word set plus `~` and `^` (`HEAD~1`, `HEAD^`, `main~2`) and braces
+ * (`HEAD@{1}`). One set, so each character is one lookup. */
 const wordBodyChars: Parser<string> = label(
   "a word character",
-  oneOf(BARE_WORD_CHAR_STRING + INNER_WORD_CHAR_STRING)
+  oneOf(BARE_WORD_CHAR_STRING + INNER_WORD_CHAR_STRING + BRACE_CHAR_STRING)
 );
 
 /** Refuse a word bash would not read as written: one with a `~` after
@@ -80,6 +87,29 @@ function rejectAssignmentTilde<T extends { text: string }>(
 ): ParserResult<T> {
   if (result.success && hasAssignmentTilde(result.result.text)) {
     return failure("A `~` after `=` or `:` is expanded by bash.", input);
+  }
+  return result;
+}
+
+/** Refuse a word bash would not read as written: one whose braces bash
+ * could expand (`a{b,c}`), a lone brace, which opens or closes a group, or
+ * a `{name}` joined to a redirect (`{fd}>log`), which names a descriptor. */
+function rejectBraces<T extends { text: string }>(
+  result: ParserResult<T>,
+  input: string
+): ParserResult<T> {
+  if (!result.success) {
+    return result;
+  }
+  const text = result.result.text;
+  if (hasBraceExpansion(text)) {
+    return failure("A brace with a `,` or `..` inside is expanded by bash.", input);
+  }
+  if (isLoneBrace(text)) {
+    return failure("A lone brace opens or closes a group.", input);
+  }
+  if (isDescriptorName(text) && /^[<>]/.test(result.rest)) {
+    return failure("A `{name}` joined to a redirect names a file descriptor.", input);
   }
   return result;
 }
@@ -150,9 +180,9 @@ function rejectReservedWord<T extends { text: string }>(
 export const literalWordParser: Parser<LiteralWord> = wholeWord((input: string) => {
   const result = trace("literalWordParser", seqC(
     set("tag", "literal"),
-    capture(map(seqR(bareWordStartChars, manyWithJoin(wordBodyChars)), (r) => r.join("")), "text")
+    capture(map(seqR(wordStartChars, manyWithJoin(wordBodyChars)), (r) => r.join("")), "text")
   ))(input)
-  return rejectAssignmentTilde(rejectReservedWord(result, input), input);
+  return rejectBraces(rejectAssignmentTilde(rejectReservedWord(result, input), input), input);
 })
 
 // Slashes are scanned as part of the run rather than used as separators,
@@ -163,7 +193,7 @@ export const pathWordParser: Parser<PathWord> = wholeWord((input: string) => {
   const result = trace("pathWordParser", seqC(
     set("tag", "path"),
     capture(map(seqR(
-      or(bareWordStartChars, char("/")),
+      or(wordStartChars, char("/")),
       manyWithJoin(or(wordBodyChars, char("/")))
     ), (parts) => parts.join("")), "text")
   ))(input);
@@ -174,7 +204,7 @@ export const pathWordParser: Parser<PathWord> = wholeWord((input: string) => {
       return failure(`Path must contain at least one "/".`, input);
     }
   }
-  return rejectAssignmentTilde(result, input);
+  return rejectBraces(rejectAssignmentTilde(result, input), input);
 })
 
 const globChars: Parser<string> = label("a glob character", oneOf(GLOB_WORD_CHARS));

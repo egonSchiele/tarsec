@@ -115,6 +115,17 @@ describe("round trip", () => {
     "chmod +x run.sh",
     "gcc -I/usr/include main.c",
     "cmd --file=a/b",
+    "gh pr view 1 --json title,body",
+    "gh pr view 1 --json=title,body",
+    "gh issue create --assignee @me",
+    "date +%Y",
+    "cut -d, -f1 a.txt",
+    "sort -k2,2n a.txt",
+    "gh api repos/{owner}/{repo}/pulls/1/comments",
+    "git show HEAD@{1}",
+    "echo {a}",
+    "echo x{}y",
+    "echo {out} >/dev/null",
   ];
 
   it.each(corpus)("re-parses to the same AST: %s", (input) => {
@@ -204,6 +215,23 @@ describe("quoting text that could not have come from the parser", () => {
   it("leaves a tilde or caret inside a literal bare", () => {
     expect(astToBash(literalWord("HEAD~1"))).toBe("HEAD~1");
     expect(astToBash(literalWord("HEAD^"))).toBe("HEAD^");
+  });
+
+  it("leaves braces bash does not expand bare", () => {
+    expect(astToBash(literalWord("HEAD@{1}"))).toBe("HEAD@{1}");
+    expect(astToBash({ tag: "path", text: "repos/{owner}/{repo}" })).toBe("repos/{owner}/{repo}");
+  });
+
+  it("quotes braces bash would expand", () => {
+    // Bare, bash would run these as `ab ac` and `x1 x2 x3`.
+    expect(astToBash(literalWord("a{b,c}"))).toBe("'a{b,c}'");
+    expect(astToBash(literalWord("x{1..3}"))).toBe("'x{1..3}'");
+    expect(astToBash({ tag: "singleQuoted", text: "a{b,c}" })).toBe("'a{b,c}'");
+  });
+
+  it("quotes a lone brace", () => {
+    expect(astToBash(literalWord("{"))).toBe("'{'");
+    expect(astToBash(literalWord("}"))).toBe("'}'");
   });
 
   it("escapes a single quote inside a single-quoted word", () => {
@@ -467,6 +495,9 @@ describeIfBash("emitted commands run as the AST describes", () => {
     ["cmd HEAD~1 HEAD^ a~b", ["HEAD~1", "HEAD^", "a~b"]],
     ["cmd -- -x", ["--", "-x"]],
     ["cmd HEAD~1:src/x.ts", ["HEAD~1:src/x.ts"]],
+    ["cmd title,body @me +%Y -d, --json=a,b", ["title,body", "@me", "+%Y", "-d,", "--json=a,b"]],
+    // Real bash agrees a brace with no `,` or `..` inside is plain text.
+    ["cmd repos/{owner}/x HEAD@{1} {a} x{}y", ["repos/{owner}/x", "HEAD@{1}", "{a}", "x{}y"]],
   ];
 
   it.each(cases)("%s keeps its argv through a round trip", (input, expected) => {

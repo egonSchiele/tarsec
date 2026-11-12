@@ -4,14 +4,23 @@
 export const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export const DIGITS = "0123456789";
 
+/** Characters that are ordinary text to bash wherever they sit in a word:
+ * `--json title,body`, `--assignee @me`, `date +%Y`. */
+const PLAIN_PUNCTUATION = ",@%";
+
 /** Characters allowed inside a bare word. Includes `=` because an
  * assignment-shaped ARGUMENT is an ordinary word: `env FOO=bar`. */
-export const BARE_WORD_CHAR_STRING = LETTERS + DIGITS + "_-.=:+";
+export const BARE_WORD_CHAR_STRING = LETTERS + DIGITS + "_-.=:+" + PLAIN_PUNCTUATION;
 
 /** Characters a bare word may START with. No `-`: that is a flag. `~`
  * starts a word here (`~/x`, `~user`); inside a word it is one of
  * `INNER_WORD_CHAR_STRING`. */
-export const BARE_WORD_START_CHAR_STRING = LETTERS + DIGITS + "_.=:+~";
+export const BARE_WORD_START_CHAR_STRING = LETTERS + DIGITS + "_.=:+~" + PLAIN_PUNCTUATION;
+
+/** Characters allowed in a flag name or a flag value. No `=`: it splits
+ * `--format=oneline` into a name and a value. The plain punctuation is
+ * here so `cut -d, -f1` and `sort -k2,2n` are flags like any other. */
+export const FLAG_CHAR_STRING = LETTERS + DIGITS + "_-./" + PLAIN_PUNCTUATION;
 
 /** Characters a literal or path word may hold after its first character,
  * beyond the bare word set. Bash expands `~` only at the start of a word
@@ -19,6 +28,40 @@ export const BARE_WORD_START_CHAR_STRING = LETTERS + DIGITS + "_.=:+~";
  * `HEAD^` are plain words. Not in the bare word set itself: a word built
  * from parts (`$X~/y`, `'a'~`) and a glob still refuse them. */
 export const INNER_WORD_CHAR_STRING = "~^";
+
+/** Braces, which a literal or path word may hold at any position when bash
+ * would not expand them: `repos/{owner}/{repo}`, `HEAD@{1}`. Not in the
+ * bare word set: a word built from parts and a glob still refuse them. */
+export const BRACE_CHAR_STRING = "{}";
+
+/** True when bash could brace-expand the text: a `{`, then a `,` or `..`
+ * somewhere after it, then a `}` after that. This refuses more than bash
+ * expands (`{a..}` is literal to bash), which is the safe direction.
+ *
+ * Checking between the first `{` and the last `}` gives the same answer as
+ * checking every pair, in linear time. A regex with two open-ended runs
+ * takes seconds on a few kilobytes of `{,{,{,`. */
+export function hasBraceExpansion(text: string): boolean {
+  const open = text.indexOf("{");
+  const close = text.lastIndexOf("}");
+  if (open === -1 || close < open) {
+    return false;
+  }
+  const inside = text.slice(open + 1, close);
+  return inside.includes(",") || inside.includes("..");
+}
+
+/** True for `{name}`, a variable name in braces. Joined to a redirect
+ * (`{fd}>log`), bash 4.1 and later read it as a file descriptor to open
+ * and store in `name`, not as an argument. */
+export function isDescriptorName(text: string): boolean {
+  return /^\{[A-Za-z_][A-Za-z0-9_]*\}$/.test(text);
+}
+
+/** True for a word that is a lone brace, which opens or closes a group. */
+export function isLoneBrace(text: string): boolean {
+  return text === "{" || text === "}";
+}
 
 /** True when a `~` follows `=` or `:`. Bash expands that tilde in an
  * assignment-shaped word (`PATH=~/bin:~/tools`), so the word is not the

@@ -27,6 +27,7 @@ import {
   variableWordParser,
   wordParser,
 } from "@/lib/parsers/bash/parsers";
+import { hasBraceExpansion } from "@/lib/parsers/bash/chars";
 import {
   Command,
   DoubleQuotedWord,
@@ -973,6 +974,38 @@ describe("word characters", () => {
   });
 });
 
+describe("words with , @ %", () => {
+  const lastArg = (input: string): Word => {
+    const args = command(input).args;
+    return args[args.length - 1];
+  };
+
+  it("reads a comma list as one literal", () => {
+    expect(lastArg("gh pr view 1 --json title,body")).toEqual({ tag: "literal", text: "title,body" });
+  });
+
+  it("reads a word starting with @ as a literal", () => {
+    expect(lastArg("gh issue create --assignee @me")).toEqual({ tag: "literal", text: "@me" });
+  });
+
+  it("reads a date format as a literal", () => {
+    expect(command("date +%Y").args[0]).toEqual({ tag: "literal", text: "+%Y" });
+  });
+
+  it("reads a comma joined to a short flag as part of the flag", () => {
+    expect(command("cut -d, -f1 a.txt").args[0]).toEqual({ tag: "flag", flagName: "-d," });
+    expect(command("sort -k2,2n a.txt").args[0]).toEqual({ tag: "flag", flagName: "-k2,2n" });
+  });
+
+  it("reads a comma list as a flag value", () => {
+    expect(command("gh pr view 1 --json=title,body").args[3]).toEqual({
+      tag: "flag",
+      flagName: "--json",
+      flagValue: "title,body",
+    });
+  });
+});
+
 describe("reserved words", () => {
   it("rejects a bare reserved word as a command", () => {
     expect(parsesFully(commandParser, "if")).toBe(false);
@@ -1316,5 +1349,91 @@ describe("a leading tilde", () => {
 
   it("keeps a tilde path as an argument", () => {
     expect(parseFully(simpleCommandParser, "cat ~/notes.txt").args).toEqual([{ tag: "path", text: "~/notes.txt" }]);
+  });
+});
+
+describe("braces bash does not expand", () => {
+  // Bash expands a brace pair only when it holds an unquoted `,` or `..`.
+  it("parses gh's placeholders as one path", () => {
+    expect(command("gh api repos/{owner}/{repo}/pulls/1/comments").args[1]).toEqual({
+      tag: "path",
+      text: "repos/{owner}/{repo}/pulls/1/comments",
+    });
+  });
+
+  it("parses a reflog revision as a literal", () => {
+    expect(command("git show HEAD@{1}").args[1]).toEqual({ tag: "literal", text: "HEAD@{1}" });
+  });
+
+  it.each(["{a}", "x{}y"])("parses %s as a literal", (text) => {
+    expect(command(`echo ${text}`).args[0]).toEqual({ tag: "literal", text });
+  });
+
+  it.each([
+    // Expansions: bash runs these as several words.
+    "echo a{b,c}",
+    "echo x{1..3}",
+    "echo pre{a,b}post",
+    // Bash expands this one: the comma is outside the quotes.
+    "echo {a,'b'}",
+    // Bash does not expand this one. A brace is accepted only in a word
+    // with no quoted part, which refuses it too, the safe direction.
+    'echo {a","b}',
+    // A lone brace keeps its meaning: it opens or closes a group.
+    "echo {",
+    "echo }",
+    "{ echo hi; }",
+    // From bash 4.1, `{name}` joined to a redirect names a file descriptor
+    // that bash opens and stores in `name`. It is not an argument.
+    "echo {out}>/dev/null",
+    "echo {fd}<in.txt",
+    "echo {fd}>>log.txt",
+    "echo {fd}>&2",
+    "{out}>/dev/null",
+  ])("refuses %s", (input) => {
+    expect(bashParser(input).success).toBe(false);
+  });
+
+  it.each([
+    ["a{b,c}", true],
+    ["x{1..3}", true],
+    ["{,}", true],
+    ["{a}{b},c}", true],
+    ["{a..}", true],
+    ["{a}", false],
+    ["x{}y", false],
+    ["a,{b}", false],
+    ["{a}b,c", false],
+    ["a.{.b}", false],
+    ["}{,", false],
+    ["{,", false],
+  ] as const)("hasBraceExpansion(%s) is %s", (text, expected) => {
+    expect(hasBraceExpansion(text)).toBe(expected);
+  });
+
+  it("checks a long brace-heavy word in linear time", () => {
+    // A pattern with two open-ended runs backtracks on this input: about
+    // 2.5 seconds at 4 KiB, eight times longer for each doubling. With no
+    // `}` bash expands nothing, so the word is plain text.
+    const text = "{,".repeat(8192);
+    const start = performance.now();
+    expect(hasBraceExpansion(text)).toBe(false);
+    expect(bashParser(`echo ${text}`).success).toBe(true);
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
+
+  it("reads {name} as an argument when a space comes before the redirect", () => {
+    const cmd = command("echo {out} >/dev/null");
+    expect(cmd.args).toEqual([{ tag: "literal", text: "{out}" }]);
+    expect(cmd.redirects).toEqual([{ tag: "redirect", op: ">", target: { tag: "path", text: "/dev/null" } }]);
+  });
+
+  it("reads braces that are not the whole word as text before a redirect", () => {
+    expect(command("git show HEAD@{1}>out.txt").args[1]).toEqual({ tag: "literal", text: "HEAD@{1}" });
+    expect(command("echo {a}x>out.txt").args[0]).toEqual({ tag: "literal", text: "{a}x" });
+  });
+
+  it("still reads ${HOME} as a variable", () => {
+    expect(command("echo ${HOME}").args[0]).toEqual({ tag: "variable", name: "HOME" });
   });
 });
