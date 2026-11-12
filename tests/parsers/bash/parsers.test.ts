@@ -973,6 +973,38 @@ describe("word characters", () => {
   });
 });
 
+describe("words with , @ %", () => {
+  const lastArg = (input: string): Word => {
+    const args = command(input).args;
+    return args[args.length - 1];
+  };
+
+  it("reads a comma list as one literal", () => {
+    expect(lastArg("gh pr view 1 --json title,body")).toEqual({ tag: "literal", text: "title,body" });
+  });
+
+  it("reads a word starting with @ as a literal", () => {
+    expect(lastArg("gh issue create --assignee @me")).toEqual({ tag: "literal", text: "@me" });
+  });
+
+  it("reads a date format as a literal", () => {
+    expect(command("date +%Y").args[0]).toEqual({ tag: "literal", text: "+%Y" });
+  });
+
+  it("reads a comma joined to a short flag as part of the flag", () => {
+    expect(command("cut -d, -f1 a.txt").args[0]).toEqual({ tag: "flag", flagName: "-d," });
+    expect(command("sort -k2,2n a.txt").args[0]).toEqual({ tag: "flag", flagName: "-k2,2n" });
+  });
+
+  it("reads a comma list as a flag value", () => {
+    expect(command("gh pr view 1 --json=title,body").args[3]).toEqual({
+      tag: "flag",
+      flagName: "--json",
+      flagValue: "title,body",
+    });
+  });
+});
+
 describe("reserved words", () => {
   it("rejects a bare reserved word as a command", () => {
     expect(parsesFully(commandParser, "if")).toBe(false);

@@ -115,6 +115,12 @@ describe("round trip", () => {
     "chmod +x run.sh",
     "gcc -I/usr/include main.c",
     "cmd --file=a/b",
+    "gh pr view 1 --json title,body",
+    "gh pr view 1 --json=title,body",
+    "gh issue create --assignee @me",
+    "date +%Y",
+    "cut -d, -f1 a.txt",
+    "sort -k2,2n a.txt",
   ];
 
   it.each(corpus)("re-parses to the same AST: %s", (input) => {
@@ -467,6 +473,7 @@ describeIfBash("emitted commands run as the AST describes", () => {
     ["cmd HEAD~1 HEAD^ a~b", ["HEAD~1", "HEAD^", "a~b"]],
     ["cmd -- -x", ["--", "-x"]],
     ["cmd HEAD~1:src/x.ts", ["HEAD~1:src/x.ts"]],
+    ["cmd title,body @me +%Y -d, --json=a,b", ["title,body", "@me", "+%Y", "-d,", "--json=a,b"]],
   ];
 
   it.each(cases)("%s keeps its argv through a round trip", (input, expected) => {

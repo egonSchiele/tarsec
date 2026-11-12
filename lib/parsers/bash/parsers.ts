@@ -23,7 +23,7 @@ function getResult<T>(parser: Parser<{ result: T }>): Parser<T> {
   };
 }
 
-import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, END_OF_FLAGS, GLOB_WORD_CHARS, hasAssignmentTilde, hasGlobChar, INNER_WORD_CHAR_STRING, isGlobText, LETTERS } from "./chars.js";
+import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, END_OF_FLAGS, FLAG_CHAR_STRING, GLOB_WORD_CHARS, hasAssignmentTilde, hasGlobChar, INNER_WORD_CHAR_STRING, isGlobText, LETTERS } from "./chars.js";
 
 /** Characters allowed inside a VARIABLE name. Deliberately narrower than
  * `wordChars`: a dot or hyphen ends the name, so `$HOME.txt` is `$HOME`
@@ -42,7 +42,7 @@ export const varNameChars: Parser<string> = label(
  * swallow it would take the whole thing as the name. */
 export const wordChars: Parser<string> = label(
   "a word character",
-  oneOf(LETTERS + DIGITS + "_-./")
+  oneOf(FLAG_CHAR_STRING)
 );
 
 /** Characters allowed in a bare word — a command name, a filename, an

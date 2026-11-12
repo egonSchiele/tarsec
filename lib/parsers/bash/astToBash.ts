@@ -31,7 +31,7 @@ import {
   Word,
 } from "./types.js";
 
-import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, END_OF_FLAGS, hasAssignmentTilde, INNER_WORD_CHAR_STRING, isGlobText, LETTERS } from "./chars.js";
+import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, END_OF_FLAGS, FLAG_CHAR_STRING, hasAssignmentTilde, INNER_WORD_CHAR_STRING, isGlobText, LETTERS } from "./chars.js";
 
 /** The characters the parser reads as a bare word or a path. Text made
  *  only of these can be emitted unquoted and read back as the same word.
@@ -51,7 +51,7 @@ const BARE_PART_CHARS = new Set(BARE_WORD_CHAR_STRING + "/");
 const VAR_NAME_CHARS = new Set(LETTERS + DIGITS + "_");
 
 /** Characters the parser allows in a flag name or value. */
-const FLAG_CHARS = new Set(LETTERS + DIGITS + "_-./");
+const FLAG_CHARS = new Set(FLAG_CHAR_STRING);
 
 /** The redirect operators the parser recognizes. `&>` is separate: bash
  *  has no fd-prefixed form of it, and the parser rejects `2&> f`. */

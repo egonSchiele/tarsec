@@ -4,14 +4,23 @@
 export const LETTERS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export const DIGITS = "0123456789";
 
+/** Characters that are ordinary text to bash wherever they sit in a word:
+ * `--json title,body`, `--assignee @me`, `date +%Y`. */
+const PLAIN_PUNCTUATION = ",@%";
+
 /** Characters allowed inside a bare word. Includes `=` because an
  * assignment-shaped ARGUMENT is an ordinary word: `env FOO=bar`. */
-export const BARE_WORD_CHAR_STRING = LETTERS + DIGITS + "_-.=:+";
+export const BARE_WORD_CHAR_STRING = LETTERS + DIGITS + "_-.=:+" + PLAIN_PUNCTUATION;
 
 /** Characters a bare word may START with. No `-`: that is a flag. `~`
  * starts a word here (`~/x`, `~user`); inside a word it is one of
  * `INNER_WORD_CHAR_STRING`. */
-export const BARE_WORD_START_CHAR_STRING = LETTERS + DIGITS + "_.=:+~";
+export const BARE_WORD_START_CHAR_STRING = LETTERS + DIGITS + "_.=:+~" + PLAIN_PUNCTUATION;
+
+/** Characters allowed in a flag name or a flag value. No `=`: it splits
+ * `--format=oneline` into a name and a value. The plain punctuation is
+ * here so `cut -d, -f1` and `sort -k2,2n` are flags like any other. */
+export const FLAG_CHAR_STRING = LETTERS + DIGITS + "_-./" + PLAIN_PUNCTUATION;
 
 /** Characters a literal or path word may hold after its first character,
  * beyond the bare word set. Bash expands `~` only at the start of a word
