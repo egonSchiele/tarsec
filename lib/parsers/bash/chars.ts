@@ -29,6 +29,23 @@ export const FLAG_CHAR_STRING = LETTERS + DIGITS + "_-./" + PLAIN_PUNCTUATION;
  * from parts (`$X~/y`, `'a'~`) and a glob still refuse them. */
 export const INNER_WORD_CHAR_STRING = "~^";
 
+/** Braces, which a literal or path word may hold at any position when bash
+ * would not expand them: `repos/{owner}/{repo}`, `HEAD@{1}`. Not in the
+ * bare word set: a word built from parts and a glob still refuse them. */
+export const BRACE_CHAR_STRING = "{}";
+
+/** True when bash could brace-expand the text: a `{`, then a `,` or `..`
+ * somewhere after it, then a `}` after that. This refuses more than bash
+ * expands (`{a..}` is literal to bash), which is the safe direction. */
+export function hasBraceExpansion(text: string): boolean {
+  return /\{[\s\S]*(,|\.\.)[\s\S]*\}/.test(text);
+}
+
+/** True for a word that is a lone brace, which opens or closes a group. */
+export function isLoneBrace(text: string): boolean {
+  return text === "{" || text === "}";
+}
+
 /** True when a `~` follows `=` or `:`. Bash expands that tilde in an
  * assignment-shaped word (`PATH=~/bin:~/tools`), so the word is not the
  * text it shows. */

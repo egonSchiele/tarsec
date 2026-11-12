@@ -1350,3 +1350,43 @@ describe("a leading tilde", () => {
     expect(parseFully(simpleCommandParser, "cat ~/notes.txt").args).toEqual([{ tag: "path", text: "~/notes.txt" }]);
   });
 });
+
+describe("braces bash does not expand", () => {
+  // Bash expands a brace pair only when it holds an unquoted `,` or `..`.
+  it("parses gh's placeholders as one path", () => {
+    expect(command("gh api repos/{owner}/{repo}/pulls/1/comments").args[1]).toEqual({
+      tag: "path",
+      text: "repos/{owner}/{repo}/pulls/1/comments",
+    });
+  });
+
+  it("parses a reflog revision as a literal", () => {
+    expect(command("git show HEAD@{1}").args[1]).toEqual({ tag: "literal", text: "HEAD@{1}" });
+  });
+
+  it.each(["{a}", "x{}y"])("parses %s as a literal", (text) => {
+    expect(command(`echo ${text}`).args[0]).toEqual({ tag: "literal", text });
+  });
+
+  it.each([
+    // Expansions: bash runs these as several words.
+    "echo a{b,c}",
+    "echo x{1..3}",
+    "echo pre{a,b}post",
+    // Bash expands this one: the comma is outside the quotes.
+    "echo {a,'b'}",
+    // Bash does not expand this one. A brace is accepted only in a word
+    // with no quoted part, which refuses it too, the safe direction.
+    'echo {a","b}',
+    // A lone brace keeps its meaning: it opens or closes a group.
+    "echo {",
+    "echo }",
+    "{ echo hi; }",
+  ])("refuses %s", (input) => {
+    expect(bashParser(input).success).toBe(false);
+  });
+
+  it("still reads ${HOME} as a variable", () => {
+    expect(command("echo ${HOME}").args[0]).toEqual({ tag: "variable", name: "HOME" });
+  });
+});

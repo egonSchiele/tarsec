@@ -31,15 +31,15 @@ import {
   Word,
 } from "./types.js";
 
-import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, DIGITS, END_OF_FLAGS, FLAG_CHAR_STRING, hasAssignmentTilde, INNER_WORD_CHAR_STRING, isGlobText, LETTERS } from "./chars.js";
+import { BARE_WORD_CHAR_STRING, BARE_WORD_START_CHAR_STRING, BRACE_CHAR_STRING, DIGITS, END_OF_FLAGS, FLAG_CHAR_STRING, hasAssignmentTilde, hasBraceExpansion, isLoneBrace, INNER_WORD_CHAR_STRING, isGlobText, LETTERS } from "./chars.js";
 
 /** The characters the parser reads as a bare word or a path. Text made
  *  only of these can be emitted unquoted and read back as the same word.
  *  This is the body and start sets of `literalWordParser` and
- *  `pathWordParser` from parsers.ts: the bare word characters, `/`, and
- *  `~` and `^` after the first character. */
-const BARE_WORD_CHARS = new Set(BARE_WORD_CHAR_STRING + INNER_WORD_CHAR_STRING + "/");
-const BARE_WORD_START_CHARS = new Set(BARE_WORD_START_CHAR_STRING + "/");
+ *  `pathWordParser` from parsers.ts: the bare word characters, `/`,
+ *  braces, and `~` and `^` after the first character. */
+const BARE_WORD_CHARS = new Set(BARE_WORD_CHAR_STRING + INNER_WORD_CHAR_STRING + BRACE_CHAR_STRING + "/");
+const BARE_WORD_START_CHARS = new Set(BARE_WORD_START_CHAR_STRING + BRACE_CHAR_STRING + "/");
 
 /** The characters the parser reads as text inside a word built from
  *  parts (`interpolatedLiteralParser`). Narrower than a whole word's: no
@@ -110,7 +110,7 @@ function isBareWord(text: string): boolean {
   for (const character of text.slice(1)) {
     if (!BARE_WORD_CHARS.has(character)) return false;
   }
-  return !hasAssignmentTilde(text);
+  return !hasAssignmentTilde(text) && !hasBraceExpansion(text) && !isLoneBrace(text);
 }
 
 /** Wrap text in single quotes. Bash has no escape inside single quotes,
