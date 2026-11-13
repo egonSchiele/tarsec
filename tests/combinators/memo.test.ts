@@ -83,6 +83,24 @@ describe("memo", () => {
     expect(r.success).toBe(true);
   });
 
+  it("evicts only the oldest entry when many inputs share a length", () => {
+    // 10,000 is memo's size limit. Every input here is 11 characters long.
+    const inner = counted<string>((input) => success(input, ""));
+    const m = memo("test parser", inner.parser);
+    const inputAt = (i: number) => `input-${String(i).padStart(5, "0")}`;
+    for (let i = 0; i < 10_000; i++) m(inputAt(i));
+    m(inputAt(10_000)); // one past the limit: input-00000 goes
+
+    const callsBefore = inner.calls();
+    m(inputAt(10_000));
+    m(inputAt(9_999));
+    m(inputAt(1));
+    expect(inner.calls()).toBe(callsBefore);
+    m(inputAt(0));
+    expect(inner.calls()).toBe(callsBefore + 1);
+    resetMemos();
+  });
+
   it("keeps the rest of the input as a slice, not a copy", () => {
     // Each input below is a slice of `source`: a few bytes pointing into
     // it. V8 copies a string in full when it becomes a Map key, so a cache

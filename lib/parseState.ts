@@ -17,8 +17,10 @@ export type MemoEntry = { input: string; result: ParserResult<any> };
  */
 export type MemoCache = {
   byLength: Map<number, MemoEntry[]>;
-  /** Entries across every length, for the size limit. */
-  size: number;
+  /** Every entry by an increasing id, so the first one is the oldest.
+   *  Its size is the count the size limit checks. */
+  byAge: Map<number, MemoEntry>;
+  nextId: number;
 };
 
 /**
