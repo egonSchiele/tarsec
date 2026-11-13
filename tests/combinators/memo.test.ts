@@ -1,6 +1,16 @@
+import { setFlagsFromString } from "node:v8";
+import { runInNewContext } from "node:vm";
 import { describe, it, expect } from "vitest";
-import { memo } from "@/lib/combinators";
+import { memo, resetMemos } from "@/lib/combinators";
 import { Parser, success, failure } from "@/lib/types";
+
+// A heap measurement needs a full collection first, or garbage counts too.
+setFlagsFromString("--expose-gc");
+const collectGarbage = runInNewContext("gc") as () => void;
+function heapUsedMB(): number {
+  collectGarbage();
+  return process.memoryUsage().heapUsed / 1_000_000;
+}
 
 function counted<T>(p: Parser<T>): { parser: Parser<T>; calls: () => number } {
   let n = 0;
@@ -71,6 +81,53 @@ describe("memo", () => {
     }
     const r = m("input-fresh");
     expect(r.success).toBe(true);
+  });
+
+  it("evicts only the oldest entry when many inputs share a length", () => {
+    // 10,000 is memo's size limit. Every input here is 11 characters long.
+    const inner = counted<string>((input) => success(input, ""));
+    const m = memo("test parser", inner.parser);
+    const inputAt = (i: number) => `input-${String(i).padStart(5, "0")}`;
+    for (let i = 0; i < 10_000; i++) m(inputAt(i));
+    m(inputAt(10_000)); // one past the limit: input-00000 goes
+
+    const callsBefore = inner.calls();
+    m(inputAt(10_000));
+    m(inputAt(9_999));
+    m(inputAt(1));
+    expect(inner.calls()).toBe(callsBefore);
+    m(inputAt(0));
+    expect(inner.calls()).toBe(callsBefore + 1);
+    resetMemos();
+  });
+
+  it("keeps the rest of the input as a slice, not a copy", () => {
+    // Each input below is a slice of `source`: a few bytes pointing into
+    // it. V8 copies a string in full when it becomes a Map key, so a cache
+    // keyed by the input string held one copy of the rest of the file per
+    // entry. On a 190 KB file that came to 4.5 GB.
+    const source = "abcdefghijklmnopqrstuvwxyz".repeat(8_000); // 208 KB
+    const m = memo("test parser", (input: string) => success("ok", input.slice(1)));
+    const before = heapUsedMB();
+    for (let i = 0; i < 2_000; i++) {
+      m(source.slice(i * 50));
+    }
+    const grown = heapUsedMB() - before;
+    resetMemos();
+    // Slices cost well under 1 MB here; copies would cost about 300 MB.
+    expect(grown).toBeLessThan(20);
+  });
+
+  it("separates different inputs of the same length", () => {
+    const inner = counted<string>((input) => success(input, ""));
+    const m = memo("test parser", inner.parser);
+
+    const first = m("abc");
+    const second = m("xyz");
+
+    expect(first.success && first.result).toBe("abc");
+    expect(second.success && second.result).toBe("xyz");
+    expect(inner.calls()).toBe(2);
   });
 
   it("preserves captures for CaptureParser", () => {

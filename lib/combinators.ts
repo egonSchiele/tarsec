@@ -22,7 +22,7 @@ import {
   success,
 } from "./types.js";
 import { escape } from "./utils.js";
-import { getParseState } from "./parseState.js";
+import { getParseState, type MemoCache, type MemoEntry } from "./parseState.js";
 
 /**
  * Takes a parser and runs it zero or more times, returning the results as an array.
@@ -1397,6 +1397,15 @@ const DEFAULT_MEMO_LIMIT = 10_000;
 // the caches with it.
 let nextMemoId = 0;
 
+/** Drop the oldest entry, and its length's list once that list is empty. */
+function evictOldest(cache: MemoCache): void {
+  const [oldestId, oldest] = cache.byAge.entries().next().value!;
+  cache.byAge.delete(oldestId);
+  const list = cache.byLength.get(oldest.input.length)!;
+  list.splice(list.indexOf(oldest), 1);
+  if (list.length === 0) cache.byLength.delete(oldest.input.length);
+}
+
 /**
  * Clear the current parse's memo caches. Call this at the start of each
  * top-level parse if your memoized parsers produce results that depend
@@ -1412,9 +1421,10 @@ export function resetMemos(): void {
  * many times at the same position (e.g. recursive grammars where the same
  * sub-parser is consulted from multiple alternatives).
  *
- * Both successes and failures are cached. The cache is keyed by the input
- * string the parser is called with — because the rest passed between parsers
- * is value-equal across paths, identical sub-parses share a cache entry.
+ * Both successes and failures are cached. A call hits the cache when the
+ * parser saw an equal input string before — because the rest passed between
+ * parsers is value-equal across paths, identical sub-parses share a cache
+ * entry. See `MemoCache` for why entries are grouped by input length.
  *
  * `memo` assumes its wrapped parser is a pure function of its input. Don't
  * memoize parsers that consult mutable external state.
@@ -1437,17 +1447,20 @@ export function memo(
     const state = getParseState();
     let cache = state.memoCaches.get(memoId);
     if (cache === undefined) {
-      cache = new Map<string, ParserResult<any>>();
+      cache = { byLength: new Map(), byAge: new Map(), nextId: 0 };
       state.memoCaches.set(memoId, cache);
     }
-    const hit = cache.get(input);
-    if (hit !== undefined) return hit;
+    const sameLength = cache.byLength.get(input.length);
+    const hit = sameLength?.find((entry) => entry.input === input);
+    if (hit !== undefined) return hit.result;
     const result = parser(input);
-    if (cache.size >= DEFAULT_MEMO_LIMIT) {
-      const oldest = cache.keys().next().value;
-      if (oldest !== undefined) cache.delete(oldest);
-    }
-    cache.set(input, result);
+    if (cache.byAge.size >= DEFAULT_MEMO_LIMIT) evictOldest(cache);
+    const entry: MemoEntry = { input, result };
+    cache.byAge.set(cache.nextId++, entry);
+    // Re-read: eviction may have removed this length's list.
+    const list = cache.byLength.get(input.length);
+    if (list === undefined) cache.byLength.set(input.length, [entry]);
+    else list.push(entry);
     return result;
   });
 }
