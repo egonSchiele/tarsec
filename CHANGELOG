@@ -1,3 +1,6 @@
+### Nov 12 2026 - v0.6.0
+This version fixes a major memory issue with tarsec. When its memoization feature was used, memory would grow at a rate of O(n^2) where `n` was the number of bytes in the file being parsed. This is because in Node version 26, when strings are used as keys for a Map, it makes a fresh copy of that string every time. This wasn't an issue on Node version 22. We used strings as the keys for the cache in tarsec, which caused memory to balloon. This fix uses a number instead... the char position we're at in the string being parsed.
+
 ### Nov 11 2026 - v0.5.8
 
 bash parser: accept , @ % and braces bash does not expand
