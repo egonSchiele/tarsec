@@ -22,7 +22,7 @@ import {
   success,
 } from "./types.js";
 import { escape } from "./utils.js";
-import { getParseState } from "./parseState.js";
+import { getParseState, type MemoEntry } from "./parseState.js";
 
 /**
  * Takes a parser and runs it zero or more times, returning the results as an array.
@@ -1412,9 +1412,10 @@ export function resetMemos(): void {
  * many times at the same position (e.g. recursive grammars where the same
  * sub-parser is consulted from multiple alternatives).
  *
- * Both successes and failures are cached. The cache is keyed by the input
- * string the parser is called with — because the rest passed between parsers
- * is value-equal across paths, identical sub-parses share a cache entry.
+ * Both successes and failures are cached. A call hits the cache when the
+ * parser saw an equal input string before — because the rest passed between
+ * parsers is value-equal across paths, identical sub-parses share a cache
+ * entry. See `MemoCache` for why entries are grouped by input length.
  *
  * `memo` assumes its wrapped parser is a pure function of its input. Don't
  * memoize parsers that consult mutable external state.
@@ -1437,17 +1438,24 @@ export function memo(
     const state = getParseState();
     let cache = state.memoCaches.get(memoId);
     if (cache === undefined) {
-      cache = new Map<string, ParserResult<any>>();
+      cache = { byLength: new Map(), size: 0 };
       state.memoCaches.set(memoId, cache);
     }
-    const hit = cache.get(input);
-    if (hit !== undefined) return hit;
+    const sameLength = cache.byLength.get(input.length);
+    const hit = sameLength?.find((entry) => entry.input === input);
+    if (hit !== undefined) return hit.result;
     const result = parser(input);
     if (cache.size >= DEFAULT_MEMO_LIMIT) {
-      const oldest = cache.keys().next().value;
-      if (oldest !== undefined) cache.delete(oldest);
+      const [oldestLength, oldest] = cache.byLength.entries().next().value!;
+      cache.byLength.delete(oldestLength);
+      cache.size -= oldest.length;
     }
-    cache.set(input, result);
+    const entry: MemoEntry = { input, result };
+    // Re-read: eviction may have removed this length's list.
+    const list = cache.byLength.get(input.length);
+    if (list === undefined) cache.byLength.set(input.length, [entry]);
+    else list.push(entry);
+    cache.size++;
     return result;
   });
 }
