@@ -358,6 +358,42 @@ describe("variables", () => {
   });
 });
 
+describe("the exit status $?", () => {
+  it("parses a bare $? as a variable named ?", () => {
+    expect(positional(command("echo $?"))).toEqual(["$?"]);
+    expect(command("echo $?").args[0]).toEqual({ tag: "variable", name: "?" });
+  });
+
+  it("parses $? inside double quotes as one part of the word", () => {
+    const word = command('echo "exit=$?"').args[0] as DoubleQuotedWord;
+    expect(word.parts).toEqual([
+      { tag: "literal", text: "exit=" },
+      { tag: "variable", name: "?" },
+    ]);
+  });
+
+  it("parses $? between text inside double quotes", () => {
+    expect(positional(command('echo "a$?b"'))).toEqual(["a$?b"]);
+  });
+
+  it("reads $?x as $? then x, one word of two parts, as bash does", () => {
+    expect(command("echo $?x").args[0]).toEqual({
+      tag: "interpolatedVariable",
+      parts: [
+        { tag: "variable", name: "?" },
+        { tag: "literal", text: "x" },
+      ],
+    });
+  });
+
+  it.each(["echo $@", "echo $$", "echo ${?}", 'echo "$@"', 'echo "$$"'])(
+    "still rejects %s",
+    (input) => {
+      expect(bashParser(input).success).toBe(false);
+    },
+  );
+});
+
 describe("interpolated words", () => {
   // An unquoted word can mix literal text and variables: `$HOME.txt` is ONE
   // word in bash. Without this, the parts become separate arguments and the

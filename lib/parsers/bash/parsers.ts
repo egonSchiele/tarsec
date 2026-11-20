@@ -338,10 +338,16 @@ export const doubleQuotedWordParser: Parser<DoubleQuotedWord> = trace("doubleQuo
   char('"')
 ))
 
+/** `$?`, the exit status of the last command. It holds a number, so a
+ * consumer can treat it as text it does not know. Only the bare form:
+ * `${?}`, `$@`, and `$$` stay rejected. Bash reads `$?x` as `$?` then
+ * `x`, which is what a one-character name gives. */
+const exitStatusName: Parser<string> = char("?")
+
 export const variableWordNoBracesParser: Parser<VariableWord> = trace("variableWordNoBracesParser", seqC(
   set("tag", "variable"),
   char("$"),
-  capture(varNameParser, "name")
+  capture(or(varNameParser, exitStatusName), "name")
 ))
 
 export const variableWordWithBracesParser: Parser<VariableWord> = trace("variableWordWithBracesParser", seqC(

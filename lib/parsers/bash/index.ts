@@ -26,6 +26,8 @@
  * - Words: bare words (letters, digits, and `_ - . = : +`), paths
  *   (any word containing `/`), single and double quotes, `$var` and
  *   `${var}`, and `-f` / `--flag` / `--flag=value` flags.
+ * - The exit status `$?`, bare and inside double quotes, as a variable
+ *   named `?`. Not braced: `${?}` is rejected.
  * - Globs: an unquoted word containing `* ? [`, kept unexpanded as a
  *   `glob` word (`*.ts`, `~/*.md`). `]` is accepted only inside a glob
  *   word; `a]b` is rejected. Never a command word or a redirect target.
@@ -61,7 +63,7 @@
  * - Compound commands: `if`, `for`, `while`, `case`, function definitions.
  * - Command substitution `$(...)`, backticks, arithmetic `$((...))`,
  *   parameter expansion beyond `${name}` (`${x:-y}`), and the special
- *   parameters `$?` / `$@` / `$$`.
+ *   parameters `$@` / `$$`.
  * - Brace expansion, heredocs and here-strings, comments (`#`), and
  *   escapes outside double quotes (`echo a\ b`).
  * - Characters outside the word set above, including `@` and `%`.

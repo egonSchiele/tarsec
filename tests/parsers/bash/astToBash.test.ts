@@ -126,6 +126,11 @@ describe("round trip", () => {
     "echo {a}",
     "echo x{}y",
     "echo {out} >/dev/null",
+    "echo $?",
+    'echo "exit=$?"',
+    'echo "a$?b"',
+    "echo $?x",
+    'pnpm test; echo "exit=$?"',
   ];
 
   it.each(corpus)("re-parses to the same AST: %s", (input) => {
@@ -267,6 +272,17 @@ describe("fields that cannot be made safe by quoting", () => {
 
   it("accepts a positional parameter", () => {
     expect(astToBash({ tag: "variable", name: "1" })).toBe("$1");
+  });
+
+  it("writes the exit status bare, and never braces it, even before text", () => {
+    expect(astToBash({ tag: "variable", name: "?" })).toBe("$?");
+    expect(astToBash(parse("echo $?x"))).toBe("echo $?x");
+    expect(astToBash(parse('echo "exit=$?"'))).toBe('echo "exit=$?"');
+  });
+
+  it("throws on other special parameters", () => {
+    expect(() => astToBash({ tag: "variable", name: "@" })).toThrow();
+    expect(() => astToBash({ tag: "variable", name: "$" })).toThrow();
   });
 
   it("throws on an assignment name that is not an identifier", () => {
