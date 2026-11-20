@@ -86,10 +86,13 @@ function isIdentifier(text: string): boolean {
   return true;
 }
 
-/** A variable name: an identifier, or a single digit for a positional
- *  parameter (`$1`), matching `varNameParser`. */
+/** The name of `$?`, the exit status, which the parser reads only bare. */
+const EXIT_STATUS = "?";
+
+/** A variable name: an identifier, a single digit for a positional
+ *  parameter (`$1`), or `?` for the exit status, matching the parser. */
 function isVariableName(text: string): boolean {
-  return isIdentifier(text) || (text.length === 1 && DIGITS.includes(text));
+  return isIdentifier(text) || (text.length === 1 && DIGITS.includes(text)) || text === EXIT_STATUS;
 }
 
 function isFlagText(text: string): boolean {
@@ -163,9 +166,11 @@ function doubleQuotedToBash(word: DoubleQuotedWord): string {
   return `"${inner}"`;
 }
 
-/** Would `next` be read as a continuation of the variable name before it? */
-function continuesVariableName(next: Word | undefined): boolean {
-  if (next === undefined) return false;
+/** Would `next` be read as a continuation of the variable name before it?
+ *  Never after `$?`: it is one character, and the parser reads it only
+ *  bare, so it is never braced. */
+function continuesVariableName(name: string, next: Word | undefined): boolean {
+  if (name === EXIT_STATUS || next === undefined) return false;
   const text = next.tag === "literal" ? next.text : "";
   return text.length > 0 && VAR_NAME_CHARS.has(text[0]);
 }
@@ -181,7 +186,7 @@ function continuesVariableName(next: Word | undefined): boolean {
 function interpolatedToBash(word: InterpolatedVariableWord): string {
   return word.parts
     .map((part, index) => {
-      if (part.tag === "variable" && continuesVariableName(word.parts[index + 1])) {
+      if (part.tag === "variable" && continuesVariableName(part.name, word.parts[index + 1])) {
         return `\${${part.name}}`;
       }
       if (part.tag === "literal") {
